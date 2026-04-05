@@ -88,13 +88,7 @@ const showConfigButton = computed(() =>
   phase.value === 'game_over' || phase.value === 'idle' || phase.value === 'tap_to_start'
 )
 
-const showTurnIndicator = computed(() =>
-  phase.value !== 'idle'
-  && phase.value !== 'tap_to_start'
-  && phase.value !== 'meteor_intro'
-  && phase.value !== 'game_over'
-  && phase.value !== 'deciding_turn'
-)
+
 
 // ─── Canvas Sizing ─────────────────────────────────────────────────────────
 
@@ -236,17 +230,8 @@ onUnmounted(() => {
     //- HUD Overlay
     div.absolute.inset-0.pointer-events-none
 
-      //- Top bar: turn indicator + coins
-      div.flex.justify-between.items-start.p-3(class="sm:p-4")
-        //- Turn indicator
-        div(
-          v-if="showTurnIndicator"
-          class="px-3 py-1.5 rounded-lg font-bold text-xs sm:text-sm text-white game-text"
-          :class="phase.includes('player') ? 'bg-blue-600' : 'bg-red-600'"
-        )
-          | {{ phase.includes('player') ? 'YOUR TURN' : 'NPC TURN' }}
-        div(v-else)
-
+      //- Top bar: coins
+      div.flex.justify-end.items-start.p-3(class="sm:p-4")
         //- Coin counter
         div.flex.items-center.gap-2.rounded-lg.text-white.font-bold(
           class="px-3 py-1.5 bg-yellow-600/80 text-sm sm:text-base"

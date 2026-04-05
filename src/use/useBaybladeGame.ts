@@ -827,13 +827,6 @@ export const useBaybladeGame = () => {
     const { x, y, rotation, owner, hitFlash, hp, maxHp, radius } = blade
     const isPlayer = owner === 'player'
 
-    // Outer metallic ring
-    ctx.strokeStyle = isPlayer ? '#4488cc' : '#cc4444'
-    ctx.lineWidth = 3
-    ctx.beginPath()
-    ctx.arc(x, y, radius + 2, 0, Math.PI * 2)
-    ctx.stroke()
-
     // Circular clip for the model image
     ctx.save()
     ctx.beginPath()
@@ -871,14 +864,15 @@ export const useBaybladeGame = () => {
       ctx.globalAlpha = 1
     }
 
-    renderHealthRing(ctx, x, y, hp, maxHp, radius)
+    renderHealthRing(ctx, x, y, hp, maxHp, radius, isPlayer)
   }
 
   const renderHealthRing = (
     ctx: CanvasRenderingContext2D,
     x: number, y: number,
     hp: number, maxHp: number,
-    bladeRadius: number
+    bladeRadius: number,
+    isPlayer: boolean
   ) => {
     const hpPct = Math.max(0, Math.min(1, hp / maxHp))
     const ringR = bladeRadius * 0.45
@@ -904,7 +898,7 @@ export const useBaybladeGame = () => {
     ctx.lineCap = 'butt'
 
     // HP number (inside the ring)
-    ctx.fillStyle = '#ffffff'
+    ctx.fillStyle = isPlayer ? '#66aaff' : '#ff6666'
     ctx.font = 'bold 7px Arial'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
@@ -921,7 +915,7 @@ export const useBaybladeGame = () => {
     ctx.shadowColor = '#ffdd00'
     ctx.shadowBlur = 12
     ctx.beginPath()
-    ctx.arc(blade.x, blade.y, blade.radius + 6, 0, Math.PI * 2)
+    ctx.arc(blade.x, blade.y, blade.radius + 2, 0, Math.PI * 2)
     ctx.stroke()
     ctx.shadowBlur = 0
   }
