@@ -5,7 +5,8 @@ import type {
   BaybladeStats,
   GamePhase,
   GameResult,
-  MeteorParticle
+  MeteorParticle,
+  SpritesheetAnimation
 } from '@/types/bayblade'
 import { computeStats } from '@/use/useBaybladeConfig'
 
@@ -32,6 +33,52 @@ const ACCEL_FRAMES = 28
 const MAX_PULL_RATIO = 0.85
 
 export const MAX_PULL_DISTANCE = ARENA_RADIUS * MAX_PULL_RATIO
+
+// Spark VFX
+const SPARK_FRAME_DURATION = 40 // ms per frame
+const SPARK_TOTAL_FRAMES = 5
+const SPARK_COOLDOWN_MS = 200
+const SPARK_SCALE = 0.28 // scale in game-space units relative to frameWidth
+
+// ─── Spritesheet Helpers ────────────────────────────────────────────────────
+
+function preloadImage(src: string): HTMLImageElement {
+  const img = new Image()
+  img.src = src
+  return img
+}
+
+function createSpritesheetAnim(
+  image: HTMLImageElement,
+  x: number, y: number,
+  totalFrames: number,
+  frameDuration: number,
+  frameWidth: number,
+  frameHeight: number,
+  scale: number,
+  vertical: boolean
+): SpritesheetAnimation {
+  return { x, y, frame: 0, timer: 0, frameDuration, totalFrames, frameWidth, frameHeight, scale, vertical, image }
+}
+
+function updateSpritesheetAnim(anim: SpritesheetAnimation, dt: number): boolean {
+  anim.timer += dt
+  if (anim.timer >= anim.frameDuration) {
+    anim.timer -= anim.frameDuration
+    anim.frame++
+  }
+  return anim.frame >= anim.totalFrames
+}
+
+function renderSpritesheetAnim(ctx: CanvasRenderingContext2D, anim: SpritesheetAnimation) {
+  if (anim.frame >= anim.totalFrames || !anim.image.complete) return
+  const { frameWidth, frameHeight, vertical, frame, scale, x, y, image } = anim
+  const sx = vertical ? 0 : frame * frameWidth
+  const sy = vertical ? frame * frameHeight : 0
+  const drawW = frameWidth * scale
+  const drawH = frameHeight * scale
+  ctx.drawImage(image, sx, sy, frameWidth, frameHeight, x - drawW / 2, y - drawH / 2, drawW, drawH)
+}
 
 // ─── Composable ──────────────────────────────────────────────────────────────
 
@@ -92,6 +139,11 @@ export const useBaybladeGame = () => {
 
   // ── Animation Frame ──────────────────────────────────────────────────────
   let physicsRafId: number | null = null
+
+  // ── Spark VFX ───────────────────────────────────────────────────────────
+  const sparkImage = preloadImage('/images/vfx/big-spark_256x1080.webp')
+  const activeSparks: SpritesheetAnimation[] = []
+  const sparkCooldowns = new Map<string, number>() // "a_b" -> last spawn timestamp
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
 
@@ -258,18 +310,33 @@ export const useBaybladeGame = () => {
     }
   }
 
+  const cancelDrag = () => {
+    isDragging.value = false
+    lastDragNx = 0
+    lastDragNy = 0
+  }
+
   const releaseDrag = () => {
     if (!isDragging.value || !selectedBlade.value) return
+
+    // Cancel zone: if pointer is back within the blade's radius, cancel the pull
+    const blade = selectedBlade.value
+    const pointerDx = dragCurrent.value.x - blade.x
+    const pointerDy = dragCurrent.value.y - blade.y
+    const pointerDist = Math.sqrt(pointerDx * pointerDx + pointerDy * pointerDy)
+    if (pointerDist < blade.radius) {
+      cancelDrag()
+      return
+    }
 
     const { dx, dy } = dragVector.value
     const mag = Math.sqrt(dx * dx + dy * dy)
 
     if (mag < 5) {
-      isDragging.value = false
+      cancelDrag()
       return
     }
 
-    const blade = selectedBlade.value
     const stats = statsFor(blade)
 
     // Compute target velocity (blade will accelerate toward this)
@@ -441,6 +508,13 @@ export const useBaybladeGame = () => {
       }
     }
 
+    // Update spark animations (remove finished ones)
+    for (let i = activeSparks.length - 1; i >= 0; i--) {
+      if (updateSpritesheetAnim(activeSparks[i], 16)) {
+        activeSparks.splice(i, 1)
+      }
+    }
+
     // Game over: all blades of one side dead
     const playerAlive = livingBlades(playerBlades.value).length
     const npcAlive = livingBlades(npcBlades.value).length
@@ -496,13 +570,19 @@ export const useBaybladeGame = () => {
     const ny = blade.y / maxDist
     const dot = blade.vx * nx + blade.vy * ny
 
-    // Compute effective boost: decays 12% per bounce after the first, min 30%
-    const decayBounces = Math.max(0, blade.wallBounceCount) // bounces before first don't decay
+    // Speed-based boost: faster blades bounce harder
+    const currentSpeed = Math.sqrt(blade.vx * blade.vx + blade.vy * blade.vy)
+    const stats = statsFor(blade)
+    const maxSpeed = BASE_MAX_FORCE * stats.speedMultiplier
+    const speedRatio = Math.min(currentSpeed / maxSpeed, 1)
+
+    // Decay: reduce wall boost by 12% per bounce after the first, min 30% effectiveness
+    const decayBounces = Math.max(0, blade.wallBounceCount)
     const effectiveness = Math.max(
       WALL_BOUNCE_MIN_EFFECTIVENESS,
       1 - decayBounces * WALL_BOUNCE_DECAY_PER_HIT
     )
-    const effectiveBoost = 1 + (WALL_BOOST_FACTOR - 1) * effectiveness
+    const effectiveBoost = 1 + (WALL_BOOST_FACTOR - 1) * effectiveness * speedRatio
 
     blade.vx = (blade.vx - 2 * dot * nx) * effectiveBoost
     blade.vy = (blade.vy - 2 * dot * ny) * effectiveBoost
@@ -556,6 +636,20 @@ export const useBaybladeGame = () => {
     a.y -= (overlap / 2) * ny
     b.x += (overlap / 2) * nx
     b.y += (overlap / 2) * ny
+
+    // Spark VFX at collision point (with cooldown per pair)
+    const pairKey = a.id < b.id ? `${a.id}_${b.id}` : `${b.id}_${a.id}`
+    const now = performance.now()
+    const lastSpark = sparkCooldowns.get(pairKey) ?? 0
+    if (now - lastSpark >= SPARK_COOLDOWN_MS && sparkImage.complete) {
+      const cx = (a.x + b.x) / 2
+      const cy = (a.y + b.y) / 2
+      activeSparks.push(createSpritesheetAnim(
+        sparkImage, cx, cy,
+        SPARK_TOTAL_FRAMES, SPARK_FRAME_DURATION, 256, 256, SPARK_SCALE, true
+      ))
+      sparkCooldowns.set(pairKey, now)
+    }
   }
 
   // ─── Physics Loop ────────────────────────────────────────────────────────
@@ -597,6 +691,11 @@ export const useBaybladeGame = () => {
     for (const blade of allBlades.value) {
       if (blade.hp <= 0) continue
       renderBlade(ctx, blade)
+    }
+
+    // Spark VFX
+    for (const spark of activeSparks) {
+      renderSpritesheetAnim(ctx, spark)
     }
 
     // Selection highlight
@@ -849,6 +948,38 @@ export const useBaybladeGame = () => {
   const renderDragIndicator = (ctx: CanvasRenderingContext2D, blade: BaybladeState) => {
     const { dx, dy } = dragVector.value
     const mag = dragMagnitude.value
+
+    // Cancel zone indicator — show when dragging
+    const pointerDx = dragCurrent.value.x - blade.x
+    const pointerDy = dragCurrent.value.y - blade.y
+    const pointerDist = Math.sqrt(pointerDx * pointerDx + pointerDy * pointerDy)
+    const inCancelZone = pointerDist < blade.radius
+
+    ctx.save()
+    // Cancel zone circle
+    const cancelAlpha = inCancelZone ? 0.6 : 0.2
+    ctx.strokeStyle = `rgba(255, 80, 80, ${cancelAlpha})`
+    ctx.lineWidth = inCancelZone ? 2.5 : 1.5
+    ctx.setLineDash([3, 3])
+    ctx.beginPath()
+    ctx.arc(blade.x, blade.y, blade.radius, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.setLineDash([])
+
+    if (inCancelZone) {
+      // X icon
+      const s = blade.radius * 0.35
+      ctx.strokeStyle = 'rgba(255, 80, 80, 0.8)'
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.moveTo(blade.x - s, blade.y - s)
+      ctx.lineTo(blade.x + s, blade.y + s)
+      ctx.moveTo(blade.x + s, blade.y - s)
+      ctx.lineTo(blade.x - s, blade.y + s)
+      ctx.stroke()
+    }
+    ctx.restore()
+
     if (mag < 3) return
 
     const ratio = dragForceRatio.value

@@ -17,6 +17,14 @@ export default {
     ready: 'Ready',
     tapToContinue: 'Tap to continue',
     clickToContinue: 'Click to continue',
+    bayblade: {
+      youWin: 'YOU WIN!',
+      youLose: 'YOU LOSE!',
+      rewards: 'REWARDS',
+      coins: 'Coins',
+      playAgain: 'Play Again',
+      buildTeam: 'Build Team'
+    },
     elements: {
       nature: 'Nature',
       water: 'Water',
@@ -50,6 +58,14 @@ export default {
     ready: 'Bereit',
     tapToContinue: 'Tippen zum Fortfahren',
     clickToContinue: 'Klicken zum Fortfahren',
+    bayblade: {
+      youWin: 'DU GEWINNST!',
+      youLose: 'DU VERLIERST!',
+      rewards: 'BELOHNUNGEN',
+      coins: 'Münzen',
+      playAgain: 'Nochmal spielen',
+      buildTeam: 'Team bauen'
+    },
     elements: {
       nature: 'Natur',
       water: 'Wasser',

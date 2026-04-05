@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import type { Ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import FButton from '@/components/atoms/FButton'
+import FReward from '@/components/atoms/FReward'
 import BaybladeConfigModal from '@/components/organisms/BaybladeConfigModal'
 import useBaybladeGame from '@/use/useBaybladeGame'
 import useBaybladeConfig from '@/use/useBaybladeConfig'
@@ -28,6 +30,7 @@ const {
 } = useBaybladeGame()
 
 const { playerTeam, coins, saveTeam, addCoins } = useBaybladeConfig()
+const { t } = useI18n()
 
 // ─── Canvas Refs ───────────────────────────────────────────────────────────
 
@@ -54,10 +57,11 @@ const randomNpcTeam = (): BaybladeConfig[] => {
 // ─── Computed ──────────────────────────────────────────────────────────────
 
 const isGameOver = computed(() => phase.value === 'game_over')
+const showReward: Ref<boolean> = ref(false)
 
 const resultText = computed(() => {
-  if (gameResult.value === 'win') return 'YOU WIN!'
-  if (gameResult.value === 'lose') return 'YOU LOSE!'
+  if (gameResult.value === 'win') return t('bayblade.youWin')
+  if (gameResult.value === 'lose') return t('bayblade.youLose')
   return ''
 })
 
@@ -67,7 +71,7 @@ const rewardAmount = computed(() =>
 
 // Config button: only when game over and no new game started
 const showConfigButton = computed(() =>
-  phase.value === 'game_over' || phase.value === 'idle'
+  phase.value === 'game_over' || phase.value === 'idle' || phase.value === 'tap_to_start'
 )
 
 const showTurnIndicator = computed(() =>
@@ -83,7 +87,7 @@ const showTurnIndicator = computed(() =>
 const updateCanvasSize = () => {
   const canvas = canvasRef.value
   if (!canvas) return
-  const size = Math.min(window.innerWidth, window.innerHeight) * 0.92
+  const size = Math.min(window.innerWidth, window.innerHeight) * 0.99
   canvasSize.value = size
   canvas.width = size
   canvas.height = size
@@ -133,10 +137,16 @@ watch(isGameOver, (over) => {
   if (over && !coinsAwarded.value) {
     addCoins(rewardAmount.value)
     coinsAwarded.value = true
+    showReward.value = true
   }
 })
 
+const onRewardContinue = () => {
+  showReward.value = false
+}
+
 const onPlayAgain = () => {
+  showReward.value = false
   coinsAwarded.value = false
   initGame(playerTeam.value, randomNpcTeam())
 }
@@ -249,9 +259,9 @@ onUnmounted(() => {
           div.text-white.italic(class="text-xs sm:text-sm opacity-50")
             | Tap a blade, then drag to launch
 
-        //- Game Over
+        //- Game Over (inline minimal — full reward shown via FReward overlay)
         div(
-          v-else-if="phase === 'game_over'"
+          v-else-if="phase === 'game_over' && !showReward"
           class="text-center"
         )
           div.font-black.uppercase.tracking-wider(
@@ -259,22 +269,38 @@ onUnmounted(() => {
             :class="gameResult === 'win' ? 'text-green-400' : 'text-red-400'"
           ) {{ resultText }}
 
-          div.text-yellow-400.font-bold(class="text-xl sm:text-2xl mb-6")
-            | +{{ rewardAmount }} Coins
-
           div.flex.flex-col.items-center.gap-3.pointer-events-auto
-            FButton(@click="onPlayAgain") Play Again
+            FButton(@click="onPlayAgain") {{ t('bayblade.playAgain') }}
 
       //- Bottom-right config button (game over / idle only)
       div(
-        v-if="showConfigButton"
+        v-if="showConfigButton && !showReward"
         class="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 pointer-events-auto"
       )
         FButton(
           type="secondary"
           size="sm"
           @click="onOpenConfig"
-        ) Build Team
+        ) {{ t('bayblade.buildTeam') }}
+
+    //- Reward Overlay
+    FReward(
+      v-model="showReward"
+      :show-continue="true"
+      @continue="onRewardContinue"
+    )
+      template(#ribbon)
+        span.text-white.font-black.uppercase.italic {{ t('bayblade.rewards') }}
+      div.flex.flex-col.items-center.gap-4
+        div.font-black.uppercase.tracking-wider(
+          class="text-3xl sm:text-5xl"
+          :class="gameResult === 'win' ? 'text-green-400' : 'text-red-400'"
+        ) {{ resultText }}
+        div.flex.items-center.gap-3
+          svg(xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-8 h-8 text-yellow-300")
+            circle(cx="12" cy="12" r="10" fill="currentColor")
+            text(x="12" y="16" text-anchor="middle" font-size="12" font-weight="bold" fill="#92400e") $
+          span.text-yellow-400.font-black(class="text-2xl sm:text-4xl") +{{ rewardAmount }}
 
     //- Config Modal
     BaybladeConfigModal(

@@ -91,6 +91,22 @@ export interface MeteorParticle {
   hue: number
 }
 
+// ─── Spritesheet Animation ──────────────────────────────────────────────────
+
+export interface SpritesheetAnimation {
+  x: number
+  y: number
+  frame: number
+  timer: number
+  frameDuration: number
+  totalFrames: number
+  frameWidth: number
+  frameHeight: number
+  scale: number
+  vertical: boolean
+  image: HTMLImageElement
+}
+
 // ─── Game Phase State Machine ────────────────────────────────────────────────
 
 export type GamePhase =

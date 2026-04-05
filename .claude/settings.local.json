@@ -3,7 +3,8 @@
     "allow": [
       "Read(//mnt/c/Users/konst/**)",
       "Bash(npx vue-tsc:*)",
-      "Bash(npx vite:*)"
+      "Bash(npx vite:*)",
+      "Bash(identify \"C:/Users/konst/chaos-arena/public/images/vfx/big-spark_256x1080.webp\")"
     ]
   }
 }
