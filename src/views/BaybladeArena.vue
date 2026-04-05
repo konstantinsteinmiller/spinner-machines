@@ -2,7 +2,6 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import type { Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import FButton from '@/components/atoms/FButton'
 import FIconButton from '@/components/atoms/FIconButton'
 import FReward from '@/components/atoms/FReward'
 import BaybladeConfigModal from '@/components/organisms/BaybladeConfigModal'
@@ -144,10 +143,6 @@ watch(isGameOver, (over) => {
 
 const onRewardContinue = () => {
   showReward.value = false
-}
-
-const onPlayAgain = () => {
-  showReward.value = false
   coinsAwarded.value = false
   initGame(playerTeam.value, randomNpcTeam())
 }
@@ -158,7 +153,6 @@ const onOpenConfig = () => {
 
 const onConfigSave = (team: BaybladeConfig[]) => {
   saveTeam(team)
-  configModalOpen.value = false
 }
 
 // ─── Lifecycle ─────────────────────────────────────────────────────────────
@@ -213,7 +207,7 @@ onUnmounted(() => {
         //- Turn indicator
         div(
           v-if="showTurnIndicator"
-          class="px-3 py-1.5 rounded-lg font-bold text-xs sm:text-sm text-white"
+          class="px-3 py-1.5 rounded-lg font-bold text-xs sm:text-sm text-white game-text"
           :class="phase.includes('player') ? 'bg-blue-600' : 'bg-red-600'"
         )
           | {{ phase.includes('player') ? 'YOUR TURN' : 'NPC TURN' }}
@@ -224,9 +218,10 @@ onUnmounted(() => {
           class="px-3 py-1.5 bg-yellow-600/80 text-sm sm:text-base"
         )
           svg(xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-5 h-5 text-yellow-300")
+            circle(cx="12" cy="12" r="11" fill="black")
             circle(cx="12" cy="12" r="10" fill="currentColor")
-            text(x="12" y="16" text-anchor="middle" font-size="12" font-weight="bold" fill="#92400e") $
-          span {{ coins }}
+            text(x="12" y="18" text-anchor="middle" font-size="16" font-weight="bold" fill="#2f920e") $
+          span.game-text {{ coins }}
 
       //- Center overlay messages
       div.absolute.flex.items-center.justify-center(class="inset-0 z-[10]")
@@ -237,10 +232,10 @@ onUnmounted(() => {
           class="text-center pointer-events-auto cursor-pointer"
           @click="startMatch"
         )
-          div.text-white.font-black.uppercase.tracking-wider.animate-pulse(
+          div.text-white.font-black.uppercase.tracking-wider.animate-pulse.game-text(
             class="text-3xl sm:text-5xl mb-2"
           ) Tap to Start
-          div.text-white.italic(class="text-sm sm:text-lg opacity-60")
+          div.text-white.italic.game-text(class="text-sm sm:text-lg opacity-60")
             | Click or tap the arena
 
         //- Turn Announcement
@@ -248,7 +243,7 @@ onUnmounted(() => {
           v-else-if="phase === 'deciding_turn' && turnAnnouncement"
           class="text-center"
         )
-          div.text-white.font-black.uppercase.tracking-wider.animate-pulse(
+          div.text-white.font-black.uppercase.tracking-wider.animate-pulse.game-text(
             class="text-2xl sm:text-4xl"
           ) {{ turnAnnouncement }}
 
@@ -257,23 +252,10 @@ onUnmounted(() => {
           v-else-if="phase === 'player_turn'"
           class="absolute bottom-16 sm:bottom-20 text-center"
         )
-          div.text-white.italic(class="text-xs sm:text-sm opacity-50")
+          div.text-white.italic.game-text(class="text-xs sm:text-sm opacity-50")
             | Tap a blade, then drag to launch
 
-        //- Game Over (inline minimal — full reward shown via FReward overlay)
-        div(
-          v-else-if="phase === 'game_over' && !showReward"
-          class="text-center"
-        )
-          div.font-black.uppercase.tracking-wider(
-            class="text-4xl sm:text-6xl mb-3"
-            :class="gameResult === 'win' ? 'text-green-400' : 'text-red-400'"
-          ) {{ resultText }}
-
-          div.flex.flex-col.items-center.gap-3.pointer-events-auto
-            FButton(@click="onPlayAgain") {{ t('bayblade.playAgain') }}
-
-      //- Bottom-right config button (game over / idle only)
+      //- Bottom-right config button (always visible when not in reward overlay)
       div(
         v-if="showConfigButton && !showReward"
         class="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 pointer-events-auto"
@@ -294,7 +276,7 @@ onUnmounted(() => {
       template(#ribbon)
         span.text-white.font-black.uppercase.italic {{ t('bayblade.rewards') }}
       div.flex.flex-col.items-center.gap-4
-        div.font-black.uppercase.tracking-wider(
+        div.font-black.uppercase.tracking-wider.game-text(
           class="text-3xl sm:text-5xl"
           :class="gameResult === 'win' ? 'text-green-400' : 'text-red-400'"
         ) {{ resultText }}
@@ -302,7 +284,7 @@ onUnmounted(() => {
           svg(xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-8 h-8 text-yellow-300")
             circle(cx="12" cy="12" r="10" fill="currentColor")
             text(x="12" y="16" text-anchor="middle" font-size="12" font-weight="bold" fill="#92400e") $
-          span.text-yellow-400.font-black(class="text-2xl sm:text-4xl") +{{ rewardAmount }}
+          span.text-yellow-400.font-black.game-text(class="text-2xl sm:text-4xl") +{{ rewardAmount }}
 
     //- Config Modal
     BaybladeConfigModal(

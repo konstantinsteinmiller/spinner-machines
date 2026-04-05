@@ -11,6 +11,7 @@ import type {
 import { computeStats } from '@/use/useBaybladeConfig'
 import { baybladeModelImgPath } from '@/use/useModels'
 import type { TopPartId } from '@/types/bayblade'
+import { isDebug } from '@/use/useMatch.ts'
 
 // ─── Physics Constants ───────────────────────────────────────────────────────
 
@@ -18,12 +19,12 @@ export const ARENA_RADIUS = 200
 export const BLADE_RADIUS = 15
 const BASE_MAX_FORCE = 14
 const STOP_THRESHOLD = 0.25
-const DAMAGE_SCALE = 10
+const DAMAGE_SCALE = isDebug.value ? 100 : 10
 const HIT_FLASH_FRAMES = 50
 const NPC_THINK_MS = 500
 const BOUNCE_DAMPENING = 0.75
 // Wall bounces BOOST speed instead of dampening — ricochet strategy
-const WALL_BOOST_FACTOR = 1.2
+const WALL_BOOST_FACTOR = 1.08
 // Bounce decay: reduce wall boost by 12% per bounce after the first, min 30% effectiveness
 const WALL_BOUNCE_DECAY_PER_HIT = 0.12
 const WALL_BOUNCE_MIN_EFFECTIVENESS = 0.30
@@ -494,8 +495,17 @@ export const useBaybladeGame = () => {
       // Decelerate (only after ramp is done)
       if (blade.accelFramesLeft === 0) {
         const stats = statsFor(blade)
-        blade.vx *= stats.forceDecay
-        blade.vy *= stats.forceDecay
+        let decay = stats.forceDecay
+        // Below 25% max speed, gradually increase deceleration to reduce idle time
+        const maxSpd = BASE_MAX_FORCE * stats.speedMultiplier
+        const spdRatio = speed(blade) / maxSpd
+        if (spdRatio < 0.25) {
+          // Lerp decay toward a much stronger brake as speed approaches 0
+          const t = 1 - spdRatio / 0.25 // 0 at 25%, 1 at 0%
+          decay = decay * (1 - t) + 0.95 * t
+        }
+        blade.vx *= decay
+        blade.vy *= decay
       }
 
       // Clamp to stop
@@ -534,12 +544,16 @@ export const useBaybladeGame = () => {
     const playerAlive = livingBlades(playerBlades.value).length
     const npcAlive = livingBlades(npcBlades.value).length
 
-    if (playerAlive === 0 || npcAlive === 0) {
+    if ((playerAlive === 0 || npcAlive === 0) && !gameResult.value) {
       gameResult.value = npcAlive === 0 ? 'win' : 'lose'
-      phase.value = 'game_over'
-      stopPhysics()
-      return
+      // Grace period so final spark VFX can finish playing
+      setTimeout(() => {
+        phase.value = 'game_over'
+        stopPhysics()
+      }, 200)
     }
+
+    if (gameResult.value) return
 
     // Turn transitions — launched blade must come to rest
     const launched = all.find(b => b.id === launchedBladeId.value)
@@ -876,6 +890,9 @@ export const useBaybladeGame = () => {
     ctx.font = 'bold 9px Arial'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
+    ctx.strokeStyle = '#000000'
+    ctx.lineWidth = 2.5
+    ctx.strokeText(Math.ceil(hp).toString(), x, y + 5)
     ctx.fillText(Math.ceil(hp).toString(), x, y + 5)
   }
 

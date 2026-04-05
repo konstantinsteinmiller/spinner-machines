@@ -2,7 +2,6 @@
 import { ref, computed, watch } from 'vue'
 import type { Ref } from 'vue'
 import FModal from '@/components/molecules/FModal'
-import FButton from '@/components/atoms/FButton'
 import type { BaybladeConfig, TopPartId, BottomPartId } from '@/types/bayblade'
 import type { TabOption } from '@/components/atoms/FTabs'
 import {
@@ -67,20 +66,13 @@ const stats = computed(() => computeStats(currentConfig.value))
 const setTop = (id: TopPartId) => {
   const idx = activeBladeIndex.value as number
   localTeam.value[idx] = { ...localTeam.value[idx], topPartId: id }
+  emit('save', localTeam.value.map(c => ({ ...c })))
 }
 
 const setBottom = (id: BottomPartId) => {
   const idx = activeBladeIndex.value as number
   localTeam.value[idx] = { ...localTeam.value[idx], bottomPartId: id }
-}
-
-// ─── Actions ───────────────────────────────────────────────────────────────
-
-const close = () => emit('update:modelValue', false)
-
-const save = () => {
   emit('save', localTeam.value.map(c => ({ ...c })))
-  close()
 }
 </script>
 
@@ -167,10 +159,6 @@ const save = () => {
             span.text-gray-400 Speed
             span.text-cyan-400.font-bold {{ stats.speedMultiplier.toFixed(1) }}x
 
-    template(#footer)
-      div.flex.gap-2.w-full(class="max-w-[280px]")
-        FButton(type="secondary" @click="close") Cancel
-        FButton(@click="save") Save
 </template>
 
 <style scoped lang="sass">
