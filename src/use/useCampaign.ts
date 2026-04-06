@@ -70,7 +70,7 @@ export const useCampaign = () => {
     // --- TRACK 1: WESTERN COAST ---
     {
       id: 'node-w1',
-      positionPortrait: { x: 23, y: 88 }, // Green Oasis
+      positionPortrait: { x: 23, y: 88 },
       positionLandscape: { x: 44, y: 93 }
     },
     {
@@ -90,7 +90,7 @@ export const useCampaign = () => {
     },
     {
       id: 'node-w2',
-      positionPortrait: { x: 53, y: 60 }, // Reefhaven
+      positionPortrait: { x: 53, y: 60 },
       positionLandscape: { x: 54, y: 68 }
     },
     {

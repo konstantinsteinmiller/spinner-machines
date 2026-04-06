@@ -7,6 +7,7 @@ import FReward from '@/components/atoms/FReward'
 import BaybladeConfigModal from '@/components/organisms/BaybladeConfigModal'
 import useBaybladeGame, { BLADE_RADIUS } from '@/use/useBaybladeGame'
 import useBaybladeConfig from '@/use/useBaybladeConfig'
+import useBaybladeCampaign from '@/use/useBaybladeCampaign'
 import { useHint } from '@/use/useHint'
 import type { BaybladeConfig } from '@/types/bayblade'
 
@@ -31,6 +32,7 @@ const {
 } = useBaybladeGame()
 
 const { playerTeam, coins, saveTeam, addCoins } = useBaybladeConfig()
+const { currentStage, currentStageId, isLastStage, playerUpgrades, advanceStage } = useBaybladeCampaign()
 const { showHint, startHintTimer, clearHint } = useHint(5000)
 const { t } = useI18n()
 
@@ -43,20 +45,23 @@ const canvasHeight: Ref<number> = ref(0)
 const configModalOpen: Ref<boolean> = ref(false)
 const coinsAwarded: Ref<boolean> = ref(false)
 
-// ─── NPC Team Configs (randomized each game) ──────────────────────────────
+// ─── NPC Team from Campaign Stage ─────────────────────────────────────────
 
-const NPC_POOL: BaybladeConfig[] = [
-  { topPartId: 'triangle', bottomPartId: 'balanced' },
-  { topPartId: 'star', bottomPartId: 'speedy' },
-  { topPartId: 'round', bottomPartId: 'tanky' },
-  { topPartId: 'quadratic', bottomPartId: 'balanced' },
-  { topPartId: 'cushioned', bottomPartId: 'tanky' }
-]
+const stageNpcTeam = (): BaybladeConfig[] =>
+  currentStage.value.enemyTeam.map(e => ({
+    topPartId: e.topPartId,
+    bottomPartId: e.bottomPartId,
+    topLevel: e.topLevel,
+    bottomLevel: e.bottomLevel
+  }))
 
-const randomNpcTeam = (): BaybladeConfig[] => {
-  const shuffled = [...NPC_POOL].sort(() => Math.random() - 0.5)
-  return [shuffled[0], shuffled[1]]
-}
+/** Player team with current upgrade levels applied */
+const playerTeamWithUpgrades = (): BaybladeConfig[] =>
+  playerTeam.value.map(c => ({
+    ...c,
+    topLevel: playerUpgrades.value.tops[c.topPartId],
+    bottomLevel: playerUpgrades.value.bottoms[c.bottomPartId]
+  }))
 
 // ─── Hint Timer ───────────────────────────────────────────────────────────
 
@@ -80,7 +85,7 @@ const resultText = computed(() => {
 })
 
 const rewardAmount = computed(() =>
-  gameResult.value === 'win' ? 100 : 40
+  gameResult.value === 'win' ? currentStage.value.rewardWin : currentStage.value.rewardLose
 )
 
 // Config button: only when game over and no new game started
@@ -164,6 +169,7 @@ const onPointerLeave = () => {
 watch(isGameOver, (over) => {
   if (over && !coinsAwarded.value) {
     addCoins(rewardAmount.value)
+    if (gameResult.value === 'win') advanceStage()
     coinsAwarded.value = true
     showReward.value = true
   }
@@ -172,7 +178,7 @@ watch(isGameOver, (over) => {
 const onRewardContinue = () => {
   showReward.value = false
   coinsAwarded.value = false
-  initGame(playerTeam.value, randomNpcTeam())
+  initGame(playerTeamWithUpgrades(), stageNpcTeam())
 }
 
 const onOpenConfig = () => {
@@ -201,7 +207,7 @@ onMounted(() => {
   updateCanvasSize()
   window.addEventListener('resize', updateCanvasSize)
 
-  initGame(playerTeam.value, randomNpcTeam())
+  initGame(playerTeamWithUpgrades(), stageNpcTeam())
   renderRafId = requestAnimationFrame(renderLoop)
 })
 
@@ -230,8 +236,14 @@ onUnmounted(() => {
     //- HUD Overlay
     div.absolute.inset-0.pointer-events-none
 
-      //- Top bar: coins
-      div.flex.justify-end.items-start.p-3(class="sm:p-4")
+      //- Top bar: stage + coins
+      div.flex.justify-between.items-start.p-3(class="sm:p-4")
+        //- Stage indicator
+        div.flex.items-center.gap-2.rounded-lg.text-white.font-bold(
+          class="px-3 py-1.5 bg-slate-700/80 text-xs sm:text-sm"
+        )
+          span.game-text Stage {{ currentStageId }}
+          span.text-slate-400.game-text(class="text-[10px] sm:text-xs") {{ currentStage.name }}
         //- Coin counter
         div.flex.items-center.gap-2.rounded-lg.text-white.font-bold(
           class="px-3 py-1.5 bg-yellow-600/80 text-sm sm:text-base"

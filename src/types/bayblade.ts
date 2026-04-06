@@ -43,6 +43,8 @@ export interface BottomPart {
 export interface BaybladeConfig {
   topPartId: TopPartId
   bottomPartId: BottomPartId
+  topLevel?: number
+  bottomLevel?: number
 }
 
 export interface BaybladeStats {

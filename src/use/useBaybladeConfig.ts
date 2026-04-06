@@ -8,6 +8,7 @@ import type {
   BaybladeConfig,
   BaybladeStats
 } from '@/types/bayblade'
+import { TOP_UPGRADE_BONUS, BOTTOM_UPGRADE_BONUS } from '@/use/useBaybladeCampaign'
 
 // ─── Part Definitions ────────────────────────────────────────────────────────
 
@@ -86,19 +87,26 @@ export const BOTTOM_PARTS_LIST = Object.values(BOTTOM_PARTS)
 
 // ─── Stats Computation ───────────────────────────────────────────────────────
 
-const BASE_HP = 50
+const BASE_HP = 20
 
-export const computeStats = (config: BaybladeConfig): BaybladeStats => {
+export const computeStats = (
+  config: BaybladeConfig,
+  topLevel = 0,
+  bottomLevel = 0
+): BaybladeStats => {
   const top = TOP_PARTS[config.topPartId]
   const bottom = BOTTOM_PARTS[config.bottomPartId]
 
+  const tb = TOP_UPGRADE_BONUS[config.topPartId]
+  const bb = BOTTOM_UPGRADE_BONUS[config.bottomPartId]
+
   return {
-    maxHp: BASE_HP + top.healthBonus + bottom.healthBonus,
+    maxHp: BASE_HP + top.healthBonus + bottom.healthBonus + tb.hp * topLevel + bb.hp * bottomLevel,
     totalWeight: bottom.weight,
-    damageMultiplier: top.damageMultiplier,
-    defenseMultiplier: top.defenseMultiplier,
-    speedMultiplier: bottom.speedMultiplier,
-    forceDecay: bottom.forceDecay,
+    damageMultiplier: top.damageMultiplier + tb.damage * topLevel,
+    defenseMultiplier: top.defenseMultiplier + tb.defense * topLevel,
+    speedMultiplier: bottom.speedMultiplier + bb.speed * bottomLevel,
+    forceDecay: bottom.forceDecay + bb.decay * bottomLevel,
     top,
     bottom
   }

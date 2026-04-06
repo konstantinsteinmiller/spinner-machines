@@ -205,6 +205,74 @@ export const useBaybladeGame = () => {
     }
   }
 
+  // ─── Floating Damage Numbers ──────────────────────────────────────────────
+
+  interface DamageNumber {
+    x: number;
+    y: number
+    vx: number;
+    vy: number
+    value: number
+    color: string   // '#66aaff' player, '#ff6666' npc
+    life: number     // remaining ms
+    maxLife: number
+  }
+
+  const DAMAGE_NUMBER_LIFE = 900
+  const damageNumbers: DamageNumber[] = []
+
+  const spawnDamageNumber = (x: number, y: number, value: number, dealerOwner: 'player' | 'npc') => {
+    // Random angle in a 60° cone pointing upward (centered at -90°)
+    const baseAngle = -Math.PI / 2
+    const spread = (Math.PI / 3) // 60°
+    const angle = baseAngle + (Math.random() - 0.5) * spread
+    const speed = 0.06 + Math.random() * 0.03
+
+    damageNumbers.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      value: Math.round(value),
+      color: dealerOwner === 'player' ? '#66aaff' : '#ff6666',
+      life: DAMAGE_NUMBER_LIFE,
+      maxLife: DAMAGE_NUMBER_LIFE
+    })
+  }
+
+  const updateDamageNumbers = (dt: number) => {
+    for (let i = damageNumbers.length - 1; i >= 0; i--) {
+      const dn = damageNumbers[i]!
+      dn.x += dn.vx * dt
+      dn.y += dn.vy * dt
+      dn.life -= dt
+      if (dn.life <= 0) damageNumbers.splice(i, 1)
+    }
+  }
+
+  const renderDamageNumbers = (ctx: CanvasRenderingContext2D) => {
+    for (const dn of damageNumbers) {
+      const alpha = Math.max(0, dn.life / dn.maxLife)
+      const scale = 0.8 + 0.4 * (1 - alpha) // slightly grow as they fade
+
+      ctx.save()
+      ctx.globalAlpha = alpha
+      ctx.font = `bold ${20 * scale}px Arial`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+
+      // Text shadow (game-text style: black border)
+      ctx.strokeStyle = '#000000'
+      ctx.lineWidth = 3
+      ctx.lineJoin = 'round'
+      ctx.strokeText(dn.value.toString(), dn.x, dn.y)
+
+      ctx.fillStyle = dn.color
+      ctx.fillText(dn.value.toString(), dn.x, dn.y)
+
+      ctx.restore()
+    }
+  }
+
   // ─── Helpers ─────────────────────────────────────────────────────────────
 
   let nextBladeId = 0
@@ -216,7 +284,7 @@ export const useBaybladeGame = () => {
     blades.filter(b => b.hp > 0)
 
   const statsFor = (blade: BaybladeState): BaybladeStats =>
-    computeStats(blade.config)
+    computeStats(blade.config, blade.config.topLevel ?? 0, blade.config.bottomLevel ?? 0)
 
   // ─── Factory ─────────────────────────────────────────────────────────────
 
@@ -225,7 +293,7 @@ export const useBaybladeGame = () => {
     x: number, y: number,
     config: BaybladeConfig
   ): BaybladeState {
-    const stats = computeStats(config)
+    const stats = computeStats(config, config.topLevel ?? 0, config.bottomLevel ?? 0)
     return {
       id: nextBladeId++,
       x, y,
@@ -275,6 +343,7 @@ export const useBaybladeGame = () => {
     meteorParticles.value = []
     meteorIntroTimer = 0
     trails.clear()
+    damageNumbers.length = 0
     phase.value = 'tap_to_start'
   }
 
@@ -624,6 +693,9 @@ export const useBaybladeGame = () => {
       }
     }
 
+    // Update floating damage numbers
+    updateDamageNumbers(16)
+
     // Game over: all models of one side dead
     const playerAlive = livingBlades(playerBlades.value).length
     const npcAlive = livingBlades(npcBlades.value).length
@@ -737,12 +809,16 @@ export const useBaybladeGame = () => {
     const aStats = statsFor(a)
     const bStats = statsFor(b)
 
+    const cx = (a.x + b.x) / 2
+    const cy = (a.y + b.y) / 2
+
     if (aSpeed > STOP_THRESHOLD) {
       const dmg = (aSpeed * aStats.damageMultiplier * aStats.totalWeight)
         / (bStats.totalWeight * bStats.defenseMultiplier)
         * DAMAGE_SCALE
       b.hp = Math.max(0, b.hp - dmg)
       b.hitFlash = HIT_FLASH_FRAMES
+      spawnDamageNumber(cx, cy, dmg, a.owner)
     }
     if (bSpeed > STOP_THRESHOLD) {
       const dmg = (bSpeed * bStats.damageMultiplier * bStats.totalWeight)
@@ -750,6 +826,7 @@ export const useBaybladeGame = () => {
         * DAMAGE_SCALE
       a.hp = Math.max(0, a.hp - dmg)
       a.hitFlash = HIT_FLASH_FRAMES
+      spawnDamageNumber(cx, cy, dmg, b.owner)
     }
 
     // Spark VFX at collision point (with cooldown per pair)
@@ -821,6 +898,9 @@ export const useBaybladeGame = () => {
     for (const spark of activeSparks) {
       renderSpritesheetAnim(ctx, spark)
     }
+
+    // Floating damage numbers
+    renderDamageNumbers(ctx)
 
     // Selection highlight
     if (phase.value === 'player_turn' && selectedBlade.value && !isDragging.value) {
@@ -1059,14 +1139,24 @@ export const useBaybladeGame = () => {
     ctx.stroke()
     ctx.lineCap = 'butt'
 
-    // HP number (inside the ring)
+    // HP number (dynamically sized to fit inside the ring)
+    const hpText = Math.ceil(hp).toString()
+    const innerDiameter = (ringR - ringWidth) * 2
+    // Binary-ish search: start large, shrink until it fits
+    let fontSize = innerDiameter
+    ctx.font = `bold ${fontSize}px Arial`
+    let measured = ctx.measureText(hpText).width
+    while (measured > innerDiameter * 0.85 && fontSize > 4) {
+      fontSize -= 1
+      ctx.font = `bold ${fontSize}px Arial`
+      measured = ctx.measureText(hpText).width
+    }
+
     ctx.fillStyle = isPlayer ? '#66aaff' : '#ff6666'
-    ctx.font = 'bold 7px Arial'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.strokeStyle = '#000000'
     ctx.lineWidth = 2
-    const hpText = Math.ceil(hp).toString()
     ctx.strokeText(hpText, x, y)
     ctx.fillText(hpText, x, y)
   }
