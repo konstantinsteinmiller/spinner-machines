@@ -14,8 +14,10 @@ import type { TopPartId } from '@/types/bayblade'
 import { isDebug } from '@/use/useMatch.ts'
 import { isMobileLandscape, isMobilePortrait } from '@/use/useUser.ts'
 import { useScreenshake } from '@/use/useScreenshake'
+import useSounds from '@/use/useSound'
 
 const { triggerShake } = useScreenshake()
+const { playSound } = useSounds()
 
 // ─── Physics Constants ───────────────────────────────────────────────────────
 
@@ -46,6 +48,7 @@ export const MAX_PULL_DISTANCE = ARENA_RADIUS * MAX_PULL_RATIO
 const SPARK_FRAME_DURATION = 40 // ms per frame
 const SPARK_TOTAL_FRAMES = 5
 const SPARK_COOLDOWN_MS = 200
+const CLASH_SOUND_COOLDOWN_MS = 300
 const SPARK_SCALE = 0.28 // scale in game-space units relative to frameWidth
 
 // ─── Spritesheet Helpers ────────────────────────────────────────────────────
@@ -152,6 +155,7 @@ export const useBaybladeGame = () => {
   const sparkImage = preloadImage('/images/vfx/big-spark_256x1080.webp')
   const activeSparks: SpritesheetAnimation[] = []
   const sparkCooldowns = new Map<string, number>() // "a_b" -> last spawn timestamp
+  const clashSoundCooldowns = new Map<string, number>()
 
   // ── Blade Model Images ──────────────────────────────────────────────────
   const bladeModelImages = new Map<string, HTMLImageElement>()
@@ -849,6 +853,14 @@ export const useBaybladeGame = () => {
         SPARK_TOTAL_FRAMES, SPARK_FRAME_DURATION, 256, 256, SPARK_SCALE, true
       ))
       sparkCooldowns.set(pairKey, now)
+    }
+
+    // Clash SFX (throttled per pair)
+    const lastClash = clashSoundCooldowns.get(pairKey) ?? 0
+    if (now - lastClash >= CLASH_SOUND_COOLDOWN_MS) {
+      const idx = Math.floor(Math.random() * 5) + 1
+      playSound(`clash-${idx}`)
+      clashSoundCooldowns.set(pairKey, now)
     }
   }
 

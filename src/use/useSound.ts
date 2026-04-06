@@ -36,14 +36,15 @@ export const useMusic = () => {
   watch(() => route, () => {
     if (bgMusic.value && bgMusic.value?.dataset?.name !== undefined && route.name === 'battle') {
       bgMusic.value?.pause()
-      const filename = 'battle.ogg'
-      bgMusic.value.dataset.name = filename
+      const idx = Math.floor(Math.random() * 3) + 1
+      const filename = `battle-${idx}.ogg`
+      bgMusic.value.dataset.name = 'battle'
       bgMusic.value.src = prependBaseUrl('audio/music/' + filename)
       bgMusic.value.addEventListener('canplaythrough', () => {
         isLoaded.value = true
         playWithFade()
       }, { once: true })
-    } else if (bgMusic.value && bgMusic.value?.dataset?.name === 'battle.ogg' && route.name !== 'battle') {
+    } else if (bgMusic.value && bgMusic.value?.dataset?.name === 'battle' && route.name !== 'battle') {
       bgMusic.value?.pause()
       const filename = 'adventure_main-menu.mp3'
       bgMusic.value.dataset.name = filename

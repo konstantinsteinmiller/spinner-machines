@@ -5,12 +5,14 @@ import { useI18n } from 'vue-i18n'
 import FIconButton from '@/components/atoms/FIconButton'
 import FReward from '@/components/atoms/FReward'
 import BaybladeConfigModal from '@/components/organisms/BaybladeConfigModal'
+import OptionsModal from '@/components/organisms/OptionsModal'
 import useBaybladeGame, { BLADE_RADIUS } from '@/use/useBaybladeGame'
 import useBaybladeConfig from '@/use/useBaybladeConfig'
 import useBaybladeCampaign from '@/use/useBaybladeCampaign'
 import { useHint } from '@/use/useHint'
 import { useScreenshake } from '@/use/useScreenshake'
 import type { BaybladeConfig } from '@/types/bayblade'
+import useUser from '@/use/useUser'
 
 // ─── Game & Config ─────────────────────────────────────────────────────────
 
@@ -38,6 +40,8 @@ const { showHint, startHintTimer, clearHint } = useHint(5000)
 const { shakeStyle } = useScreenshake()
 const { t } = useI18n()
 
+const { setSettingValue } = useUser()
+
 // ─── Canvas Refs ───────────────────────────────────────────────────────────
 
 const canvasRef: Ref<HTMLCanvasElement | null> = ref(null)
@@ -45,6 +49,7 @@ const canvasSize: Ref<number> = ref(0)
 const canvasWidth: Ref<number> = ref(0)
 const canvasHeight: Ref<number> = ref(0)
 const configModalOpen: Ref<boolean> = ref(false)
+const showOptions: Ref<boolean> = ref(false)
 const coinsAwarded: Ref<boolean> = ref(false)
 
 // ─── NPC Team from Campaign Stage ─────────────────────────────────────────
@@ -95,7 +100,6 @@ const rewardAmount = computed(() =>
 const showConfigButton = computed(() =>
   phase.value === 'game_over' || phase.value === 'idle' || phase.value === 'tap_to_start'
 )
-
 
 
 // ─── Canvas Sizing ─────────────────────────────────────────────────────────
@@ -290,12 +294,18 @@ onUnmounted(() => {
           div.text-white.italic.game-text(class="text-xs sm:text-sm opacity-50")
             | Tap a blade, then drag to launch
 
-      //- Bottom-right config button (always visible when not in reward overlay)
+      //- Bottom-right buttons (always visible when not in reward overlay)
       div(
         v-if="showConfigButton && !showReward"
-        class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 pointer-events-auto z-50"
+        class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 pointer-events-auto z-50 flex gap-2"
         :style="{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }"
       )
+        FIconButton(
+          type="secondary"
+          size="lg"
+          img-src="/images/icons/gears_128x128.webp"
+          @click="showOptions = true"
+        )
         FIconButton(
           type="secondary"
           size="lg"
@@ -321,6 +331,12 @@ onUnmounted(() => {
             circle(cx="12" cy="12" r="10" fill="currentColor")
             text(x="12" y="16" text-anchor="middle" font-size="12" font-weight="bold" fill="#92400e") $
           span.text-yellow-400.font-black.game-text(class="text-2xl sm:text-4xl") +{{ rewardAmount }}
+
+    //- Options Modal
+    OptionsModal(
+      :is-open="showOptions"
+      @close="showOptions = false"
+    )
 
     //- Config Modal
     BaybladeConfigModal(

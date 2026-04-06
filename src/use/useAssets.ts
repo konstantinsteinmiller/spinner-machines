@@ -21,7 +21,8 @@ const STATIC_IMAGES = [
   'images/icons/difficulty-icon_128x128.webp',
   'images/icons/settings-icon_128x128.webp',
   'images/icons/sound-icon_128x128.webp',
-  'images/icons/team_128x128.webp'
+  'images/icons/team_128x128.webp',
+  'images/icons/gears_128x128.webp'
 ]
 
 const BG_IMAGE = [
@@ -31,6 +32,11 @@ const BG_IMAGE = [
 ]
 
 const SOUND_ASSETS = [
+  'audio/sfx/clash-1.ogg',
+  'audio/sfx/clash-2.ogg',
+  'audio/sfx/clash-3.ogg',
+  'audio/sfx/clash-4.ogg',
+  'audio/sfx/clash-5.ogg',
   'audio/sfx/win.ogg',
   'audio/sfx/lose.ogg',
   'audio/sfx/reward-continue.ogg'
@@ -38,6 +44,9 @@ const SOUND_ASSETS = [
 
 const MUSIC_ASSETS = [
   'audio/music/battle.ogg',
+  'audio/music/battle-1.ogg',
+  'audio/music/battle-2.ogg',
+  'audio/music/battle-3.ogg',
   'audio/music/adventure_main-menu.mp3'
 ]
 
