@@ -32,7 +32,8 @@ const {
   forceReleaseDragAtMax,
   stopPhysics,
   render,
-  pixelToGame
+  pixelToGame,
+  spawnMeteorShower
 } = useBaybladeGame()
 
 const { playerTeam, coins, saveTeam, addCoins } = useBaybladeConfig()
@@ -102,6 +103,8 @@ const rewardAmount = computed(() =>
 const showConfigButton = computed(() =>
   phase.value === 'game_over' || phase.value === 'idle' || phase.value === 'tap_to_start'
 )
+
+const adRewardCoins = 100
 
 
 // ─── Canvas Sizing ─────────────────────────────────────────────────────────
@@ -178,6 +181,7 @@ const onPointerLeave = () => {
 watch(isGameOver, (over) => {
   if (over && !coinsAwarded.value) {
     playSound(gameResult.value === 'win' ? 'win' : 'lose')
+    if (gameResult.value === 'win') spawnMeteorShower(80, 50, 65)
     addCoins(rewardAmount.value)
     if (gameResult.value === 'win') advanceStage()
     coinsAwarded.value = true
@@ -300,9 +304,24 @@ onUnmounted(() => {
       //- Bottom-right buttons (always visible when not in reward overlay)
       div(
         v-if="showConfigButton && !showReward"
-        class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 pointer-events-auto z-50 flex gap-2"
+        class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 pointer-events-auto z-50 flex gap-2 items-end"
         :style="{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }"
       )
+        //- Ad reward button
+        button.group.cursor-pointer.z-10.transition-transform(
+          class="hover:scale-[103%] active:scale-90 scale-80 sm:scale-110"
+        )
+          div.relative
+            div.absolute.inset-0.translate-y-1.rounded-lg(class="bg-[#1a2b4b]")
+            div.relative.rounded-lg.border-2.text-white.font-bold.flex.flex-col.items-center.px-3.py-1(
+              class="bg-gradient-to-b from-[#ffcd00] to-[#f7a000] border-[#0f1a30]"
+            )
+              span.font-black.game-text.leading-tight(class="text-[10px] sm:text-xs") +{{ adRewardCoins }} {{ t('bayblade.coins') }}
+              img.object-contain(
+                src="/images/icons/movie_128x96.webp"
+                class="h-7 w-9 sm:h-8 sm:w-10"
+              )
+
         FIconButton(
           type="secondary"
           size="lg"

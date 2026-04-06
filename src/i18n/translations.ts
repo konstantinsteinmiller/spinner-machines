@@ -99,6 +99,14 @@ export default {
     ready: 'Prêt',
     tapToContinue: 'Appuyez pour continuer',
     clickToContinue: 'Cliquez pour continuer',
+    bayblade: {
+      youWin: 'VICTOIRE !',
+      youLose: 'DÉFAITE !',
+      rewards: 'RÉCOMPENSES',
+      coins: 'Pièces',
+      playAgain: 'Rejouer',
+      buildTeam: 'Créer une équipe'
+    },
     elements: {
       nature: 'Nature',
       water: 'Eau',
@@ -132,6 +140,14 @@ export default {
     ready: 'Listo',
     tapToContinue: 'Toca para continuar',
     clickToContinue: 'Haz clic para continuar',
+    bayblade: {
+      youWin: '¡GANASTE!',
+      youLose: '¡PERDISTE!',
+      rewards: 'RECOMPENSAS',
+      coins: 'Monedas',
+      playAgain: 'Jugar de nuevo',
+      buildTeam: 'Crear equipo'
+    },
     elements: {
       nature: 'Naturaleza',
       water: 'Agua',
@@ -177,6 +193,14 @@ export default {
     ready: '準備完了',
     tapToContinue: 'タップして続行',
     clickToContinue: 'クリックして続行',
+    bayblade: {
+      youWin: '勝利！',
+      youLose: '敗北！',
+      rewards: '報酬',
+      coins: 'コイン',
+      playAgain: 'もう一度',
+      buildTeam: 'チーム編成'
+    },
     elements: {
       nature: '自然',
       water: '水',
@@ -210,6 +234,14 @@ export default {
     ready: '준비',
     tapToContinue: '탭하여 계속하기',
     clickToContinue: '클릭하여 계속하기',
+    bayblade: {
+      youWin: '승리!',
+      youLose: '패배!',
+      rewards: '보상',
+      coins: '코인',
+      playAgain: '다시 플레이',
+      buildTeam: '팀 구성'
+    },
     elements: {
       nature: '자연',
       water: '물',
@@ -243,6 +275,14 @@ export default {
     ready: '准备就绪',
     tapToContinue: '轻触屏幕继续',
     clickToContinue: '点击屏幕继续',
+    bayblade: {
+      youWin: '胜利！',
+      youLose: '失败！',
+      rewards: '奖励',
+      coins: '金币',
+      playAgain: '再来一局',
+      buildTeam: '组建队伍'
+    },
     elements: {
       nature: '自然',
       water: '水',
@@ -276,6 +316,14 @@ export default {
     ready: 'Готов',
     tapToContinue: 'Коснитесь, чтобы продолжить',
     clickToContinue: 'Кликните, чтобы продолжить',
+    bayblade: {
+      youWin: 'ПОБЕДА!',
+      youLose: 'ПОРАЖЕНИЕ!',
+      rewards: 'НАГРАДЫ',
+      coins: 'Монеты',
+      playAgain: 'Играть снова',
+      buildTeam: 'Собрать команду'
+    },
     elements: {
       nature: 'Природа',
       water: 'Вода',

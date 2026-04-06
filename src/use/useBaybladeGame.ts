@@ -336,24 +336,61 @@ export const useBaybladeGame = () => {
       return createBladeState('player', spreadX, ARENA_RADIUS * 0.4, cfg)
     })
 
-    // NPC blades: random positions in the top half of the arena, spaced apart
-    const MIN_BLADE_DIST = BLADE_RADIUS * 4
+    // NPC blades: deterministic grid in top half, with small jitter
+    // Collision distance is BLADE_RADIUS * 2; we enforce BLADE_RADIUS * 6 minimum spacing
+    const SAFE_DIST = BLADE_RADIUS * 6
+    const nCount = nTeam.length
+    const maxJitter = BLADE_RADIUS * 0.8
     const npcPositions: { x: number; y: number }[] = []
-    for (const cfg of nTeam) {
-      let x: number, y: number
-      let attempts = 0
-      do {
-        const angle = Math.PI + Math.random() * Math.PI // top half: PI to 2*PI
-        const dist = BLADE_RADIUS * 2 + Math.random() * (ARENA_RADIUS * 0.7 - BLADE_RADIUS * 2)
-        x = Math.cos(angle) * dist
-        y = Math.sin(angle) * dist
-        attempts++
-      } while (
-        attempts < 50 &&
-        npcPositions.some(p => Math.hypot(p.x - x, p.y - y) < MIN_BLADE_DIST)
-        )
-      npcPositions.push({ x, y })
+
+    if (nCount === 1) {
+      const jx = (Math.random() - 0.5) * maxJitter
+      const jy = (Math.random() - 0.5) * maxJitter
+      npcPositions.push({ x: jx, y: -ARENA_RADIUS * 0.4 + jy })
+    } else if (nCount === 2) {
+      for (let i = 0; i < 2; i++) {
+        const x = (i === 0 ? -1 : 1) * ARENA_RADIUS * 0.4 + (Math.random() - 0.5) * maxJitter
+        const y = -ARENA_RADIUS * 0.4 + (Math.random() - 0.5) * maxJitter
+        npcPositions.push({ x, y })
+      }
+    } else if (nCount === 3) {
+      // Triangle: 2 on top row, 1 centered below
+      const topY = -ARENA_RADIUS * 0.55
+      const botY = -ARENA_RADIUS * 0.2
+      const halfW = ARENA_RADIUS * 0.4
+      npcPositions.push({ x: -halfW + (Math.random() - 0.5) * maxJitter, y: topY + (Math.random() - 0.5) * maxJitter })
+      npcPositions.push({ x: halfW + (Math.random() - 0.5) * maxJitter, y: topY + (Math.random() - 0.5) * maxJitter })
+      npcPositions.push({ x: (Math.random() - 0.5) * maxJitter, y: botY + (Math.random() - 0.5) * maxJitter })
+    } else {
+      // 4: 2x2 grid
+      const halfW = ARENA_RADIUS * 0.4
+      const topY = -ARENA_RADIUS * 0.65
+      const botY = -ARENA_RADIUS * 0.15
+      const slots = [
+        { x: -halfW, y: topY },
+        { x: halfW, y: topY },
+        { x: -halfW, y: botY },
+        { x: halfW, y: botY }
+      ]
+      for (let i = 0; i < nCount; i++) {
+        const s = slots[i]!
+        npcPositions.push({
+          x: s.x + (Math.random() - 0.5) * maxJitter,
+          y: s.y + (Math.random() - 0.5) * maxJitter
+        })
+      }
     }
+
+    // Clamp all NPC positions inside the arena
+    for (const pos of npcPositions) {
+      const d = Math.hypot(pos.x, pos.y)
+      const maxR = ARENA_RADIUS - BLADE_RADIUS * 2
+      if (d > maxR) {
+        pos.x *= maxR / d
+        pos.y *= maxR / d
+      }
+    }
+
     npcBlades.value = nTeam.map((cfg, i) =>
       createBladeState('npc', npcPositions[i]!.x, npcPositions[i]!.y, cfg)
     )
@@ -595,9 +632,48 @@ export const useBaybladeGame = () => {
       return
     }
 
-    // Aim toward target with ±15° spread
+    // Aim toward target, avoiding friendly blades in the path
     let angle = Math.atan2(dy, dx)
-    angle += (Math.random() - 0.5) * (Math.PI / 6)
+
+    // Check if any living teammate (other than the launcher) is in the firing lane
+    const allies = livingBlades(npcBlades.value).filter(b => b.id !== blade.id)
+    const isPathBlocked = (a: number) => {
+      const cos = Math.cos(a)
+      const sin = Math.sin(a)
+      for (const ally of allies) {
+        const ax = ally.x - blade.x
+        const ay = ally.y - blade.y
+        // Project ally position onto the launch direction
+        const proj = ax * cos + ay * sin
+        if (proj < 0) continue // ally is behind the launcher
+        // Perpendicular distance from ally to the launch line
+        const perp = Math.abs(-ax * sin + ay * cos)
+        if (perp < BLADE_RADIUS * 3) return true
+      }
+      return false
+    }
+
+    // If the direct path is blocked, try offset angles to find a clear shot
+    if (isPathBlocked(angle)) {
+      let found = false
+      for (let offset = 0.15; offset <= Math.PI * 0.6; offset += 0.15) {
+        if (!isPathBlocked(angle + offset)) {
+          angle += offset
+          found = true
+          break
+        }
+        if (!isPathBlocked(angle - offset)) {
+          angle -= offset
+          found = true
+          break
+        }
+      }
+      // If no clear path, just add the normal spread and hope for the best
+      if (!found) angle += (Math.random() - 0.5) * (Math.PI / 6)
+    } else {
+      // Normal ±15° spread when path is clear
+      angle += (Math.random() - 0.5) * (Math.PI / 6)
+    }
 
     // Random force 65-100% of max
     const stats = statsFor(blade)

@@ -102,11 +102,7 @@ Features rated on impact to three KPIs (1–5 scale each, 5 = highest impact):
 
 | Feature                                                             | Conversion | Play Time | Retention | Overall | Notes                                                             |
 |---------------------------------------------------------------------|:----------:|:---------:|:---------:|:-------:|-------------------------------------------------------------------|
-| Guided tutorial (drag-to-launch with animated hand + 3-step flow)   |     5      |     3     |     3     | **3.6** | #1 priority — players who don't understand controls churn in <30s |
-| Skip-to-action: auto-select starter team, launch first match in <5s |     5      |     2     |     2     | **2.9** | Reduce friction before first dopamine hit                         |
 | Asset preloader with animated progress bar                          |     4      |     1     |     1     | **1.9** | Prevents blank screen / pop-in that kills conversion              |
-| First-win celebration (confetti, fanfare, "+80 coins!" splash)      |     4      |     2     |     3     | **3.0** | Emotional hook that frames the reward loop                        |
-| "Try Again" prompt with tip on loss (not just game-over screen)     |     3      |     3     |     3     | **3.0** | Reduces rage-quit on early losses                                 |
 
 ### Core Gameplay Depth
 
