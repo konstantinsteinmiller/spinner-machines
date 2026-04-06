@@ -1075,9 +1075,6 @@ export const useBaybladeGame = () => {
     ctx.arc(x, y, radius, 0, Math.PI * 2)
     ctx.clip()
 
-    // Hub fill (fallback if image not loaded)
-    ctx.fillStyle = isPlayer ? '#1a4a8a' : '#8a1a1a'
-    ctx.fill()
 
     // Model image (rotates with blade)
     const modelImg = getBladeModelImage(blade.config.topPartId, owner)
