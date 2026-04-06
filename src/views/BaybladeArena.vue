@@ -202,6 +202,7 @@ const onOpenConfig = () => {
 
 const onConfigSave = (team: BaybladeConfig[]) => {
   saveTeam(team)
+  initGame(playerTeamWithUpgrades(), stageNpcTeam())
 }
 
 // ─── Lifecycle ─────────────────────────────────────────────────────────────
