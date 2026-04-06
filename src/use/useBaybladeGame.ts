@@ -76,7 +76,7 @@ function updateSpritesheetAnim(anim: SpritesheetAnimation, dt: number): boolean 
 }
 
 function renderSpritesheetAnim(ctx: CanvasRenderingContext2D, anim: SpritesheetAnimation) {
-  if (anim.frame >= anim.totalFrames || !anim.image.complete) return
+  if (anim.frame >= anim.totalFrames || !anim.image.complete || anim.image.naturalWidth === 0) return
   const { frameWidth, frameHeight, vertical, frame, scale, x, y, image } = anim
   const sx = vertical ? 0 : frame * frameWidth
   const sy = vertical ? frame * frameHeight : 0
@@ -160,7 +160,7 @@ export const useBaybladeGame = () => {
       img = preloadImage(baybladeModelImgPath(topPartId, owner))
       bladeModelImages.set(key, img)
     }
-    return img.complete ? img : null
+    return (img.complete && img.naturalWidth > 0) ? img : null
   }
 
   // ─── Trail System ────────────────────────────────────────────────────────

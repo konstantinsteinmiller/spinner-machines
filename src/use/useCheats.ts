@@ -2,6 +2,7 @@ import { onMounted, onUnmounted, ref } from 'vue'
 import useModels from '@/use/useModels'
 import useUser, { isDemo } from '@/use/useUser'
 import useCampaign, { demoCampaignNodes, type MobileNode } from '@/use/useCampaign'
+import useBaybladeCampaign, { STAGES } from '@/use/useBaybladeCampaign'
 import type { GameCard } from '@/types/game'
 
 const storedCheat = localStorage.getItem('cheat') || 'false'
@@ -56,6 +57,17 @@ const useCheats = () => {
     console.warn('[CHEAT] All sorted ids.', youngIds, middleIds, oldIds)
   }
 
+  const setBaybladeStage = (stageId: number) => {
+    if (stageId < 1 || stageId > STAGES.length) {
+      console.warn(`[CHEAT] Invalid stage ${stageId}. Must be 1-${STAGES.length}.`)
+      return
+    }
+    const { currentStageId } = useBaybladeCampaign()
+    currentStageId.value = stageId
+    localStorage.setItem('bayblade_campaign_stage', stageId.toString())
+    console.warn(`[CHEAT] Bayblade stage set to ${stageId} (${STAGES[stageId - 1]!.name}).`)
+  }
+
   const resetCampaign = () => {
     setSettingValue('campaign', [])
     setSettingValue('quest-campaign', false)
@@ -74,7 +86,18 @@ const useCheats = () => {
     'ctrl+shift+g': unlockAllDemoCampaignNodes,
     'ctrl+shift+j': resetCampaign,
     'ctrl+shift+k': printAllIds,
-    'ctrl+shift+d': () => console.log('[DEBUG] Cards:', allModels)
+    'ctrl+shift+d': () => console.log('[DEBUG] Cards:', allModels),
+    // Bayblade stage shortcuts: Ctrl+Shift+1..9 for stages 1-9, Ctrl+Shift+0 for stage 10
+    'ctrl+shift+1': () => setBaybladeStage(1),
+    'ctrl+shift+2': () => setBaybladeStage(2),
+    'ctrl+shift+3': () => setBaybladeStage(3),
+    'ctrl+shift+4': () => setBaybladeStage(4),
+    'ctrl+shift+5': () => setBaybladeStage(5),
+    'ctrl+shift+6': () => setBaybladeStage(6),
+    'ctrl+shift+7': () => setBaybladeStage(7),
+    'ctrl+shift+8': () => setBaybladeStage(8),
+    'ctrl+shift+9': () => setBaybladeStage(9),
+    'ctrl+shift+0': () => setBaybladeStage(10)
   }
 
   /**
@@ -89,9 +112,11 @@ const useCheats = () => {
     if (e.altKey) keys.push('alt')
 
     // 2. Add the actual key (normalized to lowercase)
-    const mainKey = e.key.toLowerCase()
+    // Use e.code for digits (Shift+1 produces '!' in e.key on US keyboards)
+    let mainKey = e.key.toLowerCase()
+    const codeMatch = e.code.match(/^Digit(\d)$/)
+    if (codeMatch) mainKey = codeMatch[1]
 
-    // console.log('keys: ', keys)
     // Avoid adding 'control', 'shift', etc., as the main key if they are modifiers
     if (!['control', 'shift', 'alt', 'meta'].includes(mainKey)) {
       keys.push(mainKey)
