@@ -224,12 +224,13 @@ export const useBaybladeGame = () => {
     color: string   // '#66aaff' player, '#ff6666' npc
     life: number     // remaining ms
     maxLife: number
+    isCrit: boolean
   }
 
   const DAMAGE_NUMBER_LIFE = 900
   const damageNumbers: DamageNumber[] = []
 
-  const spawnDamageNumber = (x: number, y: number, value: number, dealerOwner: 'player' | 'npc') => {
+  const spawnDamageNumber = (x: number, y: number, value: number, dealerOwner: 'player' | 'npc', isCrit = false) => {
     if (Math.round(value) <= 0) return
     // Random angle in a 60° cone pointing upward (centered at -90°)
     const baseAngle = -Math.PI / 2
@@ -244,7 +245,8 @@ export const useBaybladeGame = () => {
       value: Math.round(value),
       color: dealerOwner === 'player' ? '#66aaff' : '#ff6666',
       life: DAMAGE_NUMBER_LIFE,
-      maxLife: DAMAGE_NUMBER_LIFE
+      maxLife: DAMAGE_NUMBER_LIFE,
+      isCrit
     })
   }
 
@@ -261,7 +263,9 @@ export const useBaybladeGame = () => {
   const renderDamageNumbers = (ctx: CanvasRenderingContext2D) => {
     for (const dn of damageNumbers) {
       const alpha = Math.max(0, dn.life / dn.maxLife)
-      const scale = 0.8 + 0.4 * (1 - alpha) // slightly grow as they fade
+      const baseScale = 0.8 + 0.4 * (1 - alpha) // slightly grow as they fade
+      const scale = dn.isCrit ? baseScale * 1.5 : baseScale
+      const text = dn.value.toString()
 
       ctx.save()
       ctx.globalAlpha = alpha
@@ -269,14 +273,28 @@ export const useBaybladeGame = () => {
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
 
-      // Text shadow (game-text style: black border)
-      ctx.strokeStyle = '#000000'
-      ctx.lineWidth = 3
-      ctx.lineJoin = 'round'
-      ctx.strokeText(dn.value.toString(), dn.x, dn.y)
-
-      ctx.fillStyle = dn.color
-      ctx.fillText(dn.value.toString(), dn.x, dn.y)
+      // Crit: dark orange pulsating aura
+      if (dn.isCrit) {
+        const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.01)
+        const auraRadius = 8 + pulse * 6
+        ctx.shadowColor = '#cc6600'
+        ctx.shadowBlur = auraRadius
+        ctx.strokeStyle = '#000000'
+        ctx.lineWidth = 4
+        ctx.lineJoin = 'round'
+        ctx.strokeText(text, dn.x, dn.y)
+        ctx.fillStyle = '#ff8800'
+        ctx.fillText(text, dn.x, dn.y)
+        ctx.shadowBlur = 0
+      } else {
+        // Text shadow (game-text style: black border)
+        ctx.strokeStyle = '#000000'
+        ctx.lineWidth = 3
+        ctx.lineJoin = 'round'
+        ctx.strokeText(text, dn.x, dn.y)
+        ctx.fillStyle = dn.color
+        ctx.fillText(text, dn.x, dn.y)
+      }
 
       ctx.restore()
     }
@@ -292,8 +310,15 @@ export const useBaybladeGame = () => {
   const livingBlades = (blades: BaybladeState[]): BaybladeState[] =>
     blades.filter(b => b.hp > 0)
 
-  const statsFor = (blade: BaybladeState): BaybladeStats =>
-    computeStats(blade.config, blade.config.topLevel ?? 0, blade.config.bottomLevel ?? 0)
+  let firstGameBoost = false
+
+  const statsFor = (blade: BaybladeState): BaybladeStats => {
+    const stats = computeStats(blade.config, blade.config.topLevel ?? 0, blade.config.bottomLevel ?? 0)
+    if (firstGameBoost && blade.owner === 'player') {
+      return { ...stats, damageMultiplier: stats.damageMultiplier * 2 }
+    }
+    return stats
+  }
 
   // ─── Factory ─────────────────────────────────────────────────────────────
 
@@ -304,8 +329,10 @@ export const useBaybladeGame = () => {
     isBoss = false
   ): BaybladeState {
     const stats = computeStats(config, config.topLevel ?? 0, config.bottomLevel ?? 0)
-    const bossHpMultiplier = isBoss ? 3 : 1
+    const bossHpMultiplier = isBoss ? 2 : 1
+    const boostHpMultiplier = (firstGameBoost && owner === 'player') ? 2 : 1
     const bossRadius = isBoss ? BLADE_RADIUS * 1.6 : BLADE_RADIUS
+    const finalHp = stats.maxHp * bossHpMultiplier * boostHpMultiplier
     return {
       id: nextBladeId++,
       x, y,
@@ -313,8 +340,8 @@ export const useBaybladeGame = () => {
       ax: 0, ay: 0,
       accelFramesLeft: 0,
       radius: bossRadius,
-      hp: stats.maxHp * bossHpMultiplier,
-      maxHp: stats.maxHp * bossHpMultiplier,
+      hp: finalHp,
+      maxHp: finalHp,
       rotation: 0,
       rotationSpeed: isBoss ? 0.03 : 0.05,
       hitFlash: 0,
@@ -330,8 +357,10 @@ export const useBaybladeGame = () => {
 
   const initGame = (
     pTeam: BaybladeConfig[],
-    nTeam: BaybladeConfig[]
+    nTeam: BaybladeConfig[],
+    boost = false
   ) => {
+    firstGameBoost = boost
     stopPhysics()
     nextBladeId = 0
 
@@ -943,21 +972,56 @@ export const useBaybladeGame = () => {
     const cx = (a.x + b.x) / 2
     const cy = (a.y + b.y) / 2
 
-    if (aSpeed > STOP_THRESHOLD) {
-      const dmg = (aSpeed * aStats.damageMultiplier * aStats.totalWeight)
-        / (bStats.totalWeight * bStats.defenseMultiplier)
+    // Back-side crit detection: 90° cone behind travel direction when moving >= 25% max speed
+    const CRIT_CONE_HALF = Math.PI / 4 // 45° half-angle = 90° cone
+    const aMaxSpd = BASE_MAX_FORCE * aStats.speedMultiplier
+    const bMaxSpd = BASE_MAX_FORCE * bStats.speedMultiplier
+
+    // Check if attacker a hits b in b's back
+    const bMovingFast = bSpeed >= bMaxSpd * 0.25
+    let bHitInBack = false
+    if (bMovingFast) {
+      // b's forward direction
+      const bDirX = b.vx / bSpeed
+      const bDirY = b.vy / bSpeed
+      // If the hit comes from behind b, then b's forward aligns with (b→a) direction (-nx,-ny)
+      const cosAngle = bDirX * (-nx) + bDirY * (-ny)
+      bHitInBack = cosAngle >= Math.cos(CRIT_CONE_HALF)
+    }
+
+    // Check if attacker b hits a in a's back
+    const aMovingFast = aSpeed >= aMaxSpd * 0.25
+    let aHitInBack = false
+    if (aMovingFast) {
+      const aDirX = a.vx / aSpeed
+      const aDirY = a.vy / aSpeed
+      const cosAngle = aDirX * nx + aDirY * ny
+      aHitInBack = cosAngle >= Math.cos(CRIT_CONE_HALF)
+    }
+
+    // a attacks b
+    if (aSpeed > STOP_THRESHOLD && !aHitInBack) {
+      const isCrit = bHitInBack
+      const defMul = isCrit ? 1 : bStats.defenseMultiplier
+      const atkMul = isCrit ? 1.25 : 1
+      const dmg = (aSpeed * aStats.damageMultiplier * atkMul * aStats.totalWeight)
+        / (bStats.totalWeight * defMul)
         * DAMAGE_SCALE
       b.hp = Math.max(0, b.hp - dmg)
       b.hitFlash = HIT_FLASH_FRAMES
-      spawnDamageNumber(cx, cy, dmg, a.owner)
+      spawnDamageNumber(cx, cy, dmg, a.owner, isCrit)
     }
-    if (bSpeed > STOP_THRESHOLD) {
-      const dmg = (bSpeed * bStats.damageMultiplier * bStats.totalWeight)
-        / (aStats.totalWeight * aStats.defenseMultiplier)
+    // b attacks a
+    if (bSpeed > STOP_THRESHOLD && !bHitInBack) {
+      const isCrit = aHitInBack
+      const defMul = isCrit ? 1 : aStats.defenseMultiplier
+      const atkMul = isCrit ? 1.25 : 1
+      const dmg = (bSpeed * bStats.damageMultiplier * atkMul * bStats.totalWeight)
+        / (aStats.totalWeight * defMul)
         * DAMAGE_SCALE
       a.hp = Math.max(0, a.hp - dmg)
       a.hitFlash = HIT_FLASH_FRAMES
-      spawnDamageNumber(cx, cy, dmg, b.owner)
+      spawnDamageNumber(cx, cy, dmg, b.owner, isCrit)
     }
 
     // Spark VFX at collision point (with cooldown per pair)

@@ -74,6 +74,7 @@ const buyTopUpgrade = (id: TopPartId) => {
   if (coins.value < cost) return
   addCoins(-cost)
   upgradeTop(id)
+  emit('save', localTeam.value.map(c => ({ ...c })))
 }
 
 const buyBottomUpgrade = (id: BottomPartId) => {
@@ -81,6 +82,7 @@ const buyBottomUpgrade = (id: BottomPartId) => {
   if (coins.value < cost) return
   addCoins(-cost)
   upgradeBottom(id)
+  emit('save', localTeam.value.map(c => ({ ...c })))
 }
 
 // Upgraded stat values for display

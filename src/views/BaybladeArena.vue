@@ -36,7 +36,7 @@ const {
   spawnMeteorShower
 } = useBaybladeGame()
 
-const { playerTeam, coins, saveTeam, addCoins } = useBaybladeConfig()
+const { playerTeam, coins, hasFirstWin, saveTeam, addCoins, markFirstWin } = useBaybladeConfig()
 const { currentStage, currentStageId, isLastStage, playerUpgrades, advanceStage } = useBaybladeCampaign()
 const { showHint, startHintTimer, clearHint } = useHint(5000)
 const { shakeStyle } = useScreenshake()
@@ -184,7 +184,10 @@ watch(isGameOver, (over) => {
     playSound(gameResult.value === 'win' ? 'win' : 'lose')
     if (gameResult.value === 'win') spawnMeteorShower(80, 50, 65)
     addCoins(rewardAmount.value)
-    if (gameResult.value === 'win') advanceStage()
+    if (gameResult.value === 'win') {
+      if (!hasFirstWin.value) markFirstWin()
+      advanceStage()
+    }
     coinsAwarded.value = true
     showReward.value = true
   }
@@ -193,7 +196,7 @@ watch(isGameOver, (over) => {
 const onRewardContinue = () => {
   showReward.value = false
   coinsAwarded.value = false
-  initGame(playerTeamWithUpgrades(), stageNpcTeam())
+  initGame(playerTeamWithUpgrades(), stageNpcTeam(), !hasFirstWin.value)
 }
 
 const onOpenConfig = () => {
@@ -202,7 +205,7 @@ const onOpenConfig = () => {
 
 const onConfigSave = (team: BaybladeConfig[]) => {
   saveTeam(team)
-  initGame(playerTeamWithUpgrades(), stageNpcTeam())
+  initGame(playerTeamWithUpgrades(), stageNpcTeam(), !hasFirstWin.value)
 }
 
 // ─── Lifecycle ─────────────────────────────────────────────────────────────
@@ -223,7 +226,7 @@ onMounted(() => {
   updateCanvasSize()
   window.addEventListener('resize', updateCanvasSize)
 
-  initGame(playerTeamWithUpgrades(), stageNpcTeam())
+  initGame(playerTeamWithUpgrades(), stageNpcTeam(), !hasFirstWin.value)
   renderRafId = requestAnimationFrame(renderLoop)
 })
 
@@ -338,6 +341,7 @@ onUnmounted(() => {
           @click="showOptions = true"
         )
         FIconButton(
+          v-if="hasFirstWin"
           type="secondary"
           size="lg"
           img-src="/images/icons/team_128x128.webp"

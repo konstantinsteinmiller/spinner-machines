@@ -116,6 +116,7 @@ export const computeStats = (
 
 const TEAM_KEY = 'bayblade_player_team'
 const COINS_KEY = 'bayblade_coins'
+const FIRST_WIN_KEY = 'bayblade_first_win'
 
 const DEFAULT_TEAM: BaybladeConfig[] = [
   { topPartId: 'star', bottomPartId: 'balanced' },
@@ -147,6 +148,7 @@ const loadStoredCoins = (): number => {
 
 const playerTeam: Ref<BaybladeConfig[]> = ref(loadStoredTeam())
 const coins: Ref<number> = ref(loadStoredCoins())
+const hasFirstWin: Ref<boolean> = ref(localStorage.getItem(FIRST_WIN_KEY) === '1')
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
@@ -160,11 +162,18 @@ const addCoins = (amount: number) => {
   localStorage.setItem(COINS_KEY, coins.value.toString())
 }
 
+const markFirstWin = () => {
+  hasFirstWin.value = true
+  localStorage.setItem(FIRST_WIN_KEY, '1')
+}
+
 const useBaybladeConfig = () => ({
   playerTeam,
   coins,
+  hasFirstWin,
   saveTeam,
-  addCoins
+  addCoins,
+  markFirstWin
 })
 
 export default useBaybladeConfig
