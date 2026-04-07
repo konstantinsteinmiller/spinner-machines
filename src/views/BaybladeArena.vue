@@ -110,6 +110,41 @@ const showConfigButton = computed(() =>
 
 const adRewardCoins = 100
 
+// ─── Treasure Chest Cooldown ──────────────────────────────────────────────
+
+const CHEST_COOLDOWN_MS = 10 * 60 * 1000
+const CHEST_KEY = 'bayblade_chest_ready_at'
+const CHEST_REWARD = 100
+
+const chestReadyAt = ref(parseInt(localStorage.getItem(CHEST_KEY) || '0', 10))
+const chestRemaining = ref(0)
+let chestIntervalId: number | null = null
+
+const chestReady = computed(() => chestRemaining.value <= 0)
+
+const updateChestTimer = () => {
+  const now = Date.now()
+  chestRemaining.value = Math.max(0, chestReadyAt.value - now)
+}
+
+const chestTimeDisplay = computed(() => {
+  const totalSec = Math.ceil(chestRemaining.value / 1000)
+  const m = Math.floor(totalSec / 60)
+  const s = totalSec % 60
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+})
+
+const chestCooldownPct = computed(() =>
+  chestRemaining.value / CHEST_COOLDOWN_MS
+)
+
+const collectChest = () => {
+  if (!chestReady.value) return
+  addCoins(CHEST_REWARD)
+  chestReadyAt.value = Date.now() + CHEST_COOLDOWN_MS
+  localStorage.setItem(CHEST_KEY, chestReadyAt.value.toString())
+  updateChestTimer()
+}
 
 // ─── Canvas Sizing ─────────────────────────────────────────────────────────
 
@@ -231,12 +266,16 @@ onMounted(() => {
 
   initGame(playerTeamWithUpgrades(), stageNpcTeam(), !hasFirstWin.value)
   renderRafId = requestAnimationFrame(renderLoop)
+
+  updateChestTimer()
+  chestIntervalId = window.setInterval(updateChestTimer, 1000)
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', updateCanvasSize)
   stopPhysics()
   if (renderRafId !== null) cancelAnimationFrame(renderRafId)
+  if (chestIntervalId !== null) clearInterval(chestIntervalId)
 })
 </script>
 
@@ -274,12 +313,40 @@ onUnmounted(() => {
           span.game-text(
             :class="currentStage.isBoss ? 'text-red-400 text-[10px] sm:text-xs' : 'text-slate-400 text-[10px] sm:text-xs'"
           ) {{ currentStage.name }}
-        //- Coin counter
-        div.flex.items-center.gap-2.rounded-lg.text-white.font-bold(
-          class="px-3 py-1.5 bg-yellow-600/80 text-sm sm:text-base"
-        )
-          IconCoin(class="w-5 h-5 text-yellow-300")
-          span.game-text {{ coins }}
+        //- Coin counter + Chest
+        div.flex.flex-col.items-end.gap-2
+          div.flex.items-center.gap-2.rounded-lg.text-white.font-bold(
+            class="px-3 py-1.5 bg-yellow-600/80 text-sm sm:text-base"
+          )
+            IconCoin(class="w-5 h-5 text-yellow-300")
+            span.game-text {{ coins }}
+          //- Treasure chest
+          div.flex.flex-col.items-center.pointer-events-auto(
+            @click="collectChest"
+            :class="chestReady ? 'cursor-pointer animate-pulse' : ''"
+          )
+            div.relative(class="w-10 h-10 sm:w-12 sm:h-12")
+              img.object-contain.w-full.h-full(
+                src="/images/icons/chest_128x128.webp"
+                :class="chestReady ? 'drop-shadow-[0_0_8px_rgba(255,200,0,0.8)]' : ''"
+              )
+              //- Circular cooldown overlay
+              svg.absolute.inset-0.w-full.h-full(
+                v-if="!chestReady"
+                viewBox="0 0 40 40"
+                style="transform: rotate(-90deg) scaleX(-1)"
+              )
+                circle(
+                  cx="20" cy="20" r="19"
+                  fill="none"
+                  stroke="rgba(0,0,0,0.55)"
+                  stroke-width="40"
+                  :stroke-dasharray="119.38"
+                  :stroke-dashoffset="119.38 * (1 - chestCooldownPct)"
+                )
+            span.game-text.text-white.font-bold(
+              class="text-[10px] sm:text-xs"
+            ) {{ chestTimeDisplay }}
 
       //- Center overlay messages
       div.absolute.flex.items-center.justify-center(class="inset-0 z-[10]")

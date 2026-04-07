@@ -19,7 +19,8 @@ const STATIC_IMAGES = [
   'images/icons/sound-icon_128x128.webp',
   'images/icons/team_128x128.webp',
   'images/icons/gears_128x128.webp',
-  'images/icons/movie_128x96.webp'
+  'images/icons/movie_128x96.webp',
+  'images/icons/chest_128x128.webp'
 ]
 
 const SOUND_ASSETS = [

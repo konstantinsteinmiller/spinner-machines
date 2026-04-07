@@ -153,7 +153,7 @@ export const useBaybladeGame = () => {
   let physicsRafId: number | null = null
 
   // ── Spark VFX ───────────────────────────────────────────────────────────
-  const sparkImage = preloadImage('/images/vfx/big-spark_256x1080.webp')
+  const sparkImage = preloadImage('/images/vfx/big-spark_1280x256.webp')
   const activeSparks: SpritesheetAnimation[] = []
   const sparkCooldowns = new Map<string, number>() // "a_b" -> last spawn timestamp
   const clashSoundCooldowns = new Map<string, number>()
@@ -859,9 +859,10 @@ export const useBaybladeGame = () => {
       setTimeout(() => {
         phase.value = 'game_over'
         stopPhysics()
-      }, 200)
+      }, 400)
     }
 
+    // Let sparks and damage numbers finish even after game over
     if (gameResult.value) return
 
     // Turn transitions — launched blade must come to rest (or be dead)
@@ -1044,7 +1045,7 @@ export const useBaybladeGame = () => {
       const cy = (a.y + b.y) / 2
       activeSparks.push(createSpritesheetAnim(
         sparkImage, cx, cy,
-        SPARK_TOTAL_FRAMES, SPARK_FRAME_DURATION, 256, 256, SPARK_SCALE, true
+        SPARK_TOTAL_FRAMES, SPARK_FRAME_DURATION, 256, 256, SPARK_SCALE, false
       ))
       sparkCooldowns.set(pairKey, now)
     }
