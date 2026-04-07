@@ -25,7 +25,8 @@ export const BAYBLADE_MODEL_MAP: Record<TopPartId, { player: BaybladeModelId; np
   triangle: { player: 'thunder', npc: 'bluedragon' },
   round: { player: 'turtle', npc: 'ice' },
   quadratic: { player: 'chip', npc: 'mysticaleye' },
-  cushioned: { player: 'nature', npc: 'wulf' }
+  cushioned: { player: 'nature', npc: 'wulf' },
+  piercer: { player: 'scorpion', npc: 'snake' }
 }
 
 /** Get the resolved image path for a bayblade given its top part, owner, and optional override */

@@ -1,6 +1,6 @@
 import { ref, type CSSProperties } from 'vue'
 
-export type ShakeIntensity = 'small' | 'strong'
+export type ShakeIntensity = 'small' | 'strong' | 'big'
 
 // Global state to ensure all components/composables see the same values
 const shakeStyle = ref<CSSProperties>({
@@ -11,8 +11,8 @@ const shakeStyle = ref<CSSProperties>({
 export const useScreenshake = () => {
   const triggerShake = (intensity: ShakeIntensity = 'small') => {
     // Adjusted these: 200px is too much! 20px is already a very strong shake.
-    const duration = intensity === 'strong' ? 500 : 300
-    const force = intensity === 'strong' ? 14 : 5
+    const duration = intensity === 'big' ? 700 : intensity === 'strong' ? 500 : 300
+    const force = intensity === 'big' ? 22 : intensity === 'strong' ? 14 : 5
     const startTime = performance.now()
 
     const shake = (currentTime: number) => {

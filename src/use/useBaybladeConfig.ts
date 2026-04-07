@@ -52,6 +52,14 @@ export const TOP_PARTS: Record<TopPartId, TopPart> = {
     defenseMultiplier: 1.8,
     healthBonus: 20,
     shape: 'cushion'
+  },
+  piercer: {
+    id: 'piercer',
+    label: 'Tank Piercer',
+    damageMultiplier: 1.7,
+    defenseMultiplier: 0.8,
+    healthBonus: 0,
+    shape: 'piercer'
   }
 }
 

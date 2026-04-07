@@ -14,6 +14,8 @@ import { useHint } from '@/use/useHint'
 import { useScreenshake } from '@/use/useScreenshake'
 import type { BaybladeConfig } from '@/types/bayblade'
 import useUser from '@/use/useUser'
+import IconCoin from '@/components/icons/IconCoin.vue'
+import DailyRewards from '@/components/organisms/DailyRewards.vue'
 
 // ─── Game & Config ─────────────────────────────────────────────────────────
 
@@ -53,6 +55,7 @@ const canvasWidth: Ref<number> = ref(0)
 const canvasHeight: Ref<number> = ref(0)
 const configModalOpen: Ref<boolean> = ref(false)
 const showOptions: Ref<boolean> = ref(false)
+const showDailyRewards: Ref<boolean> = ref(false)
 const coinsAwarded: Ref<boolean> = ref(false)
 
 // ─── NPC Team from Campaign Stage ─────────────────────────────────────────
@@ -275,10 +278,7 @@ onUnmounted(() => {
         div.flex.items-center.gap-2.rounded-lg.text-white.font-bold(
           class="px-3 py-1.5 bg-yellow-600/80 text-sm sm:text-base"
         )
-          svg(xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-5 h-5 text-yellow-300")
-            circle(cx="12" cy="12" r="11" fill="black")
-            circle(cx="12" cy="12" r="10" fill="currentColor")
-            text(x="12" y="18" text-anchor="middle" font-size="16" font-weight="bold" fill="#2f920e") $
+          IconCoin(class="w-5 h-5 text-yellow-300")
           span.game-text {{ coins }}
 
       //- Center overlay messages
@@ -313,6 +313,24 @@ onUnmounted(() => {
           div.text-white.italic.game-text(class="text-xs sm:text-sm opacity-50")
             | Tap a blade, then drag to launch
 
+      //- Bottom-left daily rewards button
+      div(
+        v-if="showConfigButton && !showReward && currentStageId >= 3"
+        class="fixed bottom-4 left-4 sm:bottom-6 sm:left-6 pointer-events-auto z-50"
+        :style="{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }"
+      )
+        button.group.cursor-pointer.z-10.transition-transform(
+          class="hover:scale-[103%] active:scale-90 scale-80 sm:scale-110"
+          @click="showDailyRewards = true"
+        )
+          div.relative
+            div.absolute.inset-0.translate-y-1.rounded-lg(class="bg-[#1a2b4b]")
+            div.relative.rounded-lg.border-2.text-white.font-bold.flex.flex-col.items-center.px-3.py-1(
+              class="bg-gradient-to-b from-[#ffcd00] to-[#f7a000] border-[#0f1a30]"
+            )
+              span.font-black.game-text.leading-tight(class="text-[10px] sm:text-xs") +100
+              IconCoin(class="w-5 h-5 text-yellow-300")
+
       //- Bottom-right buttons (always visible when not in reward overlay)
       div(
         v-if="showConfigButton && !showReward"
@@ -321,17 +339,20 @@ onUnmounted(() => {
       )
         //- Ad reward button
         button.group.cursor-pointer.z-10.transition-transform(
+          v-if="currentStageId >= 3"
           class="hover:scale-[103%] active:scale-90 scale-80 sm:scale-110"
         )
           div.relative
             div.absolute.inset-0.translate-y-1.rounded-lg(class="bg-[#1a2b4b]")
-            div.relative.rounded-lg.border-2.text-white.font-bold.flex.flex-col.items-center.px-3.py-1(
+            div.relative.rounded-lg.border-2.text-white.font-bold.flex.flex-col.items-center.px-2.py-1(
               class="bg-gradient-to-b from-[#ffcd00] to-[#f7a000] border-[#0f1a30]"
             )
-              span.font-black.game-text.leading-tight(class="text-[10px] sm:text-xs") +{{ adRewardCoins }} {{ t('bayblade.coins') }}
+              div.flex.items-center.gap-1
+                span.font-black.game-text.leading-tight(class="text-[10px] sm:text-xs") +{{ adRewardCoins }}
+                IconCoin.inline(class="w-4 h-4 text-yellow-300")
               img.object-contain(
                 src="/images/icons/movie_128x96.webp"
-                class="h-7 w-9 sm:h-8 sm:w-10"
+                class="h-7 w-7 sm:h-8 sm:w-8"
               )
 
         FIconButton(
@@ -362,9 +383,7 @@ onUnmounted(() => {
           :class="gameResult === 'win' ? 'text-green-400' : 'text-red-400'"
         ) {{ resultText }}
         div.flex.items-center.gap-3
-          svg(xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-8 h-8 text-yellow-300")
-            circle(cx="12" cy="12" r="10" fill="currentColor")
-            text(x="12" y="16" text-anchor="middle" font-size="12" font-weight="bold" fill="#92400e") $
+          IconCoin(class="w-8 h-8 text-yellow-300")
           span.text-yellow-400.font-black.game-text(class="text-2xl sm:text-4xl") +{{ rewardAmount }}
 
     //- Options Modal
@@ -378,6 +397,11 @@ onUnmounted(() => {
       v-model="configModalOpen"
       :initial-team="playerTeam"
       @save="onConfigSave"
+    )
+
+    //- Daily Rewards Modal
+    DailyRewards(
+      v-model="showDailyRewards"
     )
 </template>
 

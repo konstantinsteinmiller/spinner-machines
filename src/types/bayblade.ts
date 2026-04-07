@@ -5,7 +5,8 @@ export const TOP_PART_IDS = {
   TRIANGLE: 'triangle',
   ROUND: 'round',
   QUADRATIC: 'quadratic',
-  CUSHIONED: 'cushioned'
+  CUSHIONED: 'cushioned',
+  PIERCER: 'piercer'
 } as const
 
 export type TopPartId = (typeof TOP_PART_IDS)[keyof typeof TOP_PART_IDS]
@@ -26,7 +27,7 @@ export interface TopPart {
   damageMultiplier: number
   defenseMultiplier: number
   healthBonus: number
-  shape: 'star' | 'triangle' | 'circle' | 'square' | 'cushion'
+  shape: 'star' | 'triangle' | 'circle' | 'square' | 'cushion' | 'piercer'
 }
 
 export interface BottomPart {

@@ -291,7 +291,8 @@ export const TOP_UPGRADE_BONUS: Record<TopPartId, { damage: number; defense: num
   triangle: { damage: 0.08, defense: 0.05, hp: 2 },  // aggressive balanced
   round: { damage: 0.04, defense: 0.08, hp: 4 },  // defensive
   quadratic: { damage: 0.06, defense: 0.06, hp: 3 },  // true balanced
-  cushioned: { damage: 0.03, defense: 0.10, hp: 5 }   // pure tank
+  cushioned: { damage: 0.03, defense: 0.10, hp: 5 },  // pure tank
+  piercer: { damage: 0.11, defense: 0.03, hp: 1 }    // tank piercer
 }
 
 /** Per-level bonus for each bottom part */
@@ -316,7 +317,7 @@ export interface PlayerUpgrades {
 }
 
 const DEFAULT_UPGRADES: PlayerUpgrades = {
-  tops: { star: 0, triangle: 0, round: 0, quadratic: 0, cushioned: 0 },
+  tops: { star: 0, triangle: 0, round: 0, quadratic: 0, cushioned: 0, piercer: 0 },
   bottoms: { speedy: 0, tanky: 0, balanced: 0 }
 }
 
@@ -337,7 +338,10 @@ const loadUpgrades = (): PlayerUpgrades => {
     const raw = localStorage.getItem(UPGRADES_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
-      if (parsed?.tops && parsed?.bottoms) return parsed
+      if (parsed?.tops && parsed?.bottoms) return {
+        tops: { ...DEFAULT_UPGRADES.tops, ...parsed.tops },
+        bottoms: { ...DEFAULT_UPGRADES.bottoms, ...parsed.bottoms }
+      }
     }
   } catch { /* fall through */
   }

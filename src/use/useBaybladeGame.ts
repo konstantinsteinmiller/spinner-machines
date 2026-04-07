@@ -999,30 +999,41 @@ export const useBaybladeGame = () => {
       aHitInBack = cosAngle >= Math.cos(CRIT_CONE_HALF)
     }
 
+    let hadCrit = false
+    let hadKill = false
+
     // a attacks b
     if (aSpeed > STOP_THRESHOLD && !aHitInBack) {
       const isCrit = bHitInBack
-      const defMul = isCrit ? 1 : bStats.defenseMultiplier
+      if (isCrit) hadCrit = true
+      let defMul = isCrit ? 1 : bStats.defenseMultiplier
+      if (a.config.topPartId === 'piercer') defMul = 1 + (defMul - 1) * 0.5
       const atkMul = isCrit ? 1.25 : 1
       const dmg = (aSpeed * aStats.damageMultiplier * atkMul * aStats.totalWeight)
         / (bStats.totalWeight * defMul)
         * DAMAGE_SCALE
       b.hp = Math.max(0, b.hp - dmg)
+      if (b.hp <= 0) hadKill = true
       b.hitFlash = HIT_FLASH_FRAMES
       spawnDamageNumber(cx, cy, dmg, a.owner, isCrit)
     }
     // b attacks a
     if (bSpeed > STOP_THRESHOLD && !bHitInBack) {
       const isCrit = aHitInBack
-      const defMul = isCrit ? 1 : aStats.defenseMultiplier
+      if (isCrit) hadCrit = true
+      let defMul = isCrit ? 1 : aStats.defenseMultiplier
+      if (b.config.topPartId === 'piercer') defMul = 1 + (defMul - 1) * 0.5
       const atkMul = isCrit ? 1.25 : 1
       const dmg = (bSpeed * bStats.damageMultiplier * atkMul * bStats.totalWeight)
         / (aStats.totalWeight * defMul)
         * DAMAGE_SCALE
       a.hp = Math.max(0, a.hp - dmg)
+      if (a.hp <= 0) hadKill = true
       a.hitFlash = HIT_FLASH_FRAMES
       spawnDamageNumber(cx, cy, dmg, b.owner, isCrit)
     }
+
+    if (hadKill || hadCrit) triggerShake('big')
 
     // Spark VFX at collision point (with cooldown per pair)
     const pairKey = a.id < b.id ? `${a.id}_${b.id}` : `${b.id}_${a.id}`
