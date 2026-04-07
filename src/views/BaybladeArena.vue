@@ -548,7 +548,7 @@ onUnmounted(() => {
           @click="showOptions = true"
         )
         FIconButton(
-          v-if="hasFirstWin"
+          v-if="hasFirstWin || currentStageId >= 2"
           type="secondary"
           size="lg"
           :img-src="prependBaseUrl('images/icons/team_128x128.webp')"
