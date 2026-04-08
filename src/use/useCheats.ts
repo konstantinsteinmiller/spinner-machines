@@ -5,7 +5,7 @@ import useCampaign, { demoCampaignNodes, type MobileNode } from '@/use/useCampai
 import useBaybladeCampaign, { STAGES, type ArenaType } from '@/use/useBaybladeCampaign'
 import useLeaderboard from '@/use/useLeaderboard'
 import { arenaType, resetGameStartCount } from '@/use/useBaybladeGame'
-import type { GameCard } from '@/types/game'
+import type { BossAbility } from '@/types/bayblade'
 
 const storedCheat = localStorage.getItem('cheat') || 'false'
 const isCheat = ref<boolean>(JSON.parse(storedCheat))
@@ -22,43 +22,6 @@ const useCheats = () => {
   /**
    * ACTIONS
    */
-  const unlockAllCards = () => {
-    const allCardsCollectionDebug = allModels.map((card: GameCard) => ({
-      id: card.id,
-      count: 1
-    }))
-    setSettingValue('collection', allCardsCollectionDebug)
-    console.warn('[CHEAT] All cards unlocked.')
-  }
-
-  const unlockAllCampaignNodes = () => {
-    campaignNodes.value = campaignNodes.value.map(node => ({ ...node, completed: true, unlocked: true }))
-    console.warn('[CHEAT] All campaign nodes completed.')
-  }
-
-  const unlockAllDemoCampaignNodes = () => {
-    if (!isDemo) return
-    // campaignNodes.value = campaignNodes.value.reduce((all, node) => {
-    //   return all.concat([{ ...node, completed: demoCampaignNodes.some(demo => demo.id === node.id) }])
-    // }, [])
-    campaignNodes.value = campaignNodes.value.reduce((all, node) => {
-      return all.concat([{
-        ...node,
-        completed: demoCampaignNodes.some(demo => demo.id === node.id) && node.id !== 'node-e2-b' && node.id !== 'node-w2'
-      }])
-    }, [])
-    saveCampaign({ id: 'node-w-all', knownCards: [] })
-
-    console.warn('[CHEAT] All DEMO campaign nodes completed.')
-  }
-
-  const printAllIds = () => {
-    const youngIds = allModels.filter((card: GameCard) => card.id.includes('-young'))
-    const middleIds = allModels.filter((card: GameCard) => card.id.includes('-middle'))
-    const oldIds = allModels.filter((card: GameCard) => card.id.includes('-old'))
-    console.warn('[CHEAT] All sorted ids.', youngIds, middleIds, oldIds)
-  }
-
   const setBaybladeStage = (stageId: number) => {
     console.log('stageId: ', stageId)
     if (stageId < 1 || stageId > STAGES.length) {
@@ -93,6 +56,25 @@ const useCheats = () => {
     console.warn(`[CHEAT] Arena type set to '${type}'.`)
   }
 
+  /**
+   * Spawn a custom boss-ability test stage scaled to the player's current
+   * upgrade levels. Lets you exercise ghost / split / partners / healers in
+   * isolation without grinding the campaign.
+   */
+  const spawnCheatBoss = (ability: BossAbility) => {
+    const { buildCheatBossStage, loadCheatStage } = useBaybladeCampaign()
+    const stage = buildCheatBossStage(ability)
+    loadCheatStage(stage)
+    console.warn(`[CHEAT] Loaded '${ability}' boss test stage (scaled to your upgrades).`)
+  }
+
+  /** Clear any active cheat-stage override and return to the campaign stage. */
+  const clearCheatStage = () => {
+    const { loadCheatStage } = useBaybladeCampaign()
+    loadCheatStage(null)
+    console.warn('[CHEAT] Cheat stage cleared — back to campaign.')
+  }
+
   /** Jump forward/backward by 10 stages */
   const shiftBaybladeStage = (delta: number) => {
     const { currentStageId } = useBaybladeCampaign()
@@ -113,11 +95,7 @@ const useCheats = () => {
    * Note: 'ctrl' also catches 'meta' (Cmd on Mac) for better UX.
    */
   const cheatsMap: Record<string, () => void> = {
-    'ctrl+shift+c': unlockAllCards,
-    'ctrl+shift+b': unlockAllCampaignNodes,
-    'ctrl+shift+g': unlockAllDemoCampaignNodes,
     'ctrl+shift+j': resetCampaign,
-    'ctrl+shift+k': printAllIds,
     'ctrl+shift+d': () => console.log('[DEBUG] Models:', allModels),
     // Bayblade stage shortcuts: Ctrl+Shift+1..9 for stages 1-9, Ctrl+Shift+0 for stage 10
     'ctrl+shift+1': () => setBaybladeStage(1),
@@ -149,7 +127,13 @@ const useCheats = () => {
     'ctrl+shift+alt+f': () => setArenaType('forest'),
     'ctrl+shift+alt+d': () => setArenaType('default'),
     'ctrl+shift+alt+b': () => setArenaType('boss'),
-    'ctrl+shift+alt+h': () => setArenaType('thunder')
+    'ctrl+shift+alt+h': () => setArenaType('thunder'),
+    // Boss-ability test stages (scaled to player upgrades for a fair fight)
+    'ctrl+shift+alt+q': () => spawnCheatBoss('ghost'),
+    'ctrl+shift+alt+w': () => spawnCheatBoss('split'),
+    'ctrl+shift+alt+e': () => spawnCheatBoss('partners'),
+    'ctrl+shift+alt+r': () => spawnCheatBoss('healers'),
+    'ctrl+shift+alt+c': clearCheatStage
   }
 
   /**

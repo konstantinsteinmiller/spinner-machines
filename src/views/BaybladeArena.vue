@@ -51,7 +51,15 @@ const {
 } = useBaybladeGame()
 
 const { playerTeam, hasFirstWin, saveTeam, addCoins, markFirstWin } = useBaybladeConfig()
-const { currentStage, currentStageId, isLastStage, playerUpgrades, advanceStage } = useBaybladeCampaign()
+const {
+  currentStage,
+  currentStageId,
+  isLastStage,
+  playerUpgrades,
+  advanceStage,
+  stageReinitSignal,
+  cheatStage
+} = useBaybladeCampaign()
 const { recordPlayerStage, markGhostFought } = useLeaderboard()
 const { showHint, startHintTimer, clearHint } = useHint(5000)
 const { shakeStyle } = useScreenshake()
@@ -86,16 +94,39 @@ const stageNpcTeam = (): BaybladeConfig[] =>
     topLevel: e.topLevel,
     bottomLevel: e.bottomLevel,
     modelId: e.modelId,
-    isBoss: e.isBoss
+    isBoss: e.isBoss,
+    // Forward the special boss ability so ghost/split/partners/healers
+    // actually activate when their stage loads.
+    bossAbility: e.bossAbility
   }))
 
-/** Player team with current upgrade levels applied */
-const playerTeamWithUpgrades = (): BaybladeConfig[] =>
-  playerTeam.value.map(c => ({
+/** Player team with current upgrade levels applied.
+ *  While a cheat boss stage is active the player's blades are temporarily
+ *  boosted well above the enemy level so the demo fight is actually winnable.
+ *  The enemies (built by buildCheatBossStage) scale to the player's peak
+ *  upgrades AND carry the boss 2x HP + 1.6x radius multipliers, so simply
+ *  matching levels leaves the player too weak. We add a flat +25 levels on
+ *  top of the matched peak — localStorage upgrades are never touched.
+ *  There is no upgrade max level, so this is safe to stack arbitrarily. */
+const CHEAT_PLAYER_BONUS_LEVELS = 25
+const playerTeamWithUpgrades = (): BaybladeConfig[] => {
+  if (cheatStage.value) {
+    const tops = playerUpgrades.value.tops
+    const bots = playerUpgrades.value.bottoms
+    const peakTop = Math.max(0, ...Object.values(tops))
+    const peakBot = Math.max(0, ...Object.values(bots))
+    return playerTeam.value.map(c => ({
+      ...c,
+      topLevel: Math.max(tops[c.topPartId] ?? 0, peakTop) + CHEAT_PLAYER_BONUS_LEVELS,
+      bottomLevel: Math.max(bots[c.bottomPartId] ?? 0, peakBot) + CHEAT_PLAYER_BONUS_LEVELS
+    }))
+  }
+  return playerTeam.value.map(c => ({
     ...c,
     topLevel: playerUpgrades.value.tops[c.topPartId],
     bottomLevel: playerUpgrades.value.bottoms[c.bottomPartId]
   }))
+}
 
 // ─── Hint Timer ───────────────────────────────────────────────────────────
 
@@ -105,6 +136,18 @@ watch(phase, (p) => {
   } else {
     clearHint()
   }
+})
+
+// Cheat-stage reinit: when a cheat loads a custom boss stage (or clears one),
+// `stageReinitSignal` is bumped and we rebuild the match with whatever
+// `currentStage` now resolves to. Kept out of useCheats.ts so that composable
+// doesn't need to reach into the active game instance.
+watch(stageReinitSignal, () => {
+  coinsAwarded.value = false
+  showReward.value = false
+  ghostMode.value = false
+  ghostEnemy.value = null
+  initGame(playerTeamWithUpgrades(), stageNpcTeam(), !hasFirstWin.value, currentStage.value.arenaType)
 })
 
 // ─── Computed ──────────────────────────────────────────────────────────────

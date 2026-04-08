@@ -41,8 +41,10 @@ const WALL_BOUNCE_MIN_EFFECTIVENESS = 0.30
 const ARENA_PADDING = 5
 // Blade needs time to reach full speed after launch
 const ACCEL_FRAMES = 28
-// Long pull distance — enables wild mega-pulls that risk hitting own team
-const MAX_PULL_RATIO = 0.85
+// Pull distance — tuned for mobile screens where screen real estate is
+// limited. Previously 0.85 of the arena radius (wild mega-pulls), now ~40%
+// shorter so a full-force shot fits within thumb reach on a phone.
+const MAX_PULL_RATIO = 0.51
 
 export const MAX_PULL_DISTANCE = ARENA_RADIUS * MAX_PULL_RATIO
 
@@ -396,6 +398,23 @@ export const useBaybladeGame = () => {
   // ─── Helpers ─────────────────────────────────────────────────────────────
 
   let nextBladeId = 0
+  let nextGroupId = 1
+
+  // ── Boss ability tuning ────────────────────────────────────────────────
+  // Split-boss: children stats (fractions of the parent).
+  const SPLIT_CHILD_COUNT = 5
+  const SPLIT_CHILD_HP_PCT = 0.22
+  const SPLIT_CHILD_DAMAGE_PCT = 0.35
+  const SPLIT_CHILD_RADIUS_PCT = 0.62
+  const SPLIT_CHILD_INVULN_MS = 1100
+  // Ghost-boss: lateral offset of the twin at spawn, relative to blade radius.
+  const GHOST_SPLIT_OFFSET = 2.1
+  // Healer-boss: oversize vs normal blade (1.2x as requested).
+  const HEALER_RADIUS_MULT = 1.2
+  // Healer-boss: HP restored per ally-contact, capped so it's chip-heal only.
+  const HEALER_CONTACT_HEAL = 2
+  const HEALER_HEAL_COOLDOWN_MS = 250
+  const healerHealCooldowns = new Map<string, number>()
 
   const speed = (blade: BaybladeState): number =>
     Math.sqrt(blade.vx * blade.vx + blade.vy * blade.vy)
@@ -403,14 +422,19 @@ export const useBaybladeGame = () => {
   const livingBlades = (blades: BaybladeState[]): BaybladeState[] =>
     blades.filter(b => b.hp > 0)
 
+  const isInvulnerable = (blade: BaybladeState): boolean =>
+    blade.invulnerableUntil !== undefined && performance.now() < blade.invulnerableUntil
+
   let firstGameBoost = false
 
   const statsFor = (blade: BaybladeState): BaybladeStats => {
     const stats = computeStats(blade.config, blade.config.topLevel ?? 0, blade.config.bottomLevel ?? 0)
-    if (firstGameBoost && blade.owner === 'player') {
-      return { ...stats, damageMultiplier: stats.damageMultiplier * 2 }
-    }
-    return stats
+    let dmg = stats.damageMultiplier
+    if (firstGameBoost && blade.owner === 'player') dmg *= 2
+    // Split-boss children hit for a fraction of the parent's damage so a
+    // swarm can't simply out-DPS a focused target.
+    if (blade.isSplitChild) dmg *= SPLIT_CHILD_DAMAGE_PCT
+    return dmg === stats.damageMultiplier ? stats : { ...stats, damageMultiplier: dmg }
   }
 
   // ─── Factory ─────────────────────────────────────────────────────────────
@@ -424,7 +448,14 @@ export const useBaybladeGame = () => {
     const stats = computeStats(config, config.topLevel ?? 0, config.bottomLevel ?? 0)
     const bossHpMultiplier = isBoss ? 2 : 1
     const boostHpMultiplier = (firstGameBoost && owner === 'player') ? 2 : 1
-    const bossRadius = isBoss ? BLADE_RADIUS * 1.6 : BLADE_RADIUS
+    // Healer partners are only 20% oversize — per design they're "barely
+    // bigger than normal blades". Every other boss keeps the 1.6x hulk
+    // radius so the classic solo-boss silhouette still reads as huge.
+    let radiusMult = 1
+    if (isBoss) {
+      radiusMult = config.bossAbility === 'healers' ? HEALER_RADIUS_MULT : 1.6
+    }
+    const bossRadius = BLADE_RADIUS * radiusMult
     const finalHp = stats.maxHp * bossHpMultiplier * boostHpMultiplier
     return {
       id: nextBladeId++,
@@ -444,6 +475,143 @@ export const useBaybladeGame = () => {
       owner,
       isBoss
     }
+  }
+
+  // ─── Boss Ability Helpers ────────────────────────────────────────────────
+
+  /**
+   * Spawn the twin half of a ghost-boss blade. Called once on the parent's
+   * first launch. The twin mirrors the launch vector (perpendicular offset),
+   * shares the parent's group so there is no friendly fire, and is linked
+   * both ways for damage mirroring.
+   */
+  const spawnGhostTwin = (parent: BaybladeState) => {
+    // Derive the launch direction from the parent's acceleration vector
+    // (we run this on the same frame as the launch, so velocity is still 0).
+    const mag = Math.hypot(parent.ax, parent.ay) || 1
+    const ndx = parent.ax / mag
+    const ndy = parent.ay / mag
+    // Perpendicular offset so the twin spawns *beside* the parent, not
+    // inside it — prevents the first physics step from overlap-pushing.
+    const perpX = -ndy
+    const perpY = ndx
+    const offset = parent.radius * GHOST_SPLIT_OFFSET
+
+    const twin = createBladeState(
+      parent.owner,
+      parent.x + perpX * offset,
+      parent.y + perpY * offset,
+      { ...parent.config },
+      parent.isBoss
+    )
+    // Twin inherits parent's current HP (parent may already have taken a
+    // pre-launch hit) so the "shared damage" contract holds retroactively.
+    twin.hp = parent.hp
+    twin.maxHp = parent.maxHp
+    twin.groupId = parent.groupId
+    twin.ax = parent.ax
+    twin.ay = parent.ay
+    twin.accelFramesLeft = parent.accelFramesLeft
+    twin.ghostPending = false
+    // Cross-link: each half mirrors damage to the other.
+    parent.linkedIds = [...(parent.linkedIds ?? []), twin.id]
+    twin.linkedIds = [parent.id]
+    parent.ghostPending = false
+
+    // Ensure twin is clamped inside the arena.
+    const d = Math.hypot(twin.x, twin.y)
+    const maxR = ARENA_RADIUS - twin.radius
+    if (d > maxR) {
+      twin.x *= maxR / d
+      twin.y *= maxR / d
+    }
+
+    if (parent.owner === 'npc') npcBlades.value = [...npcBlades.value, twin]
+    else playerBlades.value = [...playerBlades.value, twin]
+  }
+
+  /**
+   * Shatter a split-boss blade into mini children. Called the instant the
+   * parent's HP reaches zero. Children spread radially with short-lived
+   * invincibility frames so they don't immediately slam into each other,
+   * and they inherit the parent's group so their swarm never self-damages.
+   */
+  const spawnSplitChildren = (parent: BaybladeState) => {
+    const now = performance.now()
+    const children: BaybladeState[] = []
+    for (let i = 0; i < SPLIT_CHILD_COUNT; i++) {
+      const angle = (i / SPLIT_CHILD_COUNT) * Math.PI * 2 + Math.random() * 0.25
+      const dx = Math.cos(angle)
+      const dy = Math.sin(angle)
+      // Place outside parent's body so they don't trivially collide on frame 1.
+      const childRadius = BLADE_RADIUS * SPLIT_CHILD_RADIUS_PCT
+      const spawnDist = parent.radius + childRadius * 1.1
+      const child = createBladeState(
+        parent.owner,
+        parent.x + dx * spawnDist,
+        parent.y + dy * spawnDist,
+        { ...parent.config, bossAbility: undefined, isBoss: false },
+        false
+      )
+      child.radius = childRadius
+      child.maxHp = Math.max(1, Math.round(parent.maxHp * SPLIT_CHILD_HP_PCT))
+      child.hp = child.maxHp
+      child.groupId = parent.groupId ?? (nextGroupId++)
+      child.isSplitChild = true
+      child.invulnerableUntil = now + SPLIT_CHILD_INVULN_MS
+      // Drift outward so the swarm spreads and settles into free space.
+      const drift = 1.2
+      child.vx = dx * drift
+      child.vy = dy * drift
+
+      // Clamp inside the arena so newborns don't instantly wall-bounce.
+      const d = Math.hypot(child.x, child.y)
+      const maxR = ARENA_RADIUS - child.radius - 4
+      if (d > maxR) {
+        child.x *= maxR / d
+        child.y *= maxR / d
+      }
+      children.push(child)
+    }
+    if (parent.owner === 'npc') npcBlades.value = [...npcBlades.value, ...children]
+    else playerBlades.value = [...playerBlades.value, ...children]
+  }
+
+  /**
+   * Apply damage to a blade with ghost-link mirroring. Returns true if the
+   * blade (or any linked half) was killed by this hit, so callers can run
+   * the split-on-death handler.
+   */
+  const applyBladeDamage = (
+    target: BaybladeState,
+    dmg: number,
+    cx: number, cy: number,
+    sourceOwner: 'player' | 'npc',
+    isCrit: boolean
+  ): boolean => {
+    let killed = false
+    target.hp = Math.max(0, target.hp - dmg)
+    target.hitFlash = HIT_FLASH_FRAMES
+    spawnDamageNumber(cx, cy, dmg, sourceOwner, isCrit)
+    if (target.hp <= 0) killed = true
+
+    // Ghost link: any damage taken is mirrored 1:1 to the linked halves.
+    // Mirror is non-recursive (we don't re-mirror back to the source) to
+    // avoid an infinite ping-pong.
+    if (target.linkedIds && target.linkedIds.length > 0) {
+      const all = allBlades.value
+      for (const lid of target.linkedIds) {
+        const linked = all.find(b => b.id === lid)
+        if (!linked || linked.hp <= 0) continue
+        linked.hp = Math.max(0, linked.hp - dmg)
+        linked.hitFlash = HIT_FLASH_FRAMES
+        // Mirrored numbers render at the linked blade's location so the
+        // player sees the ghost-link is real.
+        spawnDamageNumber(linked.x, linked.y, dmg, sourceOwner, false)
+        if (linked.hp <= 0) killed = true
+      }
+    }
+    return killed
   }
 
   // ─── Game Lifecycle ──────────────────────────────────────────────────────
@@ -528,6 +696,43 @@ export const useBaybladeGame = () => {
       createBladeState('npc', npcPositions[i]!.x, npcPositions[i]!.y, cfg, cfg.isBoss)
     )
 
+    // ── Boss ability wiring ───────────────────────────────────────────────
+    // Decide the enemy team's "ability theme" from its leading boss entry.
+    // A single ability applies to the whole enemy roster so the player
+    // reads the fight as one coherent encounter (e.g. "all these blades
+    // are a partner group").
+    const leadAbility = nTeam.find(c => c.bossAbility)?.bossAbility
+    if (leadAbility === 'partners' || leadAbility === 'healers') {
+      // All enemy blades share the same group — no friendly fire between
+      // them, and healer groups also tick a chip-heal on ally contact.
+      const gid = nextGroupId++
+      for (const blade of npcBlades.value) {
+        blade.groupId = gid
+        blade.bouncesAllies = true
+        if (leadAbility === 'healers') blade.healsAllies = true
+      }
+    } else if (leadAbility === 'ghost') {
+      // Each ghost boss gets its own group and is flagged to spawn its
+      // twin on the first launch. The split is deferred to launch time so
+      // the dramatic "one blade becomes two" beat is preserved.
+      for (const blade of npcBlades.value) {
+        if (blade.config.bossAbility === 'ghost') {
+          blade.groupId = nextGroupId++
+          blade.ghostPending = true
+        }
+      }
+    } else if (leadAbility === 'split') {
+      // The split boss keeps its own group so its children never hurt
+      // each other when they swarm. Flagged here — spawning happens on
+      // death inside resolveCollision.
+      for (const blade of npcBlades.value) {
+        if (blade.config.bossAbility === 'split') {
+          blade.groupId = nextGroupId++
+          blade.splitsOnDeath = true
+        }
+      }
+    }
+
     isBossStage.value = nTeam.some(cfg => cfg.isBoss)
     arenaType.value = isBossStage.value ? 'boss' : arena
 
@@ -544,6 +749,7 @@ export const useBaybladeGame = () => {
     comboState.clear()
     lastCritAt.clear()
     spikyChipCooldowns.clear()
+    healerHealCooldowns.clear()
     damageNumbers.length = 0
     clearCountdown()
     phase.value = 'tap_to_start'
@@ -712,6 +918,7 @@ export const useBaybladeGame = () => {
     blade.wallBounceCount = 0
 
     launchedBladeId.value = blade.id
+    if (blade.ghostPending) spawnGhostTwin(blade)
     isDragging.value = false
     phase.value = 'player_launched'
   }
@@ -738,6 +945,7 @@ export const useBaybladeGame = () => {
     blade.wallBounceCount = 0
 
     launchedBladeId.value = blade.id
+    if (blade.ghostPending) spawnGhostTwin(blade)
     isDragging.value = false
     phase.value = 'player_launched'
   }
@@ -783,6 +991,7 @@ export const useBaybladeGame = () => {
       blade.accelFramesLeft = ACCEL_FRAMES
       blade.wallBounceCount = 0
       launchedBladeId.value = blade.id
+      if (blade.ghostPending) spawnGhostTwin(blade)
       phase.value = 'npc_launched'
       return
     }
@@ -845,6 +1054,7 @@ export const useBaybladeGame = () => {
     blade.wallBounceCount = 0
 
     launchedBladeId.value = blade.id
+    if (blade.ghostPending) spawnGhostTwin(blade)
     phase.value = 'npc_launched'
   }
 
@@ -1100,6 +1310,65 @@ export const useBaybladeGame = () => {
 
     if (dist >= minDist || dist < 0.01) return
 
+    // Invulnerable split-children phase through everything — no physics,
+    // no damage — until they settle. Their blinking renders elsewhere.
+    if (isInvulnerable(a) || isInvulnerable(b)) return
+
+    // Same-group (partner / healer / ghost-twin / split-sibling) contact —
+    // no damage. Partner/healer allies still physically bounce + separate
+    // so they don't stack on top of each other, while ghost twins and
+    // split siblings keep phasing through one another.
+    if (a.groupId !== undefined && a.groupId === b.groupId) {
+      const now_ally = performance.now()
+      const bounceAllies = !!(a.bouncesAllies && b.bouncesAllies)
+      if (a.healsAllies || b.healsAllies) {
+        const key = a.id < b.id ? `${a.id}_${b.id}` : `${b.id}_${a.id}`
+        const last = healerHealCooldowns.get(key) ?? 0
+        if (now_ally - last >= HEALER_HEAL_COOLDOWN_MS) {
+          const healA = Math.round(Math.min(HEALER_CONTACT_HEAL, a.maxHp - a.hp))
+          const healB = Math.round(Math.min(HEALER_CONTACT_HEAL, b.maxHp - b.hp))
+          if (healA > 0) {
+            a.hp += healA
+            damageNumbers.push({
+              x: a.x, y: a.y,
+              value: healA, life: DAMAGE_NUMBER_LIFE, maxLife: DAMAGE_NUMBER_LIFE,
+              vx: 0, vy: -0.08,
+              color: '#44ff88', isCrit: false
+            })
+          }
+          if (healB > 0) {
+            b.hp += healB
+            damageNumbers.push({
+              x: b.x, y: b.y,
+              value: healB, life: DAMAGE_NUMBER_LIFE, maxLife: DAMAGE_NUMBER_LIFE,
+              vx: 0, vy: -0.08,
+              color: '#44ff88', isCrit: false
+            })
+          }
+          healerHealCooldowns.set(key, now_ally)
+        }
+      }
+      if (bounceAllies) {
+        // Elastic bounce + positional separation, no damage applied.
+        const nx = dx / dist
+        const ny = dy / dist
+        const aDot = a.vx * nx + a.vy * ny
+        const bDot = b.vx * nx + b.vy * ny
+        a.vx = (a.vx - aDot * nx + bDot * nx) * BOUNCE_DAMPENING
+        a.vy = (a.vy - aDot * ny + bDot * ny) * BOUNCE_DAMPENING
+        b.vx = (b.vx - bDot * nx + aDot * nx) * BOUNCE_DAMPENING
+        b.vy = (b.vy - bDot * ny + aDot * ny) * BOUNCE_DAMPENING
+        const overlap = minDist - dist
+        a.x -= (overlap / 2) * nx
+        a.y -= (overlap / 2) * ny
+        b.x += (overlap / 2) * nx
+        b.y += (overlap / 2) * ny
+      }
+      // Skip all further resolution — no damage between allies. Ghost twins
+      // and split siblings (bouncesAllies=false) continue to phase through.
+      return
+    }
+
     // Reset no-hit timer on collision
     const now_hit = performance.now()
     a.lastHitTime = now_hit
@@ -1251,10 +1520,7 @@ export const useBaybladeGame = () => {
       const dmg = (aSpeed * aStats.damageMultiplier * atkMul * aStats.totalWeight)
         / (bStats.totalWeight * defMul)
         * DAMAGE_SCALE * bSpeedAdv * aComboMul
-      b.hp = Math.max(0, b.hp - dmg)
-      if (b.hp <= 0) hadKill = true
-      b.hitFlash = HIT_FLASH_FRAMES
-      spawnDamageNumber(cx, cy, dmg, a.owner, isCrit)
+      if (applyBladeDamage(b, dmg, cx, cy, a.owner, isCrit)) hadKill = true
     }
     // b attacks a
     if (bSpeed > STOP_THRESHOLD && !bHitInBack) {
@@ -1272,10 +1538,7 @@ export const useBaybladeGame = () => {
       const dmg = (bSpeed * bStats.damageMultiplier * atkMul * bStats.totalWeight)
         / (aStats.totalWeight * defMul)
         * DAMAGE_SCALE * aSpeedAdv * bComboMul
-      a.hp = Math.max(0, a.hp - dmg)
-      if (a.hp <= 0) hadKill = true
-      a.hitFlash = HIT_FLASH_FRAMES
-      spawnDamageNumber(cx, cy, dmg, b.owner, isCrit)
+      if (applyBladeDamage(a, dmg, cx, cy, b.owner, isCrit)) hadKill = true
     }
 
     // Spiky top — flat "barbs" damage on every collision pair, independent
@@ -1290,20 +1553,28 @@ export const useBaybladeGame = () => {
       if (nowChip - lastChip >= SPIKY_CHIP_COOLDOWN_MS) {
         let chipped = false
         if (a.config.topPartId === 'triangle' && !aHitInBack && b.hp > 0) {
-          b.hp = Math.max(0, b.hp - SPIKY_FLAT_DAMAGE)
-          if (b.hp <= 0) hadKill = true
-          b.hitFlash = HIT_FLASH_FRAMES
-          spawnDamageNumber(cx, cy, SPIKY_FLAT_DAMAGE, a.owner, false)
+          if (applyBladeDamage(b, SPIKY_FLAT_DAMAGE, cx, cy, a.owner, false)) hadKill = true
           chipped = true
         }
         if (b.config.topPartId === 'triangle' && !bHitInBack && a.hp > 0) {
-          a.hp = Math.max(0, a.hp - SPIKY_FLAT_DAMAGE)
-          if (a.hp <= 0) hadKill = true
-          a.hitFlash = HIT_FLASH_FRAMES
-          spawnDamageNumber(cx, cy, SPIKY_FLAT_DAMAGE, b.owner, false)
+          if (applyBladeDamage(a, SPIKY_FLAT_DAMAGE, cx, cy, b.owner, false)) hadKill = true
           chipped = true
         }
         if (chipped) spikyChipCooldowns.set(spikyKey, nowChip)
+      }
+    }
+
+    // Split-boss shatter — if the hit killed a blade flagged to split,
+    // spawn its mini children right where it died. Done here (not at the
+    // damage site) so only a single death pass runs per collision.
+    if (hadKill) {
+      if (a.hp <= 0 && a.splitsOnDeath && !a.isSplitChild) {
+        a.splitsOnDeath = false
+        spawnSplitChildren(a)
+      }
+      if (b.hp <= 0 && b.splitsOnDeath && !b.isSplitChild) {
+        b.splitsOnDeath = false
+        spawnSplitChildren(b)
       }
     }
 
@@ -1679,6 +1950,24 @@ export const useBaybladeGame = () => {
     const { x, y, rotation, owner, hitFlash, hp, maxHp, radius } = blade
     const isPlayer = owner === 'player'
 
+    // Invulnerability blink — split-boss children phase in as ghostly
+    // flickers before they can be hit. We wrap the whole blade render in
+    // a save/restore so the alpha only affects this blade.
+    let invulnAlpha = 1
+    if (isInvulnerable(blade)) {
+      // 10Hz square-wave flicker: 60% / 15% alpha swap ~6 times a second.
+      invulnAlpha = (Math.floor(performance.now() / 90) % 2 === 0) ? 0.6 : 0.2
+    }
+    // Ghost bosses render at 80% opacity so they read as spectral — both
+    // the parent and its mid-launch twin (twin inherits config.bossAbility).
+    const ghostAlpha = blade.config.bossAbility === 'ghost' ? 0.5 : 1
+    const bladeAlpha = invulnAlpha * ghostAlpha
+    const needsAlpha = bladeAlpha < 1
+    if (needsAlpha) {
+      ctx.save()
+      ctx.globalAlpha = bladeAlpha
+    }
+
     // Circular clip for the model image
     ctx.save()
     ctx.beginPath()
@@ -1714,6 +2003,8 @@ export const useBaybladeGame = () => {
     }
 
     renderHealthRing(ctx, x, y, hp, maxHp, radius, isPlayer)
+
+    if (needsAlpha) ctx.restore()
   }
 
   const renderHealthRing = (

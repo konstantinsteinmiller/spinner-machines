@@ -109,13 +109,7 @@ const indexToRank = (entry: LeaderboardEntry): number =>
         class="bg-gradient-to-b from-[#ffcd00] to-[#f7a000] border-[#0f1a30]"
       )
         //- Trophy SVG
-        svg(
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-          class="h-7 w-7 text-[#1a2b4b]"
-        )
-          path(d="M18 4h-2V2H8v2H6C4.9 4 4 4.9 4 6v2c0 2.21 1.79 4 4 4 .31 0 .61-.04.9-.1.34 1.59 1.55 2.86 3.1 3.32V18H8v2h8v-2h-4v-2.78c1.55-.46 2.76-1.73 3.1-3.32.29.06.59.1.9.1 2.21 0 4-1.79 4-4V6c0-1.1-.9-2-2-2zM6 8V6h2v4c-1.1 0-2-.9-2-2zm12 0c0 1.1-.9 2-2 2V6h2v2z")
+        img.w-7.h-7(src="/images/icons/trophy_128x128.webp" alt="trophy")
 
   //- ─── Modal ──────────────────────────────────────────────────────────────
   FModal(

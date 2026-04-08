@@ -21,6 +21,7 @@ const STATIC_IMAGES = [
   'images/icons/gears_128x128.webp',
   'images/icons/movie_128x96.webp',
   'images/icons/chest_128x128.webp',
+  'images/icons/trophy_128x128.webp',
   'images/bg/parchment-ribbon_553x188.webp'
 ]
 

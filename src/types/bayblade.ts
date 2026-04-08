@@ -41,6 +41,17 @@ export interface BottomPart {
 
 // ─── Bayblade Composition ────────────────────────────────────────────────────
 
+/**
+ * Special boss behaviors. Plain bosses just get the stat bump; abilities
+ * opt into mechanics handled in useBaybladeGame:
+ *  - 'ghost'    → splits into 2 linked blades on launch; shared damage;
+ *                 no friendly fire with its ghost counterpart
+ *  - 'split'    → on death, spawns 5 mini blades with temporary invincibility
+ *  - 'partners' → every enemy blade in the team shares a group; no FF
+ *  - 'healers'  → like 'partners' + heals on contact; 20% oversize only
+ */
+export type BossAbility = 'ghost' | 'split' | 'partners' | 'healers'
+
 export interface BaybladeConfig {
   topPartId: TopPartId
   bottomPartId: BottomPartId
@@ -48,6 +59,7 @@ export interface BaybladeConfig {
   bottomLevel?: number
   modelId?: string
   isBoss?: boolean
+  bossAbility?: BossAbility
 }
 
 export interface BaybladeStats {
@@ -84,6 +96,26 @@ export interface BaybladeState {
   config: BaybladeConfig
   owner: 'player' | 'npc'
   isBoss: boolean
+  // ── Boss ability state ────────────────────────────────────────────────
+  /** Blades sharing a groupId treat each other as allies (no FF damage). */
+  groupId?: number
+  /** For healer groups — friendly contact heals instead of nothing. */
+  healsAllies?: boolean
+  /** Partner/healer allies still physically collide (bounce + separate) but
+   *  take no damage from each other. Ghost/split siblings leave this false
+   *  so they continue to phase through one another. */
+  bouncesAllies?: boolean
+  /** Ghost-boss linkage — damage taken is mirrored to these blade ids. */
+  linkedIds?: number[]
+  /** Ghost-boss parents set this so the first launch triggers the split. */
+  ghostPending?: boolean
+  /** Split-boss state — this blade will shatter into mini blades on death. */
+  splitsOnDeath?: boolean
+  /** Set on split children to prevent recursive shattering. */
+  isSplitChild?: boolean
+  /** Timestamp (performance.now) until which the blade ignores collisions
+   *  and renders as blinking — used by split-children while they settle. */
+  invulnerableUntil?: number
 }
 
 // ─── Meteor Shower Particle ──────────────────────────────────────────────────
