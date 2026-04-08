@@ -74,7 +74,8 @@ const sizeClasses = computed(() => {
     ]"
   )
     div.relative
-      div.absolute.inset-0.translate-y-1.rounded-lg(
+      div.f-icon-button-shadow.absolute.inset-0.translate-y-1.rounded-lg(
+        class=""
         :class="theme.shadow"
       )
       div.relative.rounded-lg.border-2.text-white.font-bold(

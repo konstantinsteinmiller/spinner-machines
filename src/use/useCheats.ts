@@ -3,6 +3,7 @@ import useModels from '@/use/useModels'
 import useUser, { isDemo } from '@/use/useUser'
 import useCampaign, { demoCampaignNodes, type MobileNode } from '@/use/useCampaign'
 import useBaybladeCampaign, { STAGES, type ArenaType } from '@/use/useBaybladeCampaign'
+import useLeaderboard from '@/use/useLeaderboard'
 import { arenaType, resetGameStartCount } from '@/use/useBaybladeGame'
 import type { GameCard } from '@/types/game'
 
@@ -80,6 +81,13 @@ const useCheats = () => {
     console.warn('[CHEAT] Game-start counter armed. Next match start will trigger the countdown.')
   }
 
+  const simulateLeaderboardUpdate = () => {
+    const { forceLeaderboardTick } = useLeaderboard()
+    const { currentStageId } = useBaybladeCampaign()
+    forceLeaderboardTick(currentStageId.value)
+    console.warn('[CHEAT] Leaderboard updated (one hourly tick).')
+  }
+
   const setArenaType = (type: ArenaType) => {
     arenaType.value = type
     console.warn(`[CHEAT] Arena type set to '${type}'.`)
@@ -134,6 +142,7 @@ const useCheats = () => {
     'ctrl+shift+alt+0': () => setBaybladeStage(20),
     'ctrl+shift+alt+t': resetChestCooldown,
     'ctrl+shift+alt+g': resetGameStartCounter,
+    'ctrl+shift+alt+u': simulateLeaderboardUpdate,
     // Arena type shortcuts
     'ctrl+shift+alt+l': () => setArenaType('lava'),
     'ctrl+shift+alt+i': () => setArenaType('ice'),

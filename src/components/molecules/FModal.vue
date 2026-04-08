@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import FTabs, { type TabOption } from '@/components/atoms/FTabs'
+import { isMobileLandscape, isMobilePortrait } from '@/use/useUser'
 
 interface Props {
   modelValue: boolean | any
@@ -42,7 +43,11 @@ const handleTabChange = (val: string | number) => {
       div(class="model-container relative w-full max-w-lg")
 
         //- Header Area (Tabs or Ribbon)
-        div(class="modal-header absolute -top-10 left-0 translate-y-2 right-0 z-10")
+        div(
+          class="modal-header absolute -top-10 left-0 translate-y-2 right-0 z-10"
+          :class="{ 'scale-80': isMobileLandscape }"
+          @click="close"
+        )
           //- CASE 1: Tabs provided
           template(v-if="tabs && tabs.length > 0")
             FTabs(
@@ -67,19 +72,22 @@ const handleTabChange = (val: string | number) => {
           div(class="modal-frame relative bg-[#1a2b4b] border-[5px] border-[#0f1a30] rounded-[1.25rem] sm:rounded-[2rem] pt-7 pb-0 px-2 sm:px-4 sm:pt-6 md:p-8 md:pb-2 md:pt-10")
 
             //- Close Button (X)
-            button(
-              v-if="isClosable"
-              @click="close"
-              class="hover:scale-[103%] absolute top-0 right-0 group cursor-pointer transition-transform active:scale-40 sm:active:scale-90 scale-60 sm:scale-100 sm:top-2 sm:right-2 md:top-3 md:right-3"
-            )
-              div(class="relative")
-                div(class="absolute inset-0 translate-y-1 rounded-lg bg-[#6b1212]")
-                div(class="relative custom-red-bg border-2 border-[#0f1a30] rounded-lg p-2 text-white font-bold")
-                  svg(xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor")
-                    path(stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M6 18L18 6M6 6l12 12")
+            div.p-3(v-if="isClosable" @click="close")
+              button(
+                v-if="isClosable"
+                @click="close"
+                class="hover:scale-[103%] -mt-4 -mr-4 absolute top-0 right-0 group cursor-pointer transition-transform \
+                       active:scale-40 sm:active:scale-90 scale-70 sm:scale-100 sm:top-2 sm:right-2 md:top-3 md:right-3"
+                :class="{ '-mt-6 -mr-5': isMobileLandscape,  '-mt-6 -mr-6': !isMobileLandscape && !isMobilePortrait }"
+              )
+                div(class="relative")
+                  div(class="absolute inset-0 translate-y-1 rounded-lg bg-[#6b1212]")
+                  div(class="relative custom-red-bg border-2 border-[#0f1a30] rounded-lg p-2 text-white font-bold")
+                    svg(xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor")
+                      path(stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M6 18L18 6M6 6l12 12")
 
             //- Content Slot
-            div(class="text-white text-center")
+            div.mt-1(class="text-white text-center")
               slot
 
             //- Footer Area for Actions

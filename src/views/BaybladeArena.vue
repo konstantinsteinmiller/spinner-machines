@@ -24,6 +24,8 @@ import { prependBaseUrl } from '@/utils/function'
 import FMuteButton from '@/components/atoms/FMuteButton.vue'
 import FButtonSwitch from '@/components/atoms/FButtonSwitch.vue'
 import StageBadge from '@/components/StageBadge.vue'
+import FakeLeaderBoard from '@/components/organisms/FakeLeaderBoard.vue'
+import useLeaderboard, { type LeaderboardEntry } from '@/use/useLeaderboard'
 import { isCrazySDKIntegrated } from '@/use/useMatch.ts'
 
 // ─── Game & Config ─────────────────────────────────────────────────────────
@@ -49,6 +51,7 @@ const {
 
 const { playerTeam, hasFirstWin, saveTeam, addCoins, markFirstWin } = useBaybladeConfig()
 const { currentStage, currentStageId, isLastStage, playerUpgrades, advanceStage } = useBaybladeCampaign()
+const { recordPlayerStage, markGhostFought } = useLeaderboard()
 const { showHint, startHintTimer, clearHint } = useHint(5000)
 const { shakeStyle } = useScreenshake()
 const { t } = useI18n()
@@ -65,6 +68,13 @@ const canvasHeight: Ref<number> = ref(0)
 const configModalOpen: Ref<boolean> = ref(false)
 const showOptions: Ref<boolean> = ref(false)
 const coinsAwarded: Ref<boolean> = ref(false)
+
+// ─── Ghost Fight (Leaderboard 1v1) ────────────────────────────────────────
+// While true, the current match is a ghost battle launched from the
+// leaderboard: rewards are custom, campaign progress does not advance,
+// the StageBadge is hidden, and the arena uses the default theme.
+const ghostMode: Ref<boolean> = ref(false)
+const ghostEnemy: Ref<LeaderboardEntry | null> = ref(null)
 
 // ─── NPC Team from Campaign Stage ─────────────────────────────────────────
 
@@ -107,9 +117,17 @@ const resultText = computed(() => {
   return ''
 })
 
-const rewardAmount = computed(() =>
-  gameResult.value === 'win' ? currentStage.value.rewardWin : currentStage.value.rewardLose
-)
+const rewardAmount = computed(() => {
+  if (ghostMode.value) {
+    if (gameResult.value !== 'win') return 0
+    const enemyStage = ghostEnemy.value?.maxStage ?? 1
+    const base = 50 + enemyStage * 2
+    // Diminish to 60% if the opponent is significantly weaker than the player
+    if (currentStageId.value - enemyStage >= 5) return Math.round(base * 0.6)
+    return base
+  }
+  return gameResult.value === 'win' ? currentStage.value.rewardWin : currentStage.value.rewardLose
+})
 
 // Config button: only when game over and no new game started
 const showConfigButton = computed(() =>
@@ -244,9 +262,10 @@ watch(isGameOver, (over) => {
     playSound(gameResult.value === 'win' ? 'win' : 'lose')
     if (gameResult.value === 'win') spawnMeteorShower(80, 50, 65)
     addCoins(rewardAmount.value)
-    if (gameResult.value === 'win') {
+    if (gameResult.value === 'win' && !ghostMode.value) {
       if (!hasFirstWin.value) markFirstWin()
       advanceStage()
+      recordPlayerStage(currentStageId.value)
     }
     coinsAwarded.value = true
     showReward.value = true
@@ -256,7 +275,30 @@ watch(isGameOver, (over) => {
 const onRewardContinue = () => {
   showReward.value = false
   coinsAwarded.value = false
+  // Exiting a ghost fight: drop ghost state and return to the campaign stage
+  if (ghostMode.value) {
+    ghostMode.value = false
+    ghostEnemy.value = null
+  }
   initGame(playerTeamWithUpgrades(), stageNpcTeam(), !hasFirstWin.value, currentStage.value.arenaType)
+}
+
+// ─── Leaderboard / Ghost Fight ────────────────────────────────────────────
+
+const onGhostFight = (entry: LeaderboardEntry) => {
+  ghostEnemy.value = entry
+  ghostMode.value = true
+  markGhostFought(entry.id)
+  const playerLead = playerTeamWithUpgrades()[0]
+  if (!playerLead) return
+  const ghostBlade: BaybladeConfig = {
+    topPartId: entry.blade.topPartId,
+    bottomPartId: entry.blade.bottomPartId,
+    topLevel: entry.blade.topLevel ?? 0,
+    bottomLevel: entry.blade.bottomLevel ?? 0,
+    modelId: entry.blade.modelId
+  }
+  initGame([playerLead], [ghostBlade], false, 'default')
 }
 
 const onOpenConfig = () => {
@@ -288,6 +330,8 @@ onMounted(() => {
 
   initGame(playerTeamWithUpgrades(), stageNpcTeam(), !hasFirstWin.value, currentStage.value.arenaType)
   renderRafId = requestAnimationFrame(renderLoop)
+
+  recordPlayerStage(currentStageId.value)
 
   updateSpeedBoost()
   speedBoostIntervalId = window.setInterval(updateSpeedBoost, 1000)
@@ -327,13 +371,16 @@ onUnmounted(() => {
 
       //- Top bar: stage + coins
       div.flex.justify-between.items-start(class="p-2 sm:p-2")
-        //- Stage indicator (fancy themed badge)
+        //- Stage indicator (fancy themed badge) — hidden during a ghost fight
         StageBadge(
+          v-if="!ghostMode"
           :stage-id="currentStageId"
           :name="currentStage.name"
           :is-boss="currentStage.isBoss"
           :arena-type="currentStage.arenaType"
         )
+        //- Spacer to keep coins right-aligned when StageBadge is hidden
+        div(v-else)
         //- Coin counter + Chest
         div.flex.flex-col.items-end.gap-2
           CoinBadge(ref="coinBadgeRef")
@@ -398,6 +445,12 @@ onUnmounted(() => {
           :coins="adRewardCoins"
         )
 
+        //- Fake leaderboard (button + paginated modal, fully self-contained)
+        FakeLeaderBoard(
+          v-if="currentStageId >= 5 && !ghostMode"
+          @fight="onGhostFight"
+        )
+
         FIconButton(
           type="secondary"
           size="md"
@@ -458,6 +511,7 @@ onUnmounted(() => {
       :initial-team="playerTeam"
       @save="onConfigSave"
     )
+
 </template>
 
 <style scoped lang="sass">
