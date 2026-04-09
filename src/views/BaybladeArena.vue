@@ -6,7 +6,7 @@ import FIconButton from '@/components/atoms/FIconButton'
 import FReward from '@/components/atoms/FReward'
 import BaybladeConfigModal from '@/components/organisms/BaybladeConfigModal'
 import OptionsModal from '@/components/organisms/OptionsModal'
-import useSounds from '@/use/useSound'
+import useSounds, { useMusic } from '@/use/useSound'
 import useBaybladeGame, { BLADE_RADIUS, simSpeed, countdownText } from '@/use/useBaybladeGame'
 import useBaybladeConfig from '@/use/useBaybladeConfig'
 import useBaybladeCampaign from '@/use/useBaybladeCampaign'
@@ -68,6 +68,14 @@ const { showHint, startHintTimer, clearHint } = useHint(5000)
 const { shakeStyle } = useScreenshake()
 const { t } = useI18n()
 const { playSound } = useSounds()
+const { startBattleMusic, stopBattleMusic } = useMusic()
+
+// Wraps startMatch so the battle music kicks in exactly when a fight begins,
+// regardless of whether the player tapped the canvas or the start button.
+const beginBattle = () => {
+  startBattleMusic()
+  startMatch()
+}
 
 const { setSettingValue } = useUser()
 
@@ -287,7 +295,7 @@ const getGameCoords = (e: PointerEvent) => {
 const onPointerDown = (e: PointerEvent) => {
   clearHint()
   if (phase.value === 'tap_to_start') {
-    startMatch()
+    beginBattle()
     return
   }
   const coords = getGameCoords(e)
@@ -348,6 +356,7 @@ watch(isGameOver, (over) => {
     }
     coinsAwarded.value = true
     showReward.value = true
+    stopBattleMusic()
   }
 })
 
@@ -549,7 +558,7 @@ onUnmounted(() => {
         div(
           v-if="phase === 'tap_to_start'"
           class="text-center pointer-events-auto cursor-pointer"
-          @click="startMatch"
+          @click="beginBattle"
         )
           div.text-white.font-black.uppercase.tracking-wider.animate-pulse.game-text(
             class="text-3xl sm:text-5xl mb-2"

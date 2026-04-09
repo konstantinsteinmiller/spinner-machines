@@ -135,7 +135,7 @@ const BASE_STAGES: Stage[] = [
   ], 200, 60, { arenaType: 'forest' }),
   // 10 — SPLIT boss (archetype 2)
   s(10, 'The Hydra King', [
-    e('round', 'tanky', 4, 3, 'turtle', 'split')
+    e('round', 'tanky', 3, 3, 'turtle', 'split')
   ], 350, 90, { isBoss: true }),
   s(11, 'Shadow Pit', [
     e('triangle', 'speedy', 3, 3, 'bluedragon'),
@@ -229,7 +229,7 @@ const BASE_STAGES: Stage[] = [
   ], 420, 120),
   // 30 — PLAIN boss
   s(30, 'Chaos Incarnate', [
-    e('star', 'speedy', 12, 12, 'fire', 'plain')
+    e('star', 'speedy', 11, 12, 'fire', 'plain')
   ], 800, 200, { isBoss: true }),
   s(31, 'Savage Coliseum', [
     e('triangle', 'speedy', 9, 9, 'thunderstorm'),

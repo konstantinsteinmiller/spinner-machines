@@ -334,10 +334,13 @@ export const useBaybladeGame = () => {
   const CRIT_COOLDOWN_MS = 1500
   const lastCritAt = new Map<number, number>()
 
-  // Spiky top — flat chip damage applied on every collision pair, independent
-  // of closing speed. Lets a "hugging" spiky blade keep pressuring a faster
-  // opponent at low speeds. Throttled per pair so DPS stays in check.
-  const SPIKY_FLAT_DAMAGE = 1
+  // Spiky top — chip damage applied on every collision pair, independent of
+  // closing speed. Lets a "hugging" spiky blade keep pressuring a faster
+  // opponent at low speeds. Scales with the victim's max HP so the spiky
+  // top reads as a soft "tank shred": always at least 1, up to 2.5% of the
+  // target's max HP. Throttled per pair so DPS stays in check.
+  const SPIKY_CHIP_HP_FRACTION = 0.025
+  const SPIKY_CHIP_MIN_DAMAGE = 1
   const SPIKY_CHIP_COOLDOWN_MS = 150
   const spikyChipCooldowns = new Map<string, number>() // "a_b" -> last chip timestamp
 
@@ -1849,13 +1852,18 @@ export const useBaybladeGame = () => {
       const lastChip = spikyChipCooldowns.get(spikyKey) ?? 0
       if (nowChip - lastChip >= SPIKY_CHIP_COOLDOWN_MS) {
         let chipped = false
-        const chipDmg = SPIKY_FLAT_DAMAGE * (friendlyFire ? FRIENDLY_FIRE_MUL : 1)
+        // Tank-shred chip: at least 1, up to 2.5% of the victim's max HP.
+        // Scaled down to 25% on friendly-fire (split sibling) hits so the
+        // swarm doesn't shred itself.
+        const ffMul = friendlyFire ? FRIENDLY_FIRE_MUL : 1
+        const chipFor = (victim: BaybladeState) =>
+          Math.max(SPIKY_CHIP_MIN_DAMAGE, victim.maxHp * SPIKY_CHIP_HP_FRACTION) * ffMul
         if (a.config.topPartId === 'triangle' && !aHitInBack && b.hp > 0) {
-          if (applyBladeDamage(b, chipDmg, cx, cy, a.owner, false)) hadKill = true
+          if (applyBladeDamage(b, chipFor(b), cx, cy, a.owner, false)) hadKill = true
           chipped = true
         }
         if (b.config.topPartId === 'triangle' && !bHitInBack && a.hp > 0) {
-          if (applyBladeDamage(a, chipDmg, cx, cy, b.owner, false)) hadKill = true
+          if (applyBladeDamage(a, chipFor(a), cx, cy, b.owner, false)) hadKill = true
           chipped = true
         }
         if (chipped) spikyChipCooldowns.set(spikyKey, nowChip)

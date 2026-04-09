@@ -15,7 +15,7 @@ useCheats()
 const { resourceCache } = useAssets()
 
 
-initMusic('battle-1.ogg')
+initMusic()
 
 const portraitQuery = window.matchMedia('(orientation: portrait)')
 const onTouchStart = (event: any) => {

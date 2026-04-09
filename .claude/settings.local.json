@@ -12,7 +12,9 @@
       "mcp__ide__getDiagnostics",
       "Bash(ls:*)",
       "Bash(echo \"EXIT=$?\")",
-      "Bash(grep -l '<i18n' /c/Users/konst/chaos-arena/src/components/organisms/*.vue /c/Users/konst/chaos-arena/src/views/*.vue)"
+      "Bash(grep -l '<i18n' /c/Users/konst/chaos-arena/src/components/organisms/*.vue /c/Users/konst/chaos-arena/src/views/*.vue)",
+      "Bash(node:*)",
+      "Bash(pnpm type-check:*)"
     ]
   }
 }

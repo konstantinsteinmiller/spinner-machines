@@ -4,12 +4,13 @@ import BaybladeArena from '@/views/BaybladeArena'
 import CritTestScene from '@/views/CritTestScene.vue'
 import PowerupTestScene from '@/views/PowerupTestScene.vue'
 import useUser, { isWeb } from '@/use/useUser'
+import { isDebug } from '@/use/useMatch.ts'
 
 const routes = [
   { path: '/', name: 'main-menu', component: MainMenu, redirect: 'battle' },
   { path: '/battle', name: 'battle', component: BaybladeArena },
-  { path: '/crit-test', name: 'crit-test', component: CritTestScene },
-  { path: '/power-up', name: 'power-up', component: PowerupTestScene }
+  ...isDebug.value ? [{ path: '/crit-test', name: 'crit-test', component: CritTestScene },
+    { path: '/power-up', name: 'power-up', component: PowerupTestScene }] : []
 ]
 
 const router = createRouter({
