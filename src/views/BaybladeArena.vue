@@ -28,7 +28,7 @@ import FButtonSwitch from '@/components/atoms/FButtonSwitch.vue'
 import StageBadge from '@/components/StageBadge.vue'
 import FakeLeaderBoard from '@/components/organisms/FakeLeaderBoard.vue'
 import useLeaderboard, { type LeaderboardEntry } from '@/use/useLeaderboard'
-import { isSdkActive, startGameplay, stopGameplay, showRewardedAd } from '@/use/useCrazyGames'
+import { isSdkActive, startGameplay, stopGameplay, showRewardedAd, showMidgameAd } from '@/use/useCrazyGames'
 import useBottomSafe from '@/use/useBottomSafe'
 import { isCrazyGamesFullRelease } from '@/use/useMatch.ts'
 
@@ -351,14 +351,58 @@ watch(isGameOver, (over) => {
   }
 })
 
-const onRewardContinue = () => {
+// ─── Interstitial cadence ─────────────────────────────────────────────────
+// On the full CrazyGames release we play a midgame ad between matches:
+//   - every 2nd ghost (FakeLeaderboard) fight
+//   - every 3rd campaign match
+// Counters are persisted to localStorage so the cadence survives across
+// sessions. Because the CrazyGames SDK patches localStorage to mirror
+// writes into its own data module, persisting locally automatically
+// syncs the counters to the player's CG-side cloud save as well.
+const GHOST_GAME_COUNT_KEY = 'ca_ghost_game_count'
+const CAMPAIGN_GAME_COUNT_KEY = 'ca_campaign_game_count'
+
+const loadCount = (key: string): number => {
+  try {
+    return parseInt(localStorage.getItem(key) || '0', 10) || 0
+  } catch {
+    return 0
+  }
+}
+
+const ghostGameCount: Ref<number> = ref(loadCount(GHOST_GAME_COUNT_KEY))
+const campaignGameCount: Ref<number> = ref(loadCount(CAMPAIGN_GAME_COUNT_KEY))
+
+const onRewardContinue = async () => {
   showReward.value = false
   coinsAwarded.value = false
-  // Exiting a ghost fight: drop ghost state and return to the campaign stage
-  if (ghostMode.value) {
+  // Snapshot the mode before we tear down ghost state — the ad cadence
+  // and the counter increments need to know which kind of match just
+  // ended.
+  const wasGhost = ghostMode.value
+  if (wasGhost) {
+    ghostGameCount.value += 1
+    localStorage.setItem(GHOST_GAME_COUNT_KEY, String(ghostGameCount.value))
     ghostMode.value = false
     ghostEnemy.value = null
+  } else {
+    campaignGameCount.value += 1
+    localStorage.setItem(CAMPAIGN_GAME_COUNT_KEY, String(campaignGameCount.value))
   }
+
+  // Show an interstitial between matches when due. `showMidgameAd` is a
+  // no-op (and resolves immediately) when the SDK isn't active, but we
+  // still gate on the flags so the cadence logic doesn't run pointlessly
+  // outside the full release build.
+  if (isCrazyGamesFullRelease && isSdkActive.value) {
+    const adDue =
+      (wasGhost && ghostGameCount.value % 2 === 0) ||
+      (!wasGhost && campaignGameCount.value % 3 === 0)
+    if (adDue) {
+      await showMidgameAd()
+    }
+  }
+
   initGame(playerTeamWithUpgrades(), stageNpcTeam(), !hasFirstWin.value, currentStage.value.arenaType, currentStage.value.bouncers ?? 0)
 }
 
@@ -509,9 +553,9 @@ onUnmounted(() => {
         )
           div.text-white.font-black.uppercase.tracking-wider.animate-pulse.game-text(
             class="text-3xl sm:text-5xl mb-2"
-          ) Tap to Start
+          ) {{ t('bayblade.tapToStart') }}
           div.text-white.italic.game-text(class="text-sm sm:text-lg opacity-60")
-            | Click or tap the arena
+            | {{ t('bayblade.startHint') }}
 
         //- Every-10th-game countdown — rendered inside the meteor shower ring
         div(
@@ -539,7 +583,7 @@ onUnmounted(() => {
           :style="{ bottom: `calc(4rem + env(safe-area-inset-bottom, 0px) + ${bottomGapPx}px)` }"
         )
           div.text-white.italic.game-text(class="text-xs sm:text-sm opacity-50")
-            | Tap a blade, then drag to launch
+            | {{ t('bayblade.dragHint') }}
 
       //- Bottom-left button row: Daily Rewards → Ad Reward → Battle Pass.
       //- Wrapped in a single fixed flex container so mobile (scale-80)

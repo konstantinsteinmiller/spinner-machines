@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import FModal from '@/components/molecules/FModal'
 import FIconButton from '@/components/atoms/FIconButton.vue'
 import IconCoin from '@/components/icons/IconCoin.vue'
@@ -15,6 +16,7 @@ import {
 import type { TopPartId } from '@/types/bayblade'
 
 const { addCoins } = useBaybladeConfig()
+const { t } = useI18n()
 
 // ─── Daily Rewards Config ────────────────────────────────────────────────────
 
@@ -206,7 +208,7 @@ const collect = (dayIndex: number) => {
   FModal(
     v-model="isModalOpen"
     :is-closable="true"
-    title="Daily Rewards"
+    :title="t('dailyRewards')"
   )
     div(class="space-y-3 px-1 sm:px-3 py-2")
       div.grid.grid-cols-7.gap-1(class="sm:gap-2")
@@ -267,9 +269,9 @@ const collect = (dayIndex: number) => {
       //- Footer info
       div.text-center(class="text-[10px] sm:text-xs text-slate-400")
         template(v-if="collectedToday")
-          | Come back tomorrow for your next reward!
+          | {{ t('comeBackTomorrow') }}
         template(v-else)
-          | Collect today's reward! Don't miss a day or progress resets.
+          | {{ t('collectTodaysReward') }}
 </template>
 
 <style scoped lang="sass">
@@ -280,3 +282,38 @@ const collect = (dayIndex: number) => {
   filter: blur(4px)
   transform: scale(1.15)
 </style>
+
+<i18n>
+en:
+  dailyRewards: "Daily Rewards"
+  comeBackTomorrow: "Come back tomorrow for your next reward!"
+  collectTodaysReward: "Collect today's reward! Don't miss a day or progress resets."
+de:
+  dailyRewards: "Tägliche Belohnungen"
+  comeBackTomorrow: "Komm morgen für deine nächste Belohnung wieder!"
+  collectTodaysReward: "Hol dir deine heutige Belohnung! Verpasse keinen Tag, sonst beginnt der Fortschritt von vorn."
+fr:
+  dailyRewards: "Récompenses quotidiennes"
+  comeBackTomorrow: "Reviens demain pour ta prochaine récompense !"
+  collectTodaysReward: "Récupère ta récompense du jour ! Ne manque pas un jour ou la progression repart à zéro."
+es:
+  dailyRewards: "Recompensas diarias"
+  comeBackTomorrow: "¡Vuelve mañana por tu próxima recompensa!"
+  collectTodaysReward: "¡Reclama la recompensa de hoy! No te pierdas un día o el progreso se reinicia."
+jp:
+  dailyRewards: "デイリー報酬"
+  comeBackTomorrow: "明日また来て次の報酬を受け取ろう！"
+  collectTodaysReward: "今日の報酬を受け取ろう！1日でも逃すと進行がリセットされます。"
+kr:
+  dailyRewards: "일일 보상"
+  comeBackTomorrow: "내일 다시 와서 다음 보상을 받으세요!"
+  collectTodaysReward: "오늘의 보상을 받으세요! 하루라도 놓치면 진행이 초기화됩니다."
+zh:
+  dailyRewards: "每日奖励"
+  comeBackTomorrow: "明天回来领取下一个奖励！"
+  collectTodaysReward: "领取今日奖励！错过一天进度将重置。"
+ru:
+  dailyRewards: "Ежедневные награды"
+  comeBackTomorrow: "Возвращайтесь завтра за следующей наградой!"
+  collectTodaysReward: "Заберите сегодняшнюю награду! Пропустите день — прогресс сбросится."
+</i18n>

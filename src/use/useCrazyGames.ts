@@ -413,6 +413,50 @@ export const showRewardedAd = (): Promise<boolean> => {
   })
 }
 
+// ─── Midgame interstitial ads ─────────────────────────────────────────────
+
+/**
+ * Shows a midgame (interstitial) video ad via the CrazyGames SDK. Unlike
+ * rewarded ads there is no reward to grant, so the promise simply resolves
+ * once the SDK signals the ad has finished or errored — callers can `await`
+ * it to know when it's safe to resume the next match.
+ *
+ * No-op (and resolves immediately) when the SDK is not active.
+ */
+export const showMidgameAd = (): Promise<void> => {
+  return new Promise((resolve) => {
+    if (!sdk || !isSdkActive.value) {
+      resolve()
+      return
+    }
+
+    // Pause gameplay while the ad plays so sounds and timers don't run
+    // behind the video, and always resume on both success and error paths.
+    const resumeAfterAd = () => startGameplay()
+
+    try {
+      sdk.ad?.requestAd?.('midgame', {
+        adStarted: () => {
+          stopGameplay()
+        },
+        adFinished: () => {
+          resumeAfterAd()
+          resolve()
+        },
+        adError: (err: unknown) => {
+          console.warn('[crazygames] midgame ad error', err)
+          resumeAfterAd()
+          resolve()
+        }
+      })
+    } catch (e) {
+      console.warn('[crazygames] requestAd midgame threw', e)
+      resumeAfterAd()
+      resolve()
+    }
+  })
+}
+
 // ─── Default export (composable-style convenience) ───────────────────────
 
 const useCrazyGames = () => ({
@@ -424,6 +468,7 @@ const useCrazyGames = () => ({
   startGameplay,
   stopGameplay,
   showRewardedAd,
+  showMidgameAd,
   addCrazyMuteListener,
   setCrazyMuted
 })

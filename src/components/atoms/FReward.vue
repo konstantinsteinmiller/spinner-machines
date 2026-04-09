@@ -26,7 +26,7 @@
         )
         div.ribbon-content
           slot(name="ribbon")
-            span.text-white.font-black.uppercase.italic.game-text REWARDS
+            span.text-white.font-black.uppercase.italic.game-text {{ t('bayblade.rewards') }}
 
       div.relative.w-full.h-full.flex.flex-col.items-center.justify-center
         slot

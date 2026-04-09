@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import FModal from '@/components/molecules/FModal'
 import FIconButton from '@/components/atoms/FIconButton.vue'
 import IconCoin from '@/components/icons/IconCoin.vue'
@@ -28,6 +29,8 @@ const {
   claimStage,
   isMaxed
 } = useBattlePass()
+
+const { t } = useI18n()
 
 const isModalOpen = ref(false)
 
@@ -160,21 +163,21 @@ const onClaim = (stage: number) => {
   FModal(
     v-model="isModalOpen"
     :is-closable="true"
-    title="Battle Pass"
+    :title="t('battlePass')"
   )
     div(class="space-y-3 px-1 sm:px-3 py-2")
       //- Summary row: current stage + xp progress bar
       div(class="flex items-center gap-2 px-1 sm:px-2")
         div.flex.flex-col.items-start.shrink-0
-          span.text-gray-300.font-bold.uppercase(class="text-[8px] sm:text-[10px]") Stage
+          span.text-gray-300.font-bold.uppercase(class="text-[8px] sm:text-[10px]") {{ t('stage') }}
           span.text-white.font-black.game-text.leading-none(class="text-lg sm:text-xl") {{ unlockedStages }}/{{ BP_TOTAL_STAGES }}
         div.flex-1.flex.flex-col.gap-1
           div.flex.justify-between.items-end
             span.text-gray-300.font-bold.uppercase(class="text-[8px] sm:text-[10px]")
-              template(v-if="isMaxed") COMPLETE
-              template(v-else) Stage {{ inProgressStage }}
+              template(v-if="isMaxed") {{ t('complete') }}
+              template(v-else) {{ t('stage') }} {{ inProgressStage }}
             span.text-yellow-400.font-black.game-text(class="text-[9px] sm:text-xs")
-              template(v-if="isMaxed") MAX
+              template(v-if="isMaxed") {{ t('max') }}
               template(v-else) {{ Math.floor(currentXp) }}/{{ BP_XP_PER_STAGE }} xp
           div.relative.w-full.overflow-hidden.rounded-full.border(
             class="h-2.5 sm:h-3 bg-slate-800/70 border-slate-700"
@@ -255,11 +258,11 @@ const onClaim = (stage: number) => {
       //- Footer tip
       div.text-center(class="text-[10px] sm:text-xs text-slate-400")
         template(v-if="isMaxed")
-          | Battle Pass complete — nice work!
+          | {{ t('battlePassComplete') }}
         template(v-else-if="hasUnclaimedReward")
-          | You have {{ pendingClaimCount }} reward{{ pendingClaimCount === 1 ? '' : 's' }} ready to collect!
+          | {{ t('rewardsReady', { n: pendingClaimCount }) }}
         template(v-else)
-          | Win campaign fights for +50xp, leaderboard fights for +25xp. Losses give +12xp.
+          | {{ t('xpHint') }}
 </template>
 
 <style scoped lang="sass">
@@ -278,3 +281,62 @@ const onClaim = (stage: number) => {
   filter: blur(4px)
   transform: scale(1.15)
 </style>
+
+<i18n>
+en:
+  battlePass: "Battle Pass"
+  complete: "COMPLETE"
+  max: "MAX"
+  battlePassComplete: "Battle Pass complete — nice work!"
+  rewardsReady: "You have {n} reward(s) ready to collect!"
+  xpHint: "Win campaign fights for +50xp, leaderboard fights for +25xp. Losses give +12xp."
+de:
+  battlePass: "Battle Pass"
+  complete: "ABGESCHLOSSEN"
+  max: "MAX"
+  battlePassComplete: "Battle Pass abgeschlossen — gut gemacht!"
+  rewardsReady: "Du hast {n} Belohnung(en) zum Abholen!"
+  xpHint: "Kampagnenkämpfe gewinnen gibt +50xp, Bestenlisten-Kämpfe +25xp. Niederlagen geben +12xp."
+fr:
+  battlePass: "Battle Pass"
+  complete: "TERMINÉ"
+  max: "MAX"
+  battlePassComplete: "Battle Pass terminé — bien joué !"
+  rewardsReady: "Tu as {n} récompense(s) à récupérer !"
+  xpHint: "Gagne des combats de campagne pour +50xp, classement +25xp. Défaites : +12xp."
+es:
+  battlePass: "Pase de Batalla"
+  complete: "COMPLETO"
+  max: "MÁX"
+  battlePassComplete: "¡Pase de Batalla completado — buen trabajo!"
+  rewardsReady: "¡Tienes {n} recompensa(s) para reclamar!"
+  xpHint: "Gana combates de campaña para +50xp, de clasificación +25xp. Derrotas: +12xp."
+jp:
+  battlePass: "バトルパス"
+  complete: "完了"
+  max: "MAX"
+  battlePassComplete: "バトルパス達成 — お見事！"
+  rewardsReady: "{n} 個の報酬を受け取れます！"
+  xpHint: "キャンペーン戦勝利で +50xp、ランキング戦で +25xp。敗北でも +12xp。"
+kr:
+  battlePass: "배틀 패스"
+  complete: "완료"
+  max: "MAX"
+  battlePassComplete: "배틀 패스 완료 — 멋져요!"
+  rewardsReady: "받을 수 있는 보상이 {n} 개 있습니다!"
+  xpHint: "캠페인 전투 승리 +50xp, 리더보드 전투 +25xp. 패배 시 +12xp."
+zh:
+  battlePass: "战斗通行证"
+  complete: "完成"
+  max: "满级"
+  battlePassComplete: "战斗通行证已完成 — 干得漂亮！"
+  rewardsReady: "你有 {n} 个奖励可以领取！"
+  xpHint: "赢得战役战斗 +50xp，排行榜战斗 +25xp，失败 +12xp。"
+ru:
+  battlePass: "Боевой пропуск"
+  complete: "ЗАВЕРШЕНО"
+  max: "МАКС"
+  battlePassComplete: "Боевой пропуск пройден — отличная работа!"
+  rewardsReady: "У вас {n} награда(ы) к получению!"
+  xpHint: "Побед в кампании +50xp, в таблице лидеров +25xp. Поражения дают +12xp."
+</i18n>

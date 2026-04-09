@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { ArenaType } from '@/use/useBaybladeCampaign'
+
+const { t } = useI18n()
 
 interface Props {
   stageId: number
@@ -122,7 +125,7 @@ const stageTheme = computed<StageTheme>(() => {
       div.flex.flex-col.leading-tight
         span.font-black.uppercase.tracking-wider.game-text.text-white(
           class="text-[9px] sm:text-[11px] opacity-90"
-        ) {{ isBoss ? 'BOSS STAGE' : 'STAGE ' + stageId }}
+        ) {{ isBoss ? t('bossStage') : t('stage') + ' ' + stageId }}
         span.font-bold.italic.game-text(
           :class="stageTheme.accent"
           class="text-[10px] sm:text-xs"

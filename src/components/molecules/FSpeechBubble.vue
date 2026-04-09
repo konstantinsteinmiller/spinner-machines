@@ -1,5 +1,9 @@
 //- @/components/molecules/FSpeechBubble.vue
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
 interface Props {
   modelValue: boolean
   text: string
@@ -39,7 +43,7 @@ const close = () => {
 
           //- Tap to Continue indicator
           div(class="mt-3 flex justify-end items-center gap-2 opacity-70")
-            span(class="text-[10px] uppercase font-bold text-amber-400") Tap to Start
+            span(class="text-[10px] uppercase font-bold text-amber-400") {{ t('bayblade.tapToStart') }}
             div(class="w-2 h-2 bg-amber-400 rounded-full animate-ping")
 
           //- The Bubble Tail

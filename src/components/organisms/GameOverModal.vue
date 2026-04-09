@@ -83,7 +83,7 @@ onMounted(() => {
       div.flex.flex-col.items-center(class="")
         span.text-red-500.text-2xl.font-bold(class="") {{ scores.npc }}
 
-      div(class="text-2xl italic text-slate-500 font-black") VS
+      div(class="text-2xl italic text-slate-500 font-black") {{ t('vs') }}
 
       div.flex.flex-col.items-center(class="")
         span.text-blue-500.text-2xl.font-bold(class="") {{ scores.player }}

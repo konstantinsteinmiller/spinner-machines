@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import type { Ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import FModal from '@/components/molecules/FModal'
 import type { BaybladeConfig, TopPartId, BottomPartId } from '@/types/bayblade'
 import type { TabOption } from '@/components/atoms/FTabs'
@@ -42,13 +43,15 @@ const emit = defineEmits<{
   (e: 'save', team: BaybladeConfig[]): void
 }>()
 
+const { t } = useI18n()
+
 // ─── Blade Selector (which blade are we configuring) ───────────────────────
 
 const activeBladeIndex: Ref<string | number> = ref(0)
 
 const bladeTabs = computed<TabOption[]>(() =>
   props.initialTeam.map((_, i) => ({
-    label: `Blade ${i + 1}`,
+    label: `${t('bladeLabel')} ${i + 1}`,
     value: i
   }))
 )
@@ -192,7 +195,7 @@ const handleSelectSkin = (topId: TopPartId, modelId: BaybladeModelId) => {
             span {{ coins }}g
           h3.text-yellow-300.font-black.uppercase.italic(
             class="text-[10px] sm:text-sm tracking-wider"
-          ) Top Blade
+          ) {{ t('topBlade') }}
         div.grid.top-grid
           div(
             v-for="part in TOP_PARTS_LIST"
@@ -230,7 +233,7 @@ const handleSelectSkin = (topId: TopPartId, modelId: BaybladeModelId) => {
                   class="hover:bg-slate-600 hover:scale-110"
                   :class="shouldBouncePlus(part.id) ? 'hint-bounce-2' : ''"
                   @click.stop="openSkinPicker(part.id)"
-                  title="Purchase more skins"
+                  :title="t('purchaseMoreSkins')"
                 ) +
             div.text-center.part-card-body
               div.text-white.font-bold.truncate.game-text(class="text-[9px] sm:text-xs") {{ part.label }}
@@ -268,7 +271,7 @@ const handleSelectSkin = (topId: TopPartId, modelId: BaybladeModelId) => {
         div
           h3.text-yellow-300.font-black.uppercase.italic.mb-1(
             class="text-[10px] sm:text-sm tracking-wider"
-          ) Bottom Part
+          ) {{ t('bottomPart') }}
           div.grid.grid-cols-3.bottom-grid
             div(
               v-for="part in BOTTOM_PARTS_LIST"
@@ -312,7 +315,7 @@ const handleSelectSkin = (topId: TopPartId, modelId: BaybladeModelId) => {
         div.stats-bar(class="border-t border-slate-500/50")
           h3.text-yellow-300.font-black.uppercase.italic(
             class="text-[9px] sm:text-xs tracking-wider"
-          ) Stats
+          ) {{ t('statsLabel') }}
           div.flex.flex-wrap.justify-center.stats-items
             div.flex.items-center
               IconHp.stat-summary-icon.text-green-400
@@ -335,7 +338,7 @@ const handleSelectSkin = (topId: TopPartId, modelId: BaybladeModelId) => {
     :model-value="skinPickerOpen"
     @update:model-value="skinPickerOpen = $event"
     :is-closable="true"
-    title="Select Skin"
+    :title="t('selectSkin')"
     :key="'skin-' + skinPickerKey"
   )
     div(class="px-2 sm:px-4 py-2")
@@ -366,12 +369,12 @@ const handleSelectSkin = (topId: TopPartId, modelId: BaybladeModelId) => {
           div.text-white.font-bold(class="mt-0.5 text-[9px] sm:text-xs") {{ MODEL_LABELS[modelId] }}
           //- Action button
           template(v-if="getSelectedSkin(skinPickerTopId) === modelId")
-            div.text-yellow-400.font-bold(class="mt-0.5 text-[8px] sm:text-[10px]") EQUIPPED
+            div.text-yellow-400.font-bold(class="mt-0.5 text-[8px] sm:text-[10px]") {{ t('equipped') }}
           template(v-else-if="isSkinOwned(skinPickerTopId, modelId)")
             button.rounded-lg.font-bold.transition-all(
               class="mt-0.5 text-[8px] sm:text-[10px] px-3 py-0.5 bg-green-600 hover:bg-green-500 text-white cursor-pointer"
               @click="handleSelectSkin(skinPickerTopId, modelId)"
-            ) SELECT
+            ) {{ t('selectButton') }}
           template(v-else)
             button.rounded-lg.font-bold.transition-all(
               class="mt-0.5 text-[8px] sm:text-[10px] px-2 py-0.5 flex items-center gap-1"
@@ -637,3 +640,78 @@ const handleSelectSkin = (topId: TopPartId, modelId: BaybladeModelId) => {
     height: 0.625rem
     margin-right: 1px
 </style>
+
+<i18n>
+en:
+  bladeLabel: "Blade"
+  topBlade: "Top Blade"
+  bottomPart: "Bottom Part"
+  statsLabel: "Stats"
+  selectSkin: "Select Skin"
+  purchaseMoreSkins: "Purchase more skins"
+  equipped: "EQUIPPED"
+  selectButton: "SELECT"
+de:
+  bladeLabel: "Blade"
+  topBlade: "Oberteil"
+  bottomPart: "Unterteil"
+  statsLabel: "Werte"
+  selectSkin: "Skin auswählen"
+  purchaseMoreSkins: "Weitere Skins kaufen"
+  equipped: "AUSGERÜSTET"
+  selectButton: "WÄHLEN"
+fr:
+  bladeLabel: "Toupie"
+  topBlade: "Partie haute"
+  bottomPart: "Partie basse"
+  statsLabel: "Stats"
+  selectSkin: "Choisir un skin"
+  purchaseMoreSkins: "Acheter plus de skins"
+  equipped: "ÉQUIPÉ"
+  selectButton: "CHOISIR"
+es:
+  bladeLabel: "Peonza"
+  topBlade: "Parte superior"
+  bottomPart: "Parte inferior"
+  statsLabel: "Estadísticas"
+  selectSkin: "Elegir skin"
+  purchaseMoreSkins: "Comprar más skins"
+  equipped: "EQUIPADO"
+  selectButton: "ELEGIR"
+jp:
+  bladeLabel: "ブレード"
+  topBlade: "アッパー"
+  bottomPart: "ボトム"
+  statsLabel: "ステータス"
+  selectSkin: "スキン選択"
+  purchaseMoreSkins: "スキンを追加購入"
+  equipped: "装備中"
+  selectButton: "選択"
+kr:
+  bladeLabel: "블레이드"
+  topBlade: "상단 파츠"
+  bottomPart: "하단 파츠"
+  statsLabel: "능력치"
+  selectSkin: "스킨 선택"
+  purchaseMoreSkins: "스킨 추가 구매"
+  equipped: "장착됨"
+  selectButton: "선택"
+zh:
+  bladeLabel: "陀螺"
+  topBlade: "上部"
+  bottomPart: "下部"
+  statsLabel: "属性"
+  selectSkin: "选择皮肤"
+  purchaseMoreSkins: "购买更多皮肤"
+  equipped: "已装备"
+  selectButton: "选择"
+ru:
+  bladeLabel: "Волчок"
+  topBlade: "Верхняя часть"
+  bottomPart: "Нижняя часть"
+  statsLabel: "Статы"
+  selectSkin: "Выбрать скин"
+  purchaseMoreSkins: "Купить ещё скины"
+  equipped: "ЭКИПИРОВАНО"
+  selectButton: "ВЫБРАТЬ"
+</i18n>

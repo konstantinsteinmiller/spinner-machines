@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import FModal from '@/components/molecules/FModal.vue'
 import useLeaderboard, { type LeaderboardEntry } from '@/use/useLeaderboard'
 import useBaybladeCampaign from '@/use/useBaybladeCampaign'
@@ -18,6 +19,7 @@ const {
   canFightGhost
 } = useLeaderboard()
 const { currentStageId } = useBaybladeCampaign()
+const { t } = useI18n()
 
 // ─── Modal State ────────────────────────────────────────────────────────────
 
@@ -115,7 +117,7 @@ const indexToRank = (entry: LeaderboardEntry): number =>
   FModal(
     :class="{ 'is-mobile-landscape': isMobileLandscape }"
     :model-value="isOpen"
-    title="Leaderboard"
+    :title="t('leaderboard')"
     @update:model-value="isOpen = $event"
   )
     div.flex.flex-col.gap-3.w-full
@@ -126,16 +128,16 @@ const indexToRank = (entry: LeaderboardEntry): number =>
         class="bg-gradient-to-b from-[#ffcd00]/20 to-[#f7a000]/10 border-[#ffcd00]/60 px-3 py-2"
       )
         div.flex.flex-col.items-start
-          span.text-white.uppercase.tracking-wider.game-text(class="text-[10px] sm:text-xs opacity-80") Your Rank
+          span.text-white.uppercase.tracking-wider.game-text(class="text-[10px] sm:text-xs opacity-80") {{ t('yourRank') }}
           span.text-yellow-300.font-black.game-text(class="text-xl sm:text-2xl leading-none") {{ `#${playerRank}` }}
             span.font-bold(class="text-xs sm:text-sm text-white/60 ml-1") /{{ totalEntries }}
         div.flex.flex-col.items-center
           button(
             @click="jumpToMe"
             class="rounded-md border border-[#ffcd00]/60 bg-black/30 text-yellow-300 font-bold px-2 py-1 text-[10px] sm:text-xs hover:bg-black/50 cursor-pointer game-text"
-          ) Jump to me
+          ) {{ t('jumpToMe') }}
         div.flex.flex-col.items-end
-          span.text-white.uppercase.tracking-wider.game-text(class="text-[10px] sm:text-xs opacity-80") Max Stage
+          span.text-white.uppercase.tracking-wider.game-text(class="text-[10px] sm:text-xs opacity-80") {{ t('maxStage') }}
           span.text-yellow-300.font-black.game-text(class="text-xl sm:text-2xl leading-none") {{ playerEntry.maxStage }}
 
       //- Scrollable list
@@ -172,7 +174,7 @@ const indexToRank = (entry: LeaderboardEntry): number =>
 
           //- Max stage
           div.flex.flex-col.items-center.shrink-0(class="w-10 sm:w-12")
-            span.uppercase.game-text(class="text-[8px] sm:text-[9px] text-white/60 leading-none") Stage
+            span.uppercase.game-text(class="text-[8px] sm:text-[9px] text-white/60 leading-none") {{ t('stage') }}
             span.text-yellow-300.font-black.game-text(class="text-sm sm:text-base leading-none") {{ entry.maxStage }}
 
           //- Fight button (crossed swords) — never shown for the player
@@ -186,7 +188,7 @@ const indexToRank = (entry: LeaderboardEntry): number =>
                 ? 'opacity-40 cursor-not-allowed grayscale'\
                 : 'cursor-pointer hover:scale-[105%] active:scale-90'\
             ]"
-            :title="isFightLocked(entry) ? 'Already fought today — comes back tomorrow' : 'Fight as ghost battle'"
+            :title="isFightLocked(entry) ? t('alreadyFoughtToday') : t('fightAsGhost')"
           )
             div.relative
               div.absolute.inset-0.translate-y-1.rounded-md(class="bg-[#6b1212] inset-x-[1px]")
@@ -198,7 +200,7 @@ const indexToRank = (entry: LeaderboardEntry): number =>
           span.text-yellow-300.font-black.game-text.shrink-0(
             v-else
             class="text-[10px] sm:text-xs px-2"
-          ) YOU
+          ) {{ t('you') }}
 
       //- Pagination controls
       div.flex.items-center.justify-center.gap-2.pt-1
@@ -206,14 +208,14 @@ const indexToRank = (entry: LeaderboardEntry): number =>
           @click="goPrev"
           :disabled="currentPage === 1"
           class="rounded-md border border-[#ffcd00]/50 bg-black/40 text-yellow-300 font-bold px-3 py-1 text-xs hover:bg-black/60 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer game-text"
-        ) ‹ Prev
+        ) ‹ {{ t('prev') }}
         span.text-white.font-bold.game-text(class="text-xs sm:text-sm")
-          | Page {{ currentPage }} / {{ totalPages }}
+          | {{ t('page') }} {{ currentPage }} / {{ totalPages }}
         button(
           @click="goNext"
           :disabled="currentPage === totalPages"
           class="rounded-md border border-[#ffcd00]/50 bg-black/40 text-yellow-300 font-bold px-3 py-1 text-xs hover:bg-black/60 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer game-text"
-        ) Next ›
+        ) {{ t('next') }} ›
 </template>
 
 <style scoped lang="sass">
@@ -235,3 +237,62 @@ const indexToRank = (entry: LeaderboardEntry): number =>
   :deep(.model-container)
     transform: scale(90%)
 </style>
+
+<i18n>
+en:
+  leaderboard: "Leaderboard"
+  yourRank: "Your Rank"
+  jumpToMe: "Jump to me"
+  maxStage: "Max Stage"
+  alreadyFoughtToday: "Already fought today — comes back tomorrow"
+  fightAsGhost: "Fight as ghost battle"
+de:
+  leaderboard: "Bestenliste"
+  yourRank: "Dein Rang"
+  jumpToMe: "Zu mir"
+  maxStage: "Max. Etappe"
+  alreadyFoughtToday: "Heute schon gekämpft — kommt morgen wieder"
+  fightAsGhost: "Als Geisterkampf antreten"
+fr:
+  leaderboard: "Classement"
+  yourRank: "Ton rang"
+  jumpToMe: "Aller à moi"
+  maxStage: "Étape max"
+  alreadyFoughtToday: "Déjà combattu aujourd'hui — revient demain"
+  fightAsGhost: "Combattre en duel fantôme"
+es:
+  leaderboard: "Clasificación"
+  yourRank: "Tu rango"
+  jumpToMe: "Ir a mí"
+  maxStage: "Etapa máx."
+  alreadyFoughtToday: "Ya combatiste hoy — vuelve mañana"
+  fightAsGhost: "Luchar como combate fantasma"
+jp:
+  leaderboard: "ランキング"
+  yourRank: "あなたの順位"
+  jumpToMe: "自分へジャンプ"
+  maxStage: "最高ステージ"
+  alreadyFoughtToday: "本日既に対戦済み — 明日また挑戦"
+  fightAsGhost: "ゴーストバトルで戦う"
+kr:
+  leaderboard: "리더보드"
+  yourRank: "내 순위"
+  jumpToMe: "내 위치로"
+  maxStage: "최고 스테이지"
+  alreadyFoughtToday: "오늘은 이미 싸웠습니다 — 내일 다시"
+  fightAsGhost: "고스트 배틀로 싸우기"
+zh:
+  leaderboard: "排行榜"
+  yourRank: "你的排名"
+  jumpToMe: "跳转到我"
+  maxStage: "最高关卡"
+  alreadyFoughtToday: "今天已经战斗过 — 明天再来"
+  fightAsGhost: "进行幽灵战斗"
+ru:
+  leaderboard: "Таблица лидеров"
+  yourRank: "Ваш ранг"
+  jumpToMe: "К себе"
+  maxStage: "Макс. этап"
+  alreadyFoughtToday: "Сегодня уже сражались — приходите завтра"
+  fightAsGhost: "Бой с призраком"
+</i18n>

@@ -17,13 +17,23 @@ export default {
     ready: 'Ready',
     tapToContinue: 'Tap to continue',
     clickToContinue: 'Click to continue',
+    vs: 'VS',
+    stage: 'Stage',
+    bossStage: 'Boss Stage',
+    you: 'YOU',
+    prev: 'Prev',
+    next: 'Next',
+    page: 'Page',
     bayblade: {
       youWin: 'YOU WIN!',
       youLose: 'YOU LOSE!',
       rewards: 'REWARDS',
       coins: 'Coins',
       playAgain: 'Play Again',
-      buildTeam: 'Build Team'
+      buildTeam: 'Build Team',
+      tapToStart: 'Tap to Start',
+      startHint: 'Click or tap the arena',
+      dragHint: 'Tap a blade, then drag to launch'
     },
     elements: {
       nature: 'Nature',
@@ -58,13 +68,23 @@ export default {
     ready: 'Bereit',
     tapToContinue: 'Tippen zum Fortfahren',
     clickToContinue: 'Klicken zum Fortfahren',
+    vs: 'VS',
+    stage: 'Etappe',
+    bossStage: 'Boss-Etappe',
+    you: 'DU',
+    prev: 'Zurück',
+    next: 'Weiter',
+    page: 'Seite',
     bayblade: {
       youWin: 'DU GEWINNST!',
       youLose: 'DU VERLIERST!',
       rewards: 'BELOHNUNGEN',
       coins: 'Münzen',
       playAgain: 'Nochmal spielen',
-      buildTeam: 'Team bauen'
+      buildTeam: 'Team bauen',
+      tapToStart: 'Zum Starten tippen',
+      startHint: 'Klicke oder tippe in die Arena',
+      dragHint: 'Tippe einen Blade an, dann ziehen zum Werfen'
     },
     elements: {
       nature: 'Natur',
@@ -99,13 +119,23 @@ export default {
     ready: 'Prêt',
     tapToContinue: 'Appuyez pour continuer',
     clickToContinue: 'Cliquez pour continuer',
+    vs: 'VS',
+    stage: 'Étape',
+    bossStage: 'Étape Boss',
+    you: 'TOI',
+    prev: 'Préc.',
+    next: 'Suiv.',
+    page: 'Page',
     bayblade: {
       youWin: 'VICTOIRE !',
       youLose: 'DÉFAITE !',
       rewards: 'RÉCOMPENSES',
       coins: 'Pièces',
       playAgain: 'Rejouer',
-      buildTeam: 'Créer une équipe'
+      buildTeam: 'Créer une équipe',
+      tapToStart: 'Appuyez pour commencer',
+      startHint: 'Cliquez ou appuyez sur l’arène',
+      dragHint: 'Touchez une toupie, puis glissez pour lancer'
     },
     elements: {
       nature: 'Nature',
@@ -140,13 +170,23 @@ export default {
     ready: 'Listo',
     tapToContinue: 'Toca para continuar',
     clickToContinue: 'Haz clic para continuar',
+    vs: 'VS',
+    stage: 'Etapa',
+    bossStage: 'Etapa Jefe',
+    you: 'TÚ',
+    prev: 'Ant.',
+    next: 'Sig.',
+    page: 'Página',
     bayblade: {
       youWin: '¡GANASTE!',
       youLose: '¡PERDISTE!',
       rewards: 'RECOMPENSAS',
       coins: 'Monedas',
       playAgain: 'Jugar de nuevo',
-      buildTeam: 'Crear equipo'
+      buildTeam: 'Crear equipo',
+      tapToStart: 'Toca para empezar',
+      startHint: 'Haz clic o toca la arena',
+      dragHint: 'Toca una peonza y arrastra para lanzar'
     },
     elements: {
       nature: 'Naturaleza',
@@ -193,13 +233,23 @@ export default {
     ready: '準備完了',
     tapToContinue: 'タップして続行',
     clickToContinue: 'クリックして続行',
+    vs: 'VS',
+    stage: 'ステージ',
+    bossStage: 'ボスステージ',
+    you: 'あなた',
+    prev: '前へ',
+    next: '次へ',
+    page: 'ページ',
     bayblade: {
       youWin: '勝利！',
       youLose: '敗北！',
       rewards: '報酬',
       coins: 'コイン',
       playAgain: 'もう一度',
-      buildTeam: 'チーム編成'
+      buildTeam: 'チーム編成',
+      tapToStart: 'タップしてスタート',
+      startHint: 'アリーナをクリックまたはタップ',
+      dragHint: 'ブレードをタップしてドラッグで発射'
     },
     elements: {
       nature: '自然',
@@ -234,13 +284,23 @@ export default {
     ready: '준비',
     tapToContinue: '탭하여 계속하기',
     clickToContinue: '클릭하여 계속하기',
+    vs: 'VS',
+    stage: '스테이지',
+    bossStage: '보스 스테이지',
+    you: '나',
+    prev: '이전',
+    next: '다음',
+    page: '페이지',
     bayblade: {
       youWin: '승리!',
       youLose: '패배!',
       rewards: '보상',
       coins: '코인',
       playAgain: '다시 플레이',
-      buildTeam: '팀 구성'
+      buildTeam: '팀 구성',
+      tapToStart: '탭하여 시작',
+      startHint: '아레나를 클릭하거나 탭하세요',
+      dragHint: '블레이드를 탭한 뒤 드래그하여 발사'
     },
     elements: {
       nature: '자연',
@@ -275,13 +335,23 @@ export default {
     ready: '准备就绪',
     tapToContinue: '轻触屏幕继续',
     clickToContinue: '点击屏幕继续',
+    vs: 'VS',
+    stage: '关卡',
+    bossStage: 'Boss 关卡',
+    you: '你',
+    prev: '上一页',
+    next: '下一页',
+    page: '页',
     bayblade: {
       youWin: '胜利！',
       youLose: '失败！',
       rewards: '奖励',
       coins: '金币',
       playAgain: '再来一局',
-      buildTeam: '组建队伍'
+      buildTeam: '组建队伍',
+      tapToStart: '轻触开始',
+      startHint: '点击或轻触竞技场',
+      dragHint: '轻触陀螺，然后拖动发射'
     },
     elements: {
       nature: '自然',
@@ -316,13 +386,23 @@ export default {
     ready: 'Готов',
     tapToContinue: 'Коснитесь, чтобы продолжить',
     clickToContinue: 'Кликните, чтобы продолжить',
+    vs: 'VS',
+    stage: 'Этап',
+    bossStage: 'Этап Босса',
+    you: 'ВЫ',
+    prev: 'Назад',
+    next: 'Вперёд',
+    page: 'Стр.',
     bayblade: {
       youWin: 'ПОБЕДА!',
       youLose: 'ПОРАЖЕНИЕ!',
       rewards: 'НАГРАДЫ',
       coins: 'Монеты',
       playAgain: 'Играть снова',
-      buildTeam: 'Собрать команду'
+      buildTeam: 'Собрать команду',
+      tapToStart: 'Нажмите, чтобы начать',
+      startHint: 'Кликните или коснитесь арены',
+      dragHint: 'Коснитесь волчка, затем потяните для запуска'
     },
     elements: {
       nature: 'Природа',
