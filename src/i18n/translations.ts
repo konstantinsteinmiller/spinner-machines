@@ -24,7 +24,7 @@ export default {
     prev: 'Prev',
     next: 'Next',
     page: 'Page',
-    bayblade: {
+    spinner: {
       youWin: 'YOU WIN!',
       youLose: 'YOU LOSE!',
       rewards: 'REWARDS',
@@ -75,7 +75,7 @@ export default {
     prev: 'Zurück',
     next: 'Weiter',
     page: 'Seite',
-    bayblade: {
+    spinner: {
       youWin: 'DU GEWINNST!',
       youLose: 'DU VERLIERST!',
       rewards: 'BELOHNUNGEN',
@@ -126,7 +126,7 @@ export default {
     prev: 'Préc.',
     next: 'Suiv.',
     page: 'Page',
-    bayblade: {
+    spinner: {
       youWin: 'VICTOIRE !',
       youLose: 'DÉFAITE !',
       rewards: 'RÉCOMPENSES',
@@ -177,7 +177,7 @@ export default {
     prev: 'Ant.',
     next: 'Sig.',
     page: 'Página',
-    bayblade: {
+    spinner: {
       youWin: '¡GANASTE!',
       youLose: '¡PERDISTE!',
       rewards: 'RECOMPENSAS',
@@ -240,7 +240,7 @@ export default {
     prev: '前へ',
     next: '次へ',
     page: 'ページ',
-    bayblade: {
+    spinner: {
       youWin: '勝利！',
       youLose: '敗北！',
       rewards: '報酬',
@@ -291,7 +291,7 @@ export default {
     prev: '이전',
     next: '다음',
     page: '페이지',
-    bayblade: {
+    spinner: {
       youWin: '승리!',
       youLose: '패배!',
       rewards: '보상',
@@ -342,7 +342,7 @@ export default {
     prev: '上一页',
     next: '下一页',
     page: '页',
-    bayblade: {
+    spinner: {
       youWin: '胜利！',
       youLose: '失败！',
       rewards: '奖励',
@@ -393,7 +393,7 @@ export default {
     prev: 'Назад',
     next: 'Вперёд',
     page: 'Стр.',
-    bayblade: {
+    spinner: {
       youWin: 'ПОБЕДА!',
       youLose: 'ПОРАЖЕНИЕ!',
       rewards: 'НАГРАДЫ',

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import FTabs, { type TabOption } from '@/components/atoms/FTabs'
+import FTabs, { type TabOption } from '@/components/atoms/FTabs.vue'
 import { isMobileLandscape, isMobilePortrait } from '@/use/useUser'
 
 interface Props {

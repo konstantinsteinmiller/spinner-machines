@@ -48,12 +48,11 @@ const containerClasses = computed(() => {
     // Brawl specific scaling
     'scale-75': isBrawl && props.size === 'sm',
     'scale-90': isBrawl && props.size === 'md',
-    'scale-110': isBrawl && props.size === 'lg',
     'scale-125': isBrawl && props.size === 'xl',
     // Default specific scaling
     'scale-60': !isBrawl && props.size === 'sm',
     'scale-80': !isBrawl && props.size === 'md',
-    'scale-110': !isBrawl && props.size === 'lg',
+    'scale-110': props.size === 'lg',
     'scale-120': !isBrawl && props.size === 'xl',
     'attention-bounce': props.attention,
     'opacity-50 grayscale pointer-events-none': props.isDisabled

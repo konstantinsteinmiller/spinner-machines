@@ -2,10 +2,10 @@ import { onMounted, onUnmounted, ref } from 'vue'
 import useModels from '@/use/useModels'
 import useUser, { isDemo } from '@/use/useUser'
 import useCampaign, { demoCampaignNodes, type MobileNode } from '@/use/useCampaign'
-import useBaybladeCampaign, { STAGES, type ArenaType } from '@/use/useBaybladeCampaign'
+import useSpinnerCampaign, { STAGES, type ArenaType } from '@/use/useSpinnerCampaign'
 import useLeaderboard from '@/use/useLeaderboard'
-import { arenaType, resetGameStartCount } from '@/use/useBaybladeGame'
-import type { BossAbility } from '@/types/bayblade'
+import { arenaType, resetGameStartCount } from '@/use/useSpinnerGame'
+import type { BossAbility } from '@/types/spinner'
 
 const storedCheat = localStorage.getItem('cheat') || 'false'
 const isCheat = ref<boolean>(JSON.parse(storedCheat))
@@ -22,20 +22,20 @@ const useCheats = () => {
   /**
    * ACTIONS
    */
-  const setBaybladeStage = (stageId: number) => {
+  const setSpinnerStage = (stageId: number) => {
     console.log('stageId: ', stageId)
     if (stageId < 1 || stageId > STAGES.length) {
       console.warn(`[CHEAT] Invalid stage ${stageId}. Must be 1-${STAGES.length}.`)
       return
     }
-    const { currentStageId } = useBaybladeCampaign()
+    const { currentStageId } = useSpinnerCampaign()
     currentStageId.value = stageId
-    localStorage.setItem('bayblade_campaign_stage', stageId.toString())
-    console.warn(`[CHEAT] Bayblade stage set to ${stageId} (${STAGES[stageId - 1]?.name}).`)
+    localStorage.setItem('spinner_campaign_stage', stageId.toString())
+    console.warn(`[CHEAT] Spinner stage set to ${stageId} (${STAGES[stageId - 1]?.name}).`)
   }
 
   const resetChestCooldown = () => {
-    localStorage.setItem('bayblade_chest_ready_at', '0')
+    localStorage.setItem('spinner_chest_ready_at', '0')
     console.warn('[CHEAT] Chest cooldown reset to 00:00.')
   }
 
@@ -46,7 +46,7 @@ const useCheats = () => {
 
   const simulateLeaderboardUpdate = () => {
     const { forceLeaderboardTick } = useLeaderboard()
-    const { currentStageId } = useBaybladeCampaign()
+    const { currentStageId } = useSpinnerCampaign()
     forceLeaderboardTick(currentStageId.value)
     console.warn('[CHEAT] Leaderboard updated (one hourly tick).')
   }
@@ -62,7 +62,7 @@ const useCheats = () => {
    * isolation without grinding the campaign.
    */
   const spawnCheatBoss = (ability: BossAbility) => {
-    const { buildCheatBossStage, loadCheatStage } = useBaybladeCampaign()
+    const { buildCheatBossStage, loadCheatStage } = useSpinnerCampaign()
     const stage = buildCheatBossStage(ability)
     loadCheatStage(stage)
     console.warn(`[CHEAT] Loaded '${ability}' boss test stage (scaled to your upgrades).`)
@@ -70,16 +70,16 @@ const useCheats = () => {
 
   /** Clear any active cheat-stage override and return to the campaign stage. */
   const clearCheatStage = () => {
-    const { loadCheatStage } = useBaybladeCampaign()
+    const { loadCheatStage } = useSpinnerCampaign()
     loadCheatStage(null)
     console.warn('[CHEAT] Cheat stage cleared — back to campaign.')
   }
 
   /** Jump forward/backward by 10 stages */
-  const shiftBaybladeStage = (delta: number) => {
-    const { currentStageId } = useBaybladeCampaign()
+  const shiftSpinnerStage = (delta: number) => {
+    const { currentStageId } = useSpinnerCampaign()
     const newStage = Math.max(1, Math.min(STAGES.length, currentStageId.value + delta))
-    setBaybladeStage(newStage)
+    setSpinnerStage(newStage)
   }
 
   const resetCampaign = () => {
@@ -97,27 +97,27 @@ const useCheats = () => {
   const cheatsMap: Record<string, () => void> = {
     'ctrl+shift+j': resetCampaign,
     'ctrl+shift+d': () => console.log('[DEBUG] Models:', allModels),
-    // Bayblade stage shortcuts: Ctrl+Shift+1..9 for stages 1-9, Ctrl+Shift+0 for stage 10
-    'ctrl+shift+1': () => setBaybladeStage(1),
-    'ctrl+shift+2': () => setBaybladeStage(2),
-    'ctrl+shift+3': () => setBaybladeStage(3),
-    'ctrl+shift+4': () => setBaybladeStage(4),
-    'ctrl+shift+5': () => setBaybladeStage(5),
-    'ctrl+shift+6': () => setBaybladeStage(6),
-    'ctrl+shift+7': () => setBaybladeStage(7),
-    'ctrl+shift+8': () => setBaybladeStage(8),
-    'ctrl+shift+o': () => setBaybladeStage(9),
-    'ctrl+shift+p': () => setBaybladeStage(10),
-    'ctrl+shift+alt+1': () => setBaybladeStage(11),
-    'ctrl+shift+alt+2': () => setBaybladeStage(12),
-    'ctrl+shift+alt+3': () => setBaybladeStage(13),
-    'ctrl+shift+alt+4': () => setBaybladeStage(14),
-    'ctrl+shift+alt+5': () => setBaybladeStage(15),
-    'ctrl+shift+alt+6': () => setBaybladeStage(16),
-    'ctrl+shift+alt+7': () => setBaybladeStage(17),
-    'ctrl+shift+alt+8': () => setBaybladeStage(18),
-    'ctrl+shift+alt+9': () => setBaybladeStage(19),
-    'ctrl+shift+alt+0': () => setBaybladeStage(20),
+    // Spinner stage shortcuts: Ctrl+Shift+1..9 for stages 1-9, Ctrl+Shift+0 for stage 10
+    'ctrl+shift+1': () => setSpinnerStage(1),
+    'ctrl+shift+2': () => setSpinnerStage(2),
+    'ctrl+shift+3': () => setSpinnerStage(3),
+    'ctrl+shift+4': () => setSpinnerStage(4),
+    'ctrl+shift+5': () => setSpinnerStage(5),
+    'ctrl+shift+6': () => setSpinnerStage(6),
+    'ctrl+shift+7': () => setSpinnerStage(7),
+    'ctrl+shift+8': () => setSpinnerStage(8),
+    'ctrl+shift+o': () => setSpinnerStage(9),
+    'ctrl+shift+p': () => setSpinnerStage(10),
+    'ctrl+shift+alt+1': () => setSpinnerStage(11),
+    'ctrl+shift+alt+2': () => setSpinnerStage(12),
+    'ctrl+shift+alt+3': () => setSpinnerStage(13),
+    'ctrl+shift+alt+4': () => setSpinnerStage(14),
+    'ctrl+shift+alt+5': () => setSpinnerStage(15),
+    'ctrl+shift+alt+6': () => setSpinnerStage(16),
+    'ctrl+shift+alt+7': () => setSpinnerStage(17),
+    'ctrl+shift+alt+8': () => setSpinnerStage(18),
+    'ctrl+shift+alt+9': () => setSpinnerStage(19),
+    'ctrl+shift+alt+0': () => setSpinnerStage(20),
     'ctrl+shift+alt+t': resetChestCooldown,
     'ctrl+shift+alt+g': resetGameStartCounter,
     'ctrl+shift+alt+u': simulateLeaderboardUpdate,
@@ -151,7 +151,7 @@ const useCheats = () => {
     // Use e.code for digits (Shift+1 produces '!' in e.key on US keyboards)
     let mainKey = e.key.toLowerCase()
     const codeMatch = e.code.match(/^Digit(\d)$/)
-    if (codeMatch) mainKey = codeMatch[1]
+    if (codeMatch) mainKey = codeMatch[1]!
 
     // Avoid adding 'control', 'shift', etc., as the main key if they are modifiers
     if (!['control', 'shift', 'alt', 'meta'].includes(mainKey)) {

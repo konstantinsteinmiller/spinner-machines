@@ -39,11 +39,11 @@ export interface BottomPart {
   weight: number
 }
 
-// ─── Bayblade Composition ────────────────────────────────────────────────────
+// ─── Spinner Composition ────────────────────────────────────────────────────
 
 /**
  * Special boss behaviors. Plain bosses just get the stat bump; abilities
- * opt into mechanics handled in useBaybladeGame:
+ * opt into mechanics handled in useSpinnerGame:
  *  - 'ghost'    → splits into 2 linked blades on launch; shared damage;
  *                 no friendly fire with its ghost counterpart
  *  - 'split'    → on death, spawns 5 mini blades with temporary invincibility
@@ -52,7 +52,7 @@ export interface BottomPart {
  */
 export type BossAbility = 'ghost' | 'split' | 'partners' | 'healers'
 
-export interface BaybladeConfig {
+export interface SpinnerConfig {
   topPartId: TopPartId
   bottomPartId: BottomPartId
   topLevel?: number
@@ -62,7 +62,7 @@ export interface BaybladeConfig {
   bossAbility?: BossAbility
 }
 
-export interface BaybladeStats {
+export interface SpinnerStats {
   maxHp: number
   totalWeight: number
   damageMultiplier: number
@@ -73,9 +73,9 @@ export interface BaybladeStats {
   bottom: BottomPart
 }
 
-// ─── Runtime Bayblade State ──────────────────────────────────────────────────
+// ─── Runtime Spinner State ──────────────────────────────────────────────────
 
-export interface BaybladeState {
+export interface SpinnerState {
   id: number
   x: number
   y: number
@@ -93,7 +93,7 @@ export interface BaybladeState {
   hitFlash: number
   wallBounceCount: number
   lastHitTime: number
-  config: BaybladeConfig
+  config: SpinnerConfig
   owner: 'player' | 'npc'
   isBoss: boolean
   // ── Boss ability state ────────────────────────────────────────────────

@@ -9,12 +9,15 @@ import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite'
 import javascriptObfuscator from 'vite-plugin-javascript-obfuscator'
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   // Load env file based on `mode` in the current working directory.
   // The third parameter '' loads all env vars regardless of VITE_ prefix.
   const env = loadEnv(mode, process.cwd(), '')
 
-  const isProduction = mode === 'production' || env.VITE_NODE_ENV === 'production'
+  // Only obfuscate during a real production build — never during dev,
+  // where the obfuscator rewrites dynamic import strings into lookups
+  // Vite can no longer transform, breaking module specifiers at runtime.
+  const isProduction = (mode === 'production' || env.VITE_NODE_ENV === 'production') && command === 'build'
   const shouldObfuscate = env.VITE_ENABLE_OBFUSCATION === 'true'
 
   // Initialize plugins array
@@ -34,7 +37,7 @@ export default defineConfig(({ mode }) => {
         stringArrayThreshold: 0.75,
         splitStrings: true,
         unicodeEscapeSequence: true
-      })
+      } as any)
     )
   }
 

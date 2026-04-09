@@ -2,11 +2,11 @@
 import { ref, computed, watch } from 'vue' // Added computed
 import { useI18n } from 'vue-i18n'
 import useUser from '@/use/useUser'
-import FModal from '@/components/molecules/FModal'
-import FButton from '@/components/atoms/FButton'
-import FSwitch from '@/components/atoms/FSwitch'
-import FSlider from '@/components/atoms/FSlider'
-import FSelect from '@/components/atoms/FSelect'
+import FModal from '@/components/molecules/FModal.vue'
+import FButton from '@/components/atoms/FButton.vue'
+import FSwitch from '@/components/atoms/FSwitch.vue'
+import FSlider from '@/components/atoms/FSlider.vue'
+import FSelect from '@/components/atoms/FSelect.vue'
 import { DIFFICULTY, LANGUAGES } from '@/utils/enums' // Import LANGUAGES
 import { prependBaseUrl } from '@/utils/function'
 

@@ -2,17 +2,17 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import type { Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import FIconButton from '@/components/atoms/FIconButton'
-import FReward from '@/components/atoms/FReward'
-import BaybladeConfigModal from '@/components/organisms/BaybladeConfigModal'
-import OptionsModal from '@/components/organisms/OptionsModal'
+import FIconButton from '@/components/atoms/FIconButton.vue'
+import FReward from '@/components/atoms/FReward.vue'
+import SpinnerConfigModal from '@/components/organisms/SpinnerConfigModal.vue'
+import OptionsModal from '@/components/organisms/OptionsModal.vue'
 import useSounds, { useMusic } from '@/use/useSound'
-import useBaybladeGame, { BLADE_RADIUS, simSpeed, countdownText } from '@/use/useBaybladeGame'
-import useBaybladeConfig from '@/use/useBaybladeConfig'
-import useBaybladeCampaign from '@/use/useBaybladeCampaign'
+import useSpinnerGame, { BLADE_RADIUS, simSpeed, countdownText } from '@/use/useSpinnerGame'
+import useSpinnerConfig from '@/use/useSpinnerConfig'
+import useSpinnerCampaign from '@/use/useSpinnerCampaign'
 import { useHint } from '@/use/useHint'
 import { useScreenshake } from '@/use/useScreenshake'
-import type { BaybladeConfig } from '@/types/bayblade'
+import type { SpinnerConfig } from '@/types/spinner'
 import useUser, { isMobileLandscape, isMobilePortrait } from '@/use/useUser'
 import IconCoin from '@/components/icons/IconCoin.vue'
 import DailyRewards from '@/components/organisms/DailyRewards.vue'
@@ -51,9 +51,9 @@ const {
   render,
   pixelToGame,
   spawnMeteorShower
-} = useBaybladeGame()
+} = useSpinnerGame()
 
-const { playerTeam, hasFirstWin, saveTeam, addCoins, markFirstWin } = useBaybladeConfig()
+const { playerTeam, hasFirstWin, saveTeam, addCoins, markFirstWin } = useSpinnerConfig()
 const {
   currentStage,
   currentStageId,
@@ -62,7 +62,7 @@ const {
   advanceStage,
   stageReinitSignal,
   cheatStage
-} = useBaybladeCampaign()
+} = useSpinnerCampaign()
 const { recordPlayerStage, markGhostFought } = useLeaderboard()
 const { showHint, startHintTimer, clearHint } = useHint(5000)
 const { shakeStyle } = useScreenshake()
@@ -105,7 +105,7 @@ const ghostEnemy: Ref<LeaderboardEntry | null> = ref(null)
 
 // ─── NPC Team from Campaign Stage ─────────────────────────────────────────
 
-const stageNpcTeam = (): BaybladeConfig[] =>
+const stageNpcTeam = (): SpinnerConfig[] =>
   currentStage.value.enemyTeam.map(e => ({
     topPartId: e.topPartId,
     bottomPartId: e.bottomPartId,
@@ -127,7 +127,7 @@ const stageNpcTeam = (): BaybladeConfig[] =>
  *  top of the matched peak — localStorage upgrades are never touched.
  *  There is no upgrade max level, so this is safe to stack arbitrarily. */
 const CHEAT_PLAYER_BONUS_LEVELS = 25
-const playerTeamWithUpgrades = (): BaybladeConfig[] => {
+const playerTeamWithUpgrades = (): SpinnerConfig[] => {
   if (cheatStage.value) {
     const tops = playerUpgrades.value.tops
     const bots = playerUpgrades.value.bottoms
@@ -174,8 +174,8 @@ const isGameOver = computed(() => phase.value === 'game_over')
 const showReward: Ref<boolean> = ref(false)
 
 const resultText = computed(() => {
-  if (gameResult.value === 'win') return t('bayblade.youWin')
-  if (gameResult.value === 'lose') return t('bayblade.youLose')
+  if (gameResult.value === 'win') return t('spinner.youWin')
+  if (gameResult.value === 'lose') return t('spinner.youLose')
   return ''
 })
 
@@ -203,7 +203,7 @@ const adRewardCoins = 100
 // Players can watch a rewarded video to unlock a temporary 2x speed-up.
 // The boost is purely visual — physics integration runs twice per frame
 // while active, so collisions and damage are unaffected.
-const SPEED_BOOST_KEY = 'bayblade_2x_expires_at'
+const SPEED_BOOST_KEY = 'spinner_2x_expires_at'
 const SPEED_BOOST_DURATION_MS = 3 * 60 * 1000
 
 const speedBoostExpiresAt: Ref<number> = ref(parseInt(localStorage.getItem(SPEED_BOOST_KEY) || '0', 10))
@@ -423,7 +423,7 @@ const onGhostFight = (entry: LeaderboardEntry) => {
   markGhostFought(entry.id)
   const playerLead = playerTeamWithUpgrades()[0]
   if (!playerLead) return
-  const ghostBlade: BaybladeConfig = {
+  const ghostBlade: SpinnerConfig = {
     topPartId: entry.blade.topPartId,
     bottomPartId: entry.blade.bottomPartId,
     topLevel: entry.blade.topLevel ?? 0,
@@ -437,7 +437,7 @@ const onOpenConfig = () => {
   configModalOpen.value = true
 }
 
-const onConfigSave = (team: BaybladeConfig[]) => {
+const onConfigSave = (team: SpinnerConfig[]) => {
   saveTeam(team)
   initGame(playerTeamWithUpgrades(), stageNpcTeam(), !hasFirstWin.value, currentStage.value.arenaType, currentStage.value.bouncers ?? 0, currentStageId.value >= 2)
 }
@@ -562,9 +562,9 @@ onUnmounted(() => {
         )
           div.text-white.font-black.uppercase.tracking-wider.animate-pulse.game-text(
             class="text-3xl sm:text-5xl mb-2"
-          ) {{ t('bayblade.tapToStart') }}
+          ) {{ t('spinner.tapToStart') }}
           div.text-white.italic.game-text(class="text-sm sm:text-lg opacity-60")
-            | {{ t('bayblade.startHint') }}
+            | {{ t('spinner.startHint') }}
 
         //- Every-10th-game countdown — rendered inside the meteor shower ring
         div(
@@ -592,7 +592,7 @@ onUnmounted(() => {
           :style="{ bottom: `calc(4rem + env(safe-area-inset-bottom, 0px) + ${bottomGapPx}px)` }"
         )
           div.text-white.italic.game-text(class="text-xs sm:text-sm opacity-50")
-            | {{ t('bayblade.dragHint') }}
+            | {{ t('spinner.dragHint') }}
 
       //- Bottom-left button row: Daily Rewards → Ad Reward → Battle Pass.
       //- Wrapped in a single fixed flex container so mobile (scale-80)
@@ -676,7 +676,7 @@ onUnmounted(() => {
       @continue="onRewardContinue"
     )
       template(#ribbon)
-        span.text-white.font-black.uppercase.italic.game-text(class="sm:text-2xl" :class="{ 'sm:text-2xl': !isMobileLandscape && !isMobilePortrait }") {{ t('bayblade.rewards') }}
+        span.text-white.font-black.uppercase.italic.game-text(class="sm:text-2xl" :class="{ 'sm:text-2xl': !isMobileLandscape && !isMobilePortrait }") {{ t('spinner.rewards') }}
       div.flex.flex-col.items-center.gap-4
         div.font-black.uppercase.tracking-wider.game-text(
           class="text-3xl sm:text-5xl"
@@ -693,7 +693,7 @@ onUnmounted(() => {
     )
 
     //- Config Modal
-    BaybladeConfigModal(
+    SpinnerConfigModal(
       v-model="configModalOpen"
       :initial-team="playerTeam"
       @save="onConfigSave"

@@ -1,22 +1,22 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import FModal from '@/components/molecules/FModal'
+import FModal from '@/components/molecules/FModal.vue'
 import FIconButton from '@/components/atoms/FIconButton.vue'
 import IconCoin from '@/components/icons/IconCoin.vue'
-import useBaybladeConfig from '@/use/useBaybladeConfig'
+import useSpinnerConfig from '@/use/useSpinnerConfig'
 import {
   SKINS_PER_TOP,
   MODEL_LABELS,
   isSkinOwned,
   buySkin,
   modelImgPath,
-  type BaybladeModelId
+  type SpinnerModelId
 } from '@/use/useModels'
-import type { TopPartId } from '@/types/bayblade'
+import type { TopPartId } from '@/types/spinner'
 import useSounds from '@/use/useSound.ts'
 
-const { addCoins } = useBaybladeConfig()
+const { addCoins } = useSpinnerConfig()
 const { t } = useI18n()
 
 // ─── Daily Rewards Config ────────────────────────────────────────────────────
@@ -25,7 +25,7 @@ const DAILY_REWARDS = [100, 200, 300, 400, 500, 750, 1000]
 // Day indices (0-based) on which the reward is a skin unlock instead of coins.
 // Covers day 3, 5, and 7.
 const SKIN_REWARD_DAYS = new Set<number>([2, 4, 6])
-const STORAGE_KEY = 'bayblade_daily_rewards'
+const STORAGE_KEY = 'spinner_daily_rewards'
 
 const isSkinDay = (dayIndex: number) => SKIN_REWARD_DAYS.has(dayIndex)
 
@@ -39,8 +39,8 @@ interface DailyState {
 // ─── Skin Pool Helpers ──────────────────────────────────────────────────────
 
 /** Distinct model ids that still have at least one unowned top-part mapping. */
-const unownedSkinModelIds = (): BaybladeModelId[] => {
-  const result: BaybladeModelId[] = []
+const unownedSkinModelIds = (): SpinnerModelId[] => {
+  const result: SpinnerModelId[] = []
   const seen = new Set<string>()
   for (const topPartId of Object.keys(SKINS_PER_TOP) as TopPartId[]) {
     for (const modelId of SKINS_PER_TOP[topPartId]) {
@@ -58,7 +58,7 @@ const pickRandom = <T, >(arr: T[]): T | null =>
   arr.length > 0 ? arr[Math.floor(Math.random() * arr.length)]! : null
 
 /** Unlock a skin for every top part whose catalog contains it. */
-const unlockSkinEverywhere = (modelId: BaybladeModelId) => {
+const unlockSkinEverywhere = (modelId: SpinnerModelId) => {
   for (const topPartId of Object.keys(SKINS_PER_TOP) as TopPartId[]) {
     if (SKINS_PER_TOP[topPartId].includes(modelId)) {
       buySkin(topPartId, modelId)
@@ -99,7 +99,7 @@ const isModalOpen = ref(false)
 // model id drawn without replacement from the unowned pool, so no two cards
 // ever advertise the same skin. Ephemeral — refreshed each time the modal
 // opens so the preview always reflects the latest ownership state.
-const offeredSkins = ref<Record<number, BaybladeModelId | null>>({})
+const offeredSkins = ref<Record<number, SpinnerModelId | null>>({})
 
 const shuffled = <T, >(arr: T[]): T[] => {
   const a = [...arr]
@@ -117,7 +117,7 @@ const sampleDistinct = <T, >(pool: T[], count: number): T[] =>
 const refreshOfferedSkins = () => {
   const days = Array.from(SKIN_REWARD_DAYS).sort((a, b) => a - b)
   const picks = sampleDistinct(unownedSkinModelIds(), days.length)
-  const result: Record<number, BaybladeModelId | null> = {}
+  const result: Record<number, SpinnerModelId | null> = {}
   days.forEach((d, idx) => {
     result[d] = picks[idx] ?? null
   })
@@ -168,12 +168,12 @@ const collect = (dayIndex: number) => {
     const reservedByOtherDays = new Set(
       Object.entries(offeredSkins.value)
         .filter(([d, v]) => Number(d) !== dayIndex && v)
-        .map(([, v]) => v as BaybladeModelId)
+        .map(([, v]) => v as SpinnerModelId)
     )
     const pool = unownedSkinModelIds().filter(m => !reservedByOtherDays.has(m))
     // Prefer the previewed skin if it's still unowned, otherwise roll again.
     const preview = offeredSkins.value[dayIndex]
-    const toUnlock: BaybladeModelId | null =
+    const toUnlock: SpinnerModelId | null =
       preview && pool.includes(preview) ? preview : pickRandom(pool)
     if (toUnlock) {
       unlockSkinEverywhere(toUnlock)
@@ -193,7 +193,7 @@ const collect = (dayIndex: number) => {
 </script>
 
 <template lang="pug">
-  //- Open-modal button (positioned by parent flex row in BaybladeArena)
+  //- Open-modal button (positioned by parent flex row in SpinnerArena)
   div.daily-rewards
     button.group.cursor-pointer.z-10.transition-transform(
       class="hover:scale-[103%] active:scale-90 scale-80 sm:scale-110"

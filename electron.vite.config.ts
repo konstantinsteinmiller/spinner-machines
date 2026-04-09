@@ -9,11 +9,15 @@ import javascriptObfuscator from 'vite-plugin-javascript-obfuscator'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   // Load variables from .env.native
   // The third argument '' loads all variables regardless of prefix
   const env = loadEnv(mode, process.cwd(), '')
-  const isProduction = mode === 'production' || env.VITE_NODE_ENV === 'production'
+  // Only obfuscate during a real production build — never during
+  // `electron-vite dev`, where the obfuscator rewrites dynamic import
+  // strings into lookups Vite can no longer transform, breaking module
+  // specifiers like `@/App.vue` at runtime.
+  const isProduction = mode === 'production' && command === 'build'
   const shouldObfuscate = env.VITE_ENABLE_OBFUSCATION === 'true'
 
   // Initialize plugins array

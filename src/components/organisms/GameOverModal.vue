@@ -2,10 +2,12 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import FModal from '@/components/molecules/FModal'
-import FButton from '@/components/atoms/FButton'
+import FModal from '@/components/molecules/FModal.vue'
+import FButton from '@/components/atoms/FButton.vue'
 import { activeNode, type CampaignNode, useCampaign } from '@/use/useCampaign'
 import {} from '@/use/useMatch.ts'
+
+const originalNpcHand = ref<{ id: string }[]>([])
 
 const props = defineProps<{
   isOpen: boolean
@@ -37,7 +39,7 @@ watch(() => props.isBoardFull, () => {
     //set known cards for active node from the dealt npc deck
     activeNode.value.knownCards = [...new Set([
       ...(JSON.parse(JSON.stringify(activeNode.value.knownCards)) ?? []),
-      ...originalNpcHand.value.map(c => c.id)
+      ...originalNpcHand.value.map((c: { id: string }) => c.id)
     ])]
     props.completeNode(JSON.parse(JSON.stringify(activeNode.value)))
   }
@@ -46,7 +48,7 @@ watch(() => props.isBoardFull, () => {
   //set known cards for active node from the dealt npc deck
   activeNode.value.knownCards = [...new Set([
     ...(JSON.parse(JSON.stringify(activeNode.value.knownCards)) ?? []),
-    ...originalNpcHand.value.map(c => c.id)
+    ...originalNpcHand.value.map((c: { id: string }) => c.id)
   ])]
   props.saveCampaign(JSON.parse(JSON.stringify(activeNode.value)))
 

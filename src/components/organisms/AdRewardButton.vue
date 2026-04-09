@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import IconCoin from '@/components/icons/IconCoin.vue'
 import { isSdkActive, showRewardedAd } from '@/use/useCrazyGames'
-import useBaybladeConfig from '@/use/useBaybladeConfig'
+import useSpinnerConfig from '@/use/useSpinnerConfig'
 import { isCrazyGamesFullRelease } from '@/use/useMatch'
 
 interface Props {
@@ -13,7 +13,7 @@ const props = withDefaults(defineProps<Props>(), {
   coins: 100
 })
 
-const { addCoins } = useBaybladeConfig()
+const { addCoins } = useSpinnerConfig()
 
 // Triggers a rewarded video ad via the CrazyGames SDK. Coins are only
 // granted once the video played all the way through.

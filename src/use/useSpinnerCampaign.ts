@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import type { Ref } from 'vue'
-import type { TopPartId, BottomPartId, BossAbility } from '@/types/bayblade'
+import type { TopPartId, BottomPartId, BossAbility } from '@/types/spinner'
 
 // ─── Stage Enemy Config ─────────────────────────────────────────────────────
 
@@ -44,7 +44,7 @@ export interface Stage {
 /**
  * `e(top, bot, tl, bl, modelId, ability?)` — build one enemy blade.
  * `ability` promotes the blade to a boss and opts it into a special mechanic
- * handled by useBaybladeGame. Passing `'plain'` makes it a stat-only boss.
+ * handled by useSpinnerGame. Passing `'plain'` makes it a stat-only boss.
  */
 const e = (
   top: TopPartId,
@@ -703,8 +703,8 @@ export const upgradeCost = (toLevel: number): number => {
 
 // ─── Persistence ────────────────────────────────────────────────────────────
 
-const STAGE_KEY = 'bayblade_campaign_stage'
-const UPGRADES_KEY = 'bayblade_upgrades'
+const STAGE_KEY = 'spinner_campaign_stage'
+const UPGRADES_KEY = 'spinner_upgrades'
 
 export interface PlayerUpgrades {
   tops: Record<TopPartId, number>
@@ -754,7 +754,7 @@ const playerUpgrades: Ref<PlayerUpgrades> = ref(loadUpgrades())
 // Cheats (see useCheats.ts) may inject a one-shot custom stage — typically
 // to demo a specific boss ability scaled to the player's current upgrades.
 // When set, `currentStage` returns this stage instead of the campaign one,
-// and `stageReinitSignal` is bumped so any active BaybladeArena view re-runs
+// and `stageReinitSignal` is bumped so any active SpinnerArena view re-runs
 // initGame with the new enemy team.
 const cheatStage: Ref<Stage | null> = ref(null)
 const stageReinitSignal: Ref<number> = ref(0)
@@ -886,7 +886,7 @@ export const loadCheatStage = (stage: Stage | null) => {
 
 // ─── Public API ─────────────────────────────────────────────────────────────
 
-const useBaybladeCampaign = () => ({
+const useSpinnerCampaign = () => ({
   currentStageId,
   currentStage,
   isLastStage,
@@ -901,4 +901,4 @@ const useBaybladeCampaign = () => ({
   loadCheatStage
 })
 
-export default useBaybladeCampaign
+export default useSpinnerCampaign

@@ -1,19 +1,19 @@
 import { ref, computed, type Ref, type ComputedRef } from 'vue'
 import type {
-  BaybladeState,
-  BaybladeConfig,
-  BaybladeStats,
+  SpinnerState,
+  SpinnerConfig,
+  SpinnerStats,
   GamePhase,
   GameResult,
   MeteorParticle,
   SpritesheetAnimation,
   Powerup,
   PowerupStat
-} from '@/types/bayblade'
-import type { ArenaType } from '@/use/useBaybladeCampaign'
-import { computeStats } from '@/use/useBaybladeConfig'
-import { baybladeModelImgPath } from '@/use/useModels'
-import type { TopPartId } from '@/types/bayblade'
+} from '@/types/spinner'
+import type { ArenaType } from '@/use/useSpinnerCampaign'
+import { computeStats } from '@/use/useSpinnerConfig'
+import { spinnerModelImgPath } from '@/use/useModels'
+import type { TopPartId } from '@/types/spinner'
 import { isDebug } from '@/use/useMatch.ts'
 import { isMobileLandscape, isMobilePortrait } from '@/use/useUser.ts'
 import { useScreenshake } from '@/use/useScreenshake'
@@ -154,7 +154,7 @@ export const simSpeed: Ref<1 | 2> = ref(1)
 
 // Counts how many matches the player has started. Every Nth start triggers a
 // "3, 2, 1, GO" countdown rendered inside the meteor shower ring.
-const GAME_START_COUNT_KEY = 'bayblade_game_start_count'
+const GAME_START_COUNT_KEY = 'spinner_game_start_count'
 const COUNTDOWN_EVERY_N_GAMES = 5
 const COUNTDOWN_STEP_MS = 375
 const COUNTDOWN_SEQUENCE = ['3', '2', '1', 'GO'] as const
@@ -198,7 +198,7 @@ export const resetGameStartCount = () => {
 
 // Tracks the result of the last finished match so we can bias the next match's
 // turn order toward whichever side gives the player a better experience.
-const LAST_RESULT_KEY = 'bayblade_last_result'
+const LAST_RESULT_KEY = 'spinner_last_result'
 const loadLastResult = (): GameResult => {
   const raw = localStorage.getItem(LAST_RESULT_KEY)
   return raw === 'win' || raw === 'lose' ? raw : null
@@ -212,7 +212,7 @@ const saveLastGameResult = (result: GameResult) => {
 
 // ─── Composable ──────────────────────────────────────────────────────────────
 
-export const useBaybladeGame = () => {
+export const useSpinnerGame = () => {
   // ── Game Phase ───────────────────────────────────────────────────────────
   const phase: Ref<GamePhase> = ref('idle')
   const gameResult: Ref<GameResult> = ref(null)
@@ -220,11 +220,11 @@ export const useBaybladeGame = () => {
   const isBossStage: Ref<boolean> = ref(false)
 
   // ── Blade Arrays (2 per side) ────────────────────────────────────────────
-  const playerBlades: Ref<BaybladeState[]> = ref([])
-  const npcBlades: Ref<BaybladeState[]> = ref([])
+  const playerBlades: Ref<SpinnerState[]> = ref([])
+  const npcBlades: Ref<SpinnerState[]> = ref([])
 
   // All models in one flat array for physics iteration
-  const allBlades = computed<BaybladeState[]>(() =>
+  const allBlades = computed<SpinnerState[]>(() =>
     [...playerBlades.value, ...npcBlades.value]
   )
 
@@ -235,7 +235,7 @@ export const useBaybladeGame = () => {
   // ID of the blade currently in motion (tracks whose turn just ended)
   const launchedBladeId: Ref<number | null> = ref(null)
 
-  const selectedBlade = computed<BaybladeState | null>(() =>
+  const selectedBlade = computed<SpinnerState | null>(() =>
     playerBlades.value.find(b => b.id === selectedBladeId.value && b.hp > 0) ?? null
   )
 
@@ -351,7 +351,7 @@ export const useBaybladeGame = () => {
     const key = modelOverride ?? `${topPartId}_${owner}`
     let img = bladeModelImages.get(key)
     if (!img) {
-      img = preloadImage(baybladeModelImgPath(topPartId, owner, modelOverride))
+      img = preloadImage(spinnerModelImgPath(topPartId, owner, modelOverride))
       bladeModelImages.set(key, img)
     }
     return (img.complete && img.naturalWidth > 0) ? img : null
@@ -374,7 +374,7 @@ export const useBaybladeGame = () => {
   const TRAIL_DURATION = 700
   const trails = new Map<number, TrailData>()
 
-  const updateTrails = (blades: BaybladeState[], now: number) => {
+  const updateTrails = (blades: SpinnerState[], now: number) => {
     for (const blade of blades) {
       if (blade.hp <= 0) {
         trails.delete(blade.id)
@@ -513,18 +513,18 @@ export const useBaybladeGame = () => {
   const HEALER_HEAL_COOLDOWN_MS = 250
   const healerHealCooldowns = new Map<string, number>()
 
-  const speed = (blade: BaybladeState): number =>
+  const speed = (blade: SpinnerState): number =>
     Math.sqrt(blade.vx * blade.vx + blade.vy * blade.vy)
 
-  const livingBlades = (blades: BaybladeState[]): BaybladeState[] =>
+  const livingBlades = (blades: SpinnerState[]): SpinnerState[] =>
     blades.filter(b => b.hp > 0)
 
-  const isInvulnerable = (blade: BaybladeState): boolean =>
+  const isInvulnerable = (blade: SpinnerState): boolean =>
     blade.invulnerableUntil !== undefined && performance.now() < blade.invulnerableUntil
 
   let firstGameBoost = false
 
-  const statsFor = (blade: BaybladeState): BaybladeStats => {
+  const statsFor = (blade: SpinnerState): SpinnerStats => {
     const stats = computeStats(blade.config, blade.config.topLevel ?? 0, blade.config.bottomLevel ?? 0)
     let dmg = stats.damageMultiplier
     let def = stats.defenseMultiplier
@@ -554,9 +554,9 @@ export const useBaybladeGame = () => {
   function createBladeState(
     owner: 'player' | 'npc',
     x: number, y: number,
-    config: BaybladeConfig,
+    config: SpinnerConfig,
     isBoss = false
-  ): BaybladeState {
+  ): SpinnerState {
     const stats = computeStats(config, config.topLevel ?? 0, config.bottomLevel ?? 0)
     const bossHpMultiplier = isBoss ? 2 : 1
     const boostHpMultiplier = (firstGameBoost && owner === 'player') ? 2 : 1
@@ -597,7 +597,7 @@ export const useBaybladeGame = () => {
    * shares the parent's group so there is no friendly fire, and is linked
    * both ways for damage mirroring.
    */
-  const spawnGhostTwin = (parent: BaybladeState) => {
+  const spawnGhostTwin = (parent: SpinnerState) => {
     // Derive the launch direction from the parent's acceleration vector
     // (we run this on the same frame as the launch, so velocity is still 0).
     const mag = Math.hypot(parent.ax, parent.ay) || 1
@@ -648,9 +648,9 @@ export const useBaybladeGame = () => {
    * invincibility frames so they don't immediately slam into each other,
    * and they inherit the parent's group so their swarm never self-damages.
    */
-  const spawnSplitChildren = (parent: BaybladeState) => {
+  const spawnSplitChildren = (parent: SpinnerState) => {
     const now = performance.now()
-    const children: BaybladeState[] = []
+    const children: SpinnerState[] = []
     for (let i = 0; i < SPLIT_CHILD_COUNT; i++) {
       const angle = (i / SPLIT_CHILD_COUNT) * Math.PI * 2 + Math.random() * 0.25
       const dx = Math.cos(angle)
@@ -695,7 +695,7 @@ export const useBaybladeGame = () => {
    * the split-on-death handler.
    */
   const applyBladeDamage = (
-    target: BaybladeState,
+    target: SpinnerState,
     dmg: number,
     cx: number, cy: number,
     sourceOwner: 'player' | 'npc',
@@ -729,8 +729,8 @@ export const useBaybladeGame = () => {
   // ─── Game Lifecycle ──────────────────────────────────────────────────────
 
   const initGame = (
-    pTeam: BaybladeConfig[],
-    nTeam: BaybladeConfig[],
+    pTeam: SpinnerConfig[],
+    nTeam: SpinnerConfig[],
     boost = false,
     arena: ArenaType = 'default',
     bouncerCount = 0,
@@ -1020,7 +1020,7 @@ export const useBaybladeGame = () => {
     if (phase.value !== 'player_turn') return
 
     // Find nearest living player blade to the tap
-    let closest: BaybladeState | null = null
+    let closest: SpinnerState | null = null
     let closestDist = Infinity
 
     for (const blade of livingBlades(playerBlades.value)) {
@@ -1447,7 +1447,7 @@ export const useBaybladeGame = () => {
     }
   }
 
-  const bounceOffWalls = (blade: BaybladeState) => {
+  const bounceOffWalls = (blade: SpinnerState) => {
     const dist = Math.sqrt(blade.x * blade.x + blade.y * blade.y)
     const maxDist = ARENA_RADIUS - blade.radius
 
@@ -1518,7 +1518,7 @@ export const useBaybladeGame = () => {
    * Unlike the wall, bouncer hits do NOT count toward `wallBounceCount`,
    * so they don't erode the wall-boost decay budget.
    */
-  const bounceOffBouncers = (blade: BaybladeState) => {
+  const bounceOffBouncers = (blade: SpinnerState) => {
     if (arenaBouncers.length === 0) return
     for (const bouncer of arenaBouncers) {
       const dx = blade.x - bouncer.x
@@ -1554,7 +1554,7 @@ export const useBaybladeGame = () => {
     }
   }
 
-  const resolveCollision = (a: BaybladeState, b: BaybladeState) => {
+  const resolveCollision = (a: SpinnerState, b: SpinnerState) => {
     const dx = b.x - a.x
     const dy = b.y - a.y
     const dist = Math.sqrt(dx * dx + dy * dy)
@@ -1856,7 +1856,7 @@ export const useBaybladeGame = () => {
         // Scaled down to 25% on friendly-fire (split sibling) hits so the
         // swarm doesn't shred itself.
         const ffMul = friendlyFire ? FRIENDLY_FIRE_MUL : 1
-        const chipFor = (victim: BaybladeState) =>
+        const chipFor = (victim: SpinnerState) =>
           Math.max(SPIKY_CHIP_MIN_DAMAGE, victim.maxHp * SPIKY_CHIP_HP_FRACTION) * ffMul
         if (a.config.topPartId === 'triangle' && !aHitInBack && b.hp > 0) {
           if (applyBladeDamage(b, chipFor(b), cx, cy, a.owner, false)) hadKill = true
@@ -2259,7 +2259,7 @@ export const useBaybladeGame = () => {
 
   const powerupParticles: PowerupParticle[] = []
 
-  // Match the stat-icon palette used in BaybladeConfigModal: red-400 attack,
+  // Match the stat-icon palette used in SpinnerConfigModal: red-400 attack,
   // blue-400 defense, cyan-400 speed. Used for both the disintegrate puff
   // particles and (via the lighter/darker derivations below) the 3d crate.
   // Particle color (kept for the disintegrate puff) — uses the mid tone
@@ -2398,7 +2398,7 @@ export const useBaybladeGame = () => {
    * Apply a powerup's stat boost to the receiving blade. Buffs are stored
    * multiplicatively so several pickups of the same kind stack.
    */
-  const applyPowerupToBlade = (blade: BaybladeState, stat: PowerupStat) => {
+  const applyPowerupToBlade = (blade: SpinnerState, stat: PowerupStat) => {
     if (!blade.buffs) blade.buffs = {}
     blade.buffs[stat] = (blade.buffs[stat] ?? 1) * POWERUP_BUFF_MULTIPLIER
   }
@@ -2658,7 +2658,7 @@ export const useBaybladeGame = () => {
     ctx.lineCap = 'butt'
   }
 
-  const renderAura = (ctx: CanvasRenderingContext2D, blade: BaybladeState) => {
+  const renderAura = (ctx: CanvasRenderingContext2D, blade: SpinnerState) => {
     const isPlayer = blade.owner === 'player'
 
     if (blade.isBoss) {
@@ -2704,7 +2704,7 @@ export const useBaybladeGame = () => {
     ctx.fill()
   }
 
-  const renderBlade = (ctx: CanvasRenderingContext2D, blade: BaybladeState) => {
+  const renderBlade = (ctx: CanvasRenderingContext2D, blade: SpinnerState) => {
     const { x, y, rotation, owner, hitFlash, hp, maxHp, radius } = blade
     const isPlayer = owner === 'player'
 
@@ -2817,7 +2817,7 @@ export const useBaybladeGame = () => {
     ctx.fillText(hpText, x, y)
   }
 
-  const renderSelectionGlow = (ctx: CanvasRenderingContext2D, blade: BaybladeState) => {
+  const renderSelectionGlow = (ctx: CanvasRenderingContext2D, blade: SpinnerState) => {
     ctx.strokeStyle = '#ffdd00'
     ctx.lineWidth = 2
     ctx.shadowColor = '#ffdd00'
@@ -2828,7 +2828,7 @@ export const useBaybladeGame = () => {
     ctx.shadowBlur = 0
   }
 
-  const renderDragIndicator = (ctx: CanvasRenderingContext2D, blade: BaybladeState) => {
+  const renderDragIndicator = (ctx: CanvasRenderingContext2D, blade: SpinnerState) => {
     // Compute pull vector from blade center to pointer
     const pullDx = dragCurrent.value.x - blade.x
     const pullDy = dragCurrent.value.y - blade.y
@@ -3050,4 +3050,4 @@ export const useBaybladeGame = () => {
   }
 }
 
-export default useBaybladeGame
+export default useSpinnerGame

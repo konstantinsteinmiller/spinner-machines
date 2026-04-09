@@ -27,7 +27,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import FReward from '@/components/atoms/FReward'
+import FReward from '@/components/atoms/FReward.vue'
 import useSound from '@/use/useSound'
 
 const props = defineProps<{

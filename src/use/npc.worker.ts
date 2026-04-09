@@ -20,7 +20,7 @@ const evaluateBoardScore = (tempBoard: (GameCard | null)[][], npcHandLen: number
 const getSimulatedState = (currentBoard: (GameCard | null)[][], card: GameCard, x: number, y: number, owner: 'player' | 'npc', activeRules: string[]) => {
   const newBoard = currentBoard.map(r => r.map(c => c ? { ...c } : null))
   const virtualCard = { ...card, owner }
-  newBoard[y][x] = virtualCard
+  newBoard[y]![x] = virtualCard
 
   const isLow = activeRules.includes('low')
   const hasPlus = activeRules.includes('plus')
@@ -32,8 +32,8 @@ const getSimulatedState = (currentBoard: (GameCard | null)[][], card: GameCard, 
 
   ADJ.forEach(adj => {
     const nx = x + adj.dx, ny = y + adj.dy
-    if (ny >= 0 && ny < 3 && nx >= 0 && nx < 3 && newBoard[ny][nx]) {
-      const target = newBoard[ny][nx]!
+    if (ny >= 0 && ny < 3 && nx >= 0 && nx < 3 && newBoard[ny]![nx]) {
+      const target = newBoard[ny]![nx]!
       const vAtk = virtualCard.values[adj.side]
       const vDef = target.values[adj.opp]
 
@@ -60,7 +60,7 @@ const getSimulatedState = (currentBoard: (GameCard | null)[][], card: GameCard, 
   })
 
   captures.forEach(p => {
-    if (newBoard[p.y][p.x]) newBoard[p.y][p.x]!.owner = owner
+    if (newBoard[p.y]![p.x]) newBoard[p.y]![p.x]!.owner = owner
   })
   return newBoard
 }
@@ -72,10 +72,10 @@ const minimax = (board: (GameCard | null)[][], npcHand: GameCard[], playerHand: 
   if (isMax) {
     let maxEval = -Infinity
     for (let i = 0; i < npcHand.length; i++) {
-      const card = npcHand[i]
+      const card = npcHand[i]!
       for (let y = 0; y < 3; y++) {
         for (let x = 0; x < 3; x++) {
-          if (board[y][x]) continue
+          if (board[y]![x]) continue
           const nextBoard = getSimulatedState(board, card, x, y, 'npc', rules)
           const ev = minimax(nextBoard, [...npcHand.slice(0, i), ...npcHand.slice(i + 1)], playerHand, depth - 1, false, alpha, beta, rules)
           maxEval = Math.max(maxEval, ev)
@@ -88,10 +88,10 @@ const minimax = (board: (GameCard | null)[][], npcHand: GameCard[], playerHand: 
   } else {
     let minEval = Infinity
     for (let i = 0; i < playerHand.length; i++) {
-      const card = playerHand[i]
+      const card = playerHand[i]!
       for (let y = 0; y < 3; y++) {
         for (let x = 0; x < 3; x++) {
-          if (board[y][x]) continue
+          if (board[y]![x]) continue
           const nextBoard = getSimulatedState(board, card, x, y, 'player', rules)
           const ev = minimax(nextBoard, npcHand, [...playerHand.slice(0, i), ...playerHand.slice(i + 1)], depth - 1, true, alpha, beta, rules)
           minEval = Math.min(minEval, ev)
@@ -116,7 +116,7 @@ self.onmessage = (e) => {
   const searchDepth = emptySlots > 6 ? maxDepth : emptySlots
 
   for (let i = 0; i < npcHand.length; i++) {
-    const card = npcHand[i]
+    const card = npcHand[i]!
     for (let y = 0; y < 3; y++) {
       for (let x = 0; x < 3; x++) {
         if (board[y][x]) continue

@@ -2,22 +2,22 @@
 import { ref, computed, watch } from 'vue'
 import type { Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import FModal from '@/components/molecules/FModal'
-import type { BaybladeConfig, TopPartId, BottomPartId } from '@/types/bayblade'
-import type { TabOption } from '@/components/atoms/FTabs'
+import FModal from '@/components/molecules/FModal.vue'
+import type { SpinnerConfig, TopPartId, BottomPartId } from '@/types/spinner'
+import type { TabOption } from '@/components/atoms/FTabs.vue'
 import {
   TOP_PARTS_LIST,
   BOTTOM_PARTS_LIST,
   computeStats
-} from '@/use/useBaybladeConfig'
-import useBaybladeConfig from '@/use/useBaybladeConfig'
-import useBaybladeCampaign, { upgradeCost, TOP_UPGRADE_BONUS, BOTTOM_UPGRADE_BONUS } from '@/use/useBaybladeCampaign'
+} from '@/use/useSpinnerConfig'
+import useSpinnerConfig from '@/use/useSpinnerConfig'
+import useSpinnerCampaign, { upgradeCost, TOP_UPGRADE_BONUS, BOTTOM_UPGRADE_BONUS } from '@/use/useSpinnerCampaign'
 import {
   SKINS_PER_TOP, SKIN_COST, MODEL_LABELS,
   modelImgPath, isSkinOwned, buySkin, selectSkin, getSelectedSkin,
   ownedSkinsForTop, hasUnownedSkinsForTop,
   markSkinPickerOpened, wasSkinPickerOpened,
-  type BaybladeModelId
+  type SpinnerModelId
 } from '@/use/useModels'
 import IconCoin from '@/components/icons/IconCoin.vue'
 import IconAttack from '@/components/icons/IconAttack.vue'
@@ -28,7 +28,7 @@ import IconWeight from '@/components/icons/IconWeight.vue'
 
 interface Props {
   modelValue: boolean
-  initialTeam?: BaybladeConfig[]
+  initialTeam?: SpinnerConfig[]
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -40,7 +40,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
-  (e: 'save', team: BaybladeConfig[]): void
+  (e: 'save', team: SpinnerConfig[]): void
 }>()
 
 const { t } = useI18n()
@@ -58,7 +58,7 @@ const bladeTabs = computed<TabOption[]>(() =>
 
 // ─── Per-Blade Configs (local editable copies) ────────────────────────────
 
-const localTeam: Ref<BaybladeConfig[]> = ref([])
+const localTeam: Ref<SpinnerConfig[]> = ref([])
 
 // Sync only when modal opens (not on every prop change, which would reset the tab)
 watch(() => props.modelValue, (open) => {
@@ -74,14 +74,14 @@ const currentConfig = computed(() =>
   localTeam.value[activeBladeIndex.value as number] ?? localTeam.value[0]
 )
 
-const { coins, addCoins } = useBaybladeConfig()
-const { playerUpgrades, upgradeTop, upgradeBottom } = useBaybladeCampaign()
+const { coins, addCoins } = useSpinnerConfig()
+const { playerUpgrades, upgradeTop, upgradeBottom } = useSpinnerCampaign()
 
 const topLevel = (id: TopPartId) => playerUpgrades.value.tops[id]
 const bottomLevel = (id: BottomPartId) => playerUpgrades.value.bottoms[id]
 
 const stats = computed(() => {
-  const cfg = currentConfig.value
+  const cfg = currentConfig.value!
   return computeStats(cfg, topLevel(cfg.topPartId), bottomLevel(cfg.bottomPartId))
 })
 
@@ -127,7 +127,7 @@ const setTop = (id: TopPartId) => {
     if (coins.value >= upgradeCost(topLevel(id) + 1)) buyTopUpgrade(id)
     return
   }
-  localTeam.value[idx] = { ...localTeam.value[idx], topPartId: id }
+  localTeam.value[idx] = { ...localTeam.value[idx]!, topPartId: id }
   emit('save', localTeam.value.map(c => ({ ...c })))
 }
 
@@ -139,7 +139,7 @@ const setBottom = (id: BottomPartId) => {
     if (coins.value >= upgradeCost(bottomLevel(id) + 1)) buyBottomUpgrade(id)
     return
   }
-  localTeam.value[idx] = { ...localTeam.value[idx], bottomPartId: id }
+  localTeam.value[idx] = { ...localTeam.value[idx]!, bottomPartId: id }
   emit('save', localTeam.value.map(c => ({ ...c })))
 }
 
@@ -160,14 +160,14 @@ const openSkinPicker = (topId: TopPartId) => {
 const shouldBouncePlus = (topId: TopPartId): boolean =>
   hasUnownedSkinsForTop(topId) && !wasSkinPickerOpened(topId)
 
-const handleBuySkin = (topId: TopPartId, modelId: BaybladeModelId) => {
+const handleBuySkin = (topId: TopPartId, modelId: SpinnerModelId) => {
   if (coins.value < SKIN_COST) return
   addCoins(-SKIN_COST)
   buySkin(topId, modelId)
   skinPickerKey.value++
 }
 
-const handleSelectSkin = (topId: TopPartId, modelId: BaybladeModelId) => {
+const handleSelectSkin = (topId: TopPartId, modelId: SpinnerModelId) => {
   selectSkin(topId, modelId)
   skinPickerKey.value++
   emit('save', localTeam.value.map(c => ({ ...c })))

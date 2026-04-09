@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { modelImgPath, BAYBLADE_MODEL_IDS } from '@/use/useModels.ts'
+import { modelImgPath, SPINNER_MODEL_IDS } from '@/use/useModels.ts'
 import { prependBaseUrl } from '@/utils/function.ts'
 
 // Shared state so it can be accessed by both the loader and the progress component
@@ -51,10 +51,10 @@ export default () => {
     if (areAllAssetsLoaded.value) return
 
     // Combine static list with the model images
-    const baybladeModelImages = BAYBLADE_MODEL_IDS.map(id => modelImgPath(id))
+    const spinnerModelImages = SPINNER_MODEL_IDS.map(id => modelImgPath(id))
     const allImages = [
       ...STATIC_IMAGES.map(src => prependBaseUrl(src)),
-      ...baybladeModelImages
+      ...spinnerModelImages
     ]
 
     const allAssets = [

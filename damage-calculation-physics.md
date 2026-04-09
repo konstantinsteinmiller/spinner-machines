@@ -1,8 +1,8 @@
 # Collision Damage Calculation
 
 This document explains how damage is computed when two blades collide in
-Chaos Arena. All source references point at `src/use/useBaybladeGame.ts`
-(physics + collision) and `src/use/useBaybladeConfig.ts` (part stats).
+Chaos Arena. All source references point at `src/use/useSpinnerGame.ts`
+(physics + collision) and `src/use/useSpinnerConfig.ts` (part stats).
 
 ---
 
@@ -28,7 +28,7 @@ Factor by factor:
 | Term           | Where it comes from                                          | Notes                                                                                                                                      |
 |----------------|--------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
 | `speed(A)`     | `Math.sqrt(vx² + vy²)` at the moment of contact (pre-bounce) | Fast blades hit harder; stationary blades (speed ≤ `STOP_THRESHOLD = 0.25`) deal **zero** damage.                                          |
-| `A.damageMul`  | Top-part `damageMultiplier` + top-level upgrade bonus        | See `TOP_PARTS` in `useBaybladeConfig.ts`. Star 1.8, Piercer 1.7, Spiky 1.1, Quad 1.0, Round 0.8, Soft Shell 0.6.                          |
+| `A.damageMul`  | Top-part `damageMultiplier` + top-level upgrade bonus        | See `TOP_PARTS` in `useSpinnerConfig.ts`. Star 1.8, Piercer 1.7, Spiky 1.1, Quad 1.0, Round 0.8, Soft Shell 0.6.                           |
 | `atkMul`       | `1.25` on a crit, `1` otherwise                              | Crits are back-hits — see §3.                                                                                                              |
 | `A.weight`     | Bottom-part `weight`                                         | Speedy 80, Balanced 110, Tanky 150. Heavier attacker → more damage.                                                                        |
 | `B.weight`     | Same                                                         | Heavier defender → less damage taken.                                                                                                      |
@@ -45,7 +45,7 @@ so a single `dmg` value of `4–10` is already a meaningful chunk.
 ## 2. Where the speed comes from
 
 Collision resolution happens in `resolveCollision()` around
-`useBaybladeGame.ts:1325`. The important ordering:
+`useSpinnerGame.ts:1325`. The important ordering:
 
 1. **Compute `aSpeed`, `bSpeed`** from pre-bounce velocity.
 2. **Apply elastic bounce** (swap normal-velocity components, multiply by
@@ -66,7 +66,7 @@ it's `9.8`.
 ## 3. Crits (back-hits)
 
 A hit is a crit when **all** of these are true (checked around
-`useBaybladeGame.ts:1523`):
+`useSpinnerGame.ts:1523`):
 
 1. The attacker is not *itself* being hit in the back (symmetric — see §4).
 2. The **contact point lies in the defender's rear 90° cone** — i.e. the

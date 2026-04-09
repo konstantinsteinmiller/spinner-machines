@@ -89,7 +89,7 @@ onMounted(() => {
 })
 onUnmounted(() => {
   document.removeEventListener('contextmenu', onContextMenu)
-  document.removeEventListener('touchstart', onTouchStart, { passive: false })
+  document.removeEventListener('touchstart', onTouchStart)
   document.removeEventListener('gesturestart', onGestureStart)
   portraitQuery.removeEventListener('change', onOrientationChange)
 })

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import useBaybladeConfig from '@/use/useBaybladeConfig'
+import useSpinnerConfig from '@/use/useSpinnerConfig'
 import useSounds from '@/use/useSound.ts'
 
 interface Props {
@@ -12,12 +12,12 @@ const props = withDefaults(defineProps<Props>(), {
   targetEl: null
 })
 
-const { addCoins } = useBaybladeConfig()
+const { addCoins } = useSpinnerConfig()
 
 // ─── Cooldown State ──────────────────────────────────────────────────────────
 
 const CHEST_COOLDOWN_MS = 10 * 60 * 1000
-const CHEST_KEY = 'bayblade_chest_ready_at'
+const CHEST_KEY = 'spinner_chest_ready_at'
 const CHEST_REWARD = 100
 
 const chestReadyAt = ref(parseInt(localStorage.getItem(CHEST_KEY) || '0', 10))

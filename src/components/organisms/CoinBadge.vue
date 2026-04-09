@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import IconCoin from '@/components/icons/IconCoin.vue'
-import useBaybladeConfig from '@/use/useBaybladeConfig'
+import useSpinnerConfig from '@/use/useSpinnerConfig'
 
-const { coins } = useBaybladeConfig()
+const { coins } = useSpinnerConfig()
 
 // Exposed so siblings (e.g. TreasureChest) can target the badge for fly-to VFX.
 const rootEl = ref<HTMLElement | null>(null)

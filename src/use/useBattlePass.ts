@@ -1,13 +1,13 @@
 import { ref, computed } from 'vue'
 import type { Ref } from 'vue'
-import useBaybladeConfig from '@/use/useBaybladeConfig'
+import useSpinnerConfig from '@/use/useSpinnerConfig'
 import {
   SKINS_PER_TOP,
   isSkinOwned,
   buySkin,
-  type BaybladeModelId
+  type SpinnerModelId
 } from '@/use/useModels'
-import type { TopPartId } from '@/types/bayblade'
+import type { TopPartId } from '@/types/spinner'
 
 /**
  * Battle Pass progression. 50 stages, 100 xp per stage. Win/loss events
@@ -38,7 +38,7 @@ export const BP_XP_LOSS = 12.5              // 1/8 of a stage
 /** 1-based stage indices that grant a skin instead of coins. */
 export const BP_SKIN_STAGES = new Set<number>([10, 20, 30, 40])
 
-const STORAGE_KEY = 'bayblade_battle_pass'
+const STORAGE_KEY = 'spinner_battle_pass'
 
 // ─── State ──────────────────────────────────────────────────────────────────
 
@@ -105,8 +105,8 @@ export const bpIsSkinStage = (stage: number): boolean => BP_SKIN_STAGES.has(stag
 
 // ─── Skin helpers (mirrors DailyRewards) ───────────────────────────────────
 
-const unownedSkinModelIds = (): BaybladeModelId[] => {
-  const result: BaybladeModelId[] = []
+const unownedSkinModelIds = (): SpinnerModelId[] => {
+  const result: SpinnerModelId[] = []
   const seen = new Set<string>()
   for (const topPartId of Object.keys(SKINS_PER_TOP) as TopPartId[]) {
     for (const modelId of SKINS_PER_TOP[topPartId]) {
@@ -120,7 +120,7 @@ const unownedSkinModelIds = (): BaybladeModelId[] => {
   return result
 }
 
-const unlockSkinEverywhere = (modelId: BaybladeModelId) => {
+const unlockSkinEverywhere = (modelId: SpinnerModelId) => {
   for (const topPartId of Object.keys(SKINS_PER_TOP) as TopPartId[]) {
     if (SKINS_PER_TOP[topPartId].includes(modelId)) {
       buySkin(topPartId, modelId)
@@ -130,7 +130,7 @@ const unlockSkinEverywhere = (modelId: BaybladeModelId) => {
 
 // ─── XP accrual ─────────────────────────────────────────────────────────────
 
-const { addCoins } = useBaybladeConfig()
+const { addCoins } = useSpinnerConfig()
 
 const addXp = (amount: number) => {
   if (amount <= 0) return
@@ -156,7 +156,7 @@ const awardLoss = () => addXp(BP_XP_LOSS)
 export interface ClaimResult {
   stage: number
   coins: number
-  skin: BaybladeModelId | null
+  skin: SpinnerModelId | null
 }
 
 const claimStage = (stage: number): ClaimResult | null => {
@@ -165,7 +165,7 @@ const claimStage = (stage: number): ClaimResult | null => {
   if (state.value.claimedStages.includes(stage)) return null
 
   let coins = 0
-  let skin: BaybladeModelId | null = null
+  let skin: SpinnerModelId | null = null
 
   if (bpIsSkinStage(stage)) {
     const pool = unownedSkinModelIds()

@@ -12,6 +12,7 @@ export interface CampaignNode {
   unlocked: boolean
   completed: boolean
   unlocks: string[]
+  knownCards?: string[]
 }
 
 export interface MobileNode {
@@ -244,7 +245,7 @@ export const useCampaign = () => {
           node.knownCards = saved.knownCards || []
           // If a node is completed, unlock its children
           if (node.completed) {
-            if (isDemo && !demoRelevantNodes.some(demo => demo.id === node.id)) return
+            if (isDemo && !demoRelevantNodes.some((demo: any) => demo.id === node.id)) return
 
             node.unlocks.forEach(childId => {
               const child = campaignNodes.value.find(c => c.id === childId)
@@ -271,7 +272,7 @@ export const useCampaign = () => {
     oldNode.completed = true
     oldNode.knownCards = currentNode.knownCards
     oldNode.unlocks.forEach(nextId => {
-      if (isDemo && !demoRelevantNodes.some(demo => demo.id === nextId)) return
+      if (isDemo && !demoRelevantNodes.some((demo: any) => demo.id === nextId)) return
 
       const nextNode = campaignNodes.value.find(n => n.id === nextId)
       if (nextNode) nextNode.unlocked = true

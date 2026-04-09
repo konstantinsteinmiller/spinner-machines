@@ -3,7 +3,7 @@ import { computed, ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import FModal from '@/components/molecules/FModal.vue'
 import useLeaderboard, { type LeaderboardEntry } from '@/use/useLeaderboard'
-import useBaybladeCampaign from '@/use/useBaybladeCampaign'
+import useSpinnerCampaign from '@/use/useSpinnerCampaign'
 import { isMobileLandscape } from '@/use/useUser.ts'
 
 const emit = defineEmits<{
@@ -18,7 +18,7 @@ const {
   ghostFights,
   canFightGhost
 } = useLeaderboard()
-const { currentStageId } = useBaybladeCampaign()
+const { currentStageId } = useSpinnerCampaign()
 const { t } = useI18n()
 
 // ─── Modal State ────────────────────────────────────────────────────────────

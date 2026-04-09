@@ -5,10 +5,10 @@ import type {
   BottomPartId,
   TopPart,
   BottomPart,
-  BaybladeConfig,
-  BaybladeStats
-} from '@/types/bayblade'
-import { TOP_UPGRADE_BONUS, BOTTOM_UPGRADE_BONUS } from '@/use/useBaybladeCampaign'
+  SpinnerConfig,
+  SpinnerStats
+} from '@/types/spinner'
+import { TOP_UPGRADE_BONUS, BOTTOM_UPGRADE_BONUS } from '@/use/useSpinnerCampaign'
 
 // ─── Part Definitions ────────────────────────────────────────────────────────
 
@@ -25,7 +25,7 @@ export const TOP_PARTS: Record<TopPartId, TopPart> = {
   // small flat amount of HP on *every* collision. Hugging / closely chasing
   // an enemy turns into constant pressure even at low speeds. The flat
   // chip is applied per collision pair with a cooldown (see
-  // SPIKY_CHIP_COOLDOWN_MS in useBaybladeGame) so the DPS stays in check.
+  // SPIKY_CHIP_COOLDOWN_MS in useSpinnerGame) so the DPS stays in check.
   triangle: {
     id: 'triangle',
     label: 'Spiky',
@@ -103,10 +103,10 @@ export const BOTTOM_PARTS_LIST = Object.values(BOTTOM_PARTS)
 const BASE_HP = 20
 
 export const computeStats = (
-  config: BaybladeConfig,
+  config: SpinnerConfig,
   topLevel = 0,
   bottomLevel = 0
-): BaybladeStats => {
+): SpinnerStats => {
   const top = TOP_PARTS[config.topPartId]
   const bottom = BOTTOM_PARTS[config.bottomPartId]
 
@@ -127,16 +127,16 @@ export const computeStats = (
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
 
-const TEAM_KEY = 'bayblade_player_team'
-const COINS_KEY = 'bayblade_coins'
-const FIRST_WIN_KEY = 'bayblade_first_win'
+const TEAM_KEY = 'spinner_player_team'
+const COINS_KEY = 'spinner_coins'
+const FIRST_WIN_KEY = 'spinner_first_win'
 
-const DEFAULT_TEAM: BaybladeConfig[] = [
+const DEFAULT_TEAM: SpinnerConfig[] = [
   { topPartId: 'star', bottomPartId: 'balanced' },
   { topPartId: 'round', bottomPartId: 'balanced' }
 ]
 
-const loadStoredTeam = (): BaybladeConfig[] => {
+const loadStoredTeam = (): SpinnerConfig[] => {
   try {
     const raw = localStorage.getItem(TEAM_KEY)
     if (raw) {
@@ -159,13 +159,13 @@ const loadStoredCoins = (): number => {
 
 // ─── Module-Level Singleton State ────────────────────────────────────────────
 
-const playerTeam: Ref<BaybladeConfig[]> = ref(loadStoredTeam())
+const playerTeam: Ref<SpinnerConfig[]> = ref(loadStoredTeam())
 const coins: Ref<number> = ref(loadStoredCoins())
 const hasFirstWin: Ref<boolean> = ref(localStorage.getItem(FIRST_WIN_KEY) === '1')
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
-const saveTeam = (team: BaybladeConfig[]) => {
+const saveTeam = (team: SpinnerConfig[]) => {
   playerTeam.value = team.map(c => ({ ...c }))
   localStorage.setItem(TEAM_KEY, JSON.stringify(team))
 }
@@ -180,7 +180,7 @@ const markFirstWin = () => {
   localStorage.setItem(FIRST_WIN_KEY, '1')
 }
 
-const useBaybladeConfig = () => ({
+const useSpinnerConfig = () => ({
   playerTeam,
   coins,
   hasFirstWin,
@@ -189,4 +189,4 @@ const useBaybladeConfig = () => ({
   markFirstWin
 })
 
-export default useBaybladeConfig
+export default useSpinnerConfig

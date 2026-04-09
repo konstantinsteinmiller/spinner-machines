@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, type Ref } from 'vue'
-import useBaybladeGame, { ARENA_RADIUS } from '@/use/useBaybladeGame'
-import type { BaybladeConfig } from '@/types/bayblade'
+import useSpinnerGame, { ARENA_RADIUS } from '@/use/useSpinnerGame'
+import type { SpinnerConfig } from '@/types/spinner'
 
 // ─── Powerup Test Scene ────────────────────────────────────────────────────
 // Stripped-down arena that drops a powerup crate every 5 seconds so the
@@ -24,7 +24,7 @@ const {
   updateDrag,
   releaseDrag,
   pixelToGame
-} = useBaybladeGame()
+} = useSpinnerGame()
 
 const canvasRef: Ref<HTMLCanvasElement | null> = ref(null)
 const canvasWidth: Ref<number> = ref(0)
@@ -40,9 +40,9 @@ const updateCanvasSize = () => {
 }
 
 const setupScene = () => {
-  const playerCfg: BaybladeConfig = { topPartId: 'star', bottomPartId: 'balanced' }
-  const npcCfgA: BaybladeConfig = { topPartId: 'round', bottomPartId: 'tanky' }
-  const npcCfgB: BaybladeConfig = { topPartId: 'triangle', bottomPartId: 'speedy' }
+  const playerCfg: SpinnerConfig = { topPartId: 'star', bottomPartId: 'balanced' }
+  const npcCfgA: SpinnerConfig = { topPartId: 'round', bottomPartId: 'tanky' }
+  const npcCfgB: SpinnerConfig = { topPartId: 'triangle', bottomPartId: 'speedy' }
 
   // 5-second spawn cadence (vs production 10–15s) so testers see crates fast.
   initGame([playerCfg], [npcCfgA, npcCfgB], false, 'default', 0, true, [5000, 5000])

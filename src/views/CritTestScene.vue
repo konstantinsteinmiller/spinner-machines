@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, type Ref } from 'vue'
-import useBaybladeGame, { ARENA_RADIUS } from '@/use/useBaybladeGame'
-import type { BaybladeConfig } from '@/types/bayblade'
+import useSpinnerGame, { ARENA_RADIUS } from '@/use/useSpinnerGame'
+import type { SpinnerConfig } from '@/types/spinner'
 
 // ─── Crit Test Scene ────────────────────────────────────────────────────────
 // Launches a fast player blade directly into the rear of a slower-moving NPC
@@ -16,7 +16,7 @@ const {
   startPhysics,
   stopPhysics,
   render
-} = useBaybladeGame()
+} = useSpinnerGame()
 
 const canvasRef: Ref<HTMLCanvasElement | null> = ref(null)
 const canvasWidth: Ref<number> = ref(0)
@@ -32,8 +32,8 @@ const updateCanvasSize = () => {
 }
 
 const setupScene = () => {
-  const playerCfg: BaybladeConfig = { topPartId: 'star', bottomPartId: 'speedy' }
-  const npcCfg: BaybladeConfig = { topPartId: 'round', bottomPartId: 'tanky' }
+  const playerCfg: SpinnerConfig = { topPartId: 'star', bottomPartId: 'speedy' }
+  const npcCfg: SpinnerConfig = { topPartId: 'round', bottomPartId: 'tanky' }
 
   initGame([playerCfg], [npcCfg], false, 'default')
 

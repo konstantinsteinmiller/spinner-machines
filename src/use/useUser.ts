@@ -126,9 +126,6 @@ const useUser = () => {
   }
 
   const resetGameProgress: () => void = () => {
-    const { getStartCollection, saveCollection } = useModels()
-
-    saveCollection(getStartCollection())
     setSettingValue('campaign', [])
     setSettingValue('hand', [])
     setSettingValue('quest-campaign', false)

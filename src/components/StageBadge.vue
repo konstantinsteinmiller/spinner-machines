@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { ArenaType } from '@/use/useBaybladeCampaign'
+import type { ArenaType } from '@/use/useSpinnerCampaign'
 
 const { t } = useI18n()
 

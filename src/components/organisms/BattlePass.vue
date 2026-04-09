@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
-import FModal from '@/components/molecules/FModal'
+import FModal from '@/components/molecules/FModal.vue'
 import FIconButton from '@/components/atoms/FIconButton.vue'
 import IconCoin from '@/components/icons/IconCoin.vue'
 import useBattlePass, {
@@ -13,9 +13,9 @@ import {
   modelImgPath,
   SKINS_PER_TOP,
   isSkinOwned,
-  type BaybladeModelId
+  type SpinnerModelId
 } from '@/use/useModels'
-import type { TopPartId } from '@/types/bayblade'
+import type { TopPartId } from '@/types/spinner'
 import useSounds from '@/use/useSound.ts'
 
 const {
@@ -66,10 +66,10 @@ const stageCards = computed(() =>
 // Dynamically pick an unowned skin to advertise on each unclaimed skin card,
 // re-sampled whenever the modal opens so the preview reflects reality.
 
-const offeredSkins = ref<Record<number, BaybladeModelId | null>>({})
+const offeredSkins = ref<Record<number, SpinnerModelId | null>>({})
 
-const unownedSkinModelIds = (): BaybladeModelId[] => {
-  const out: BaybladeModelId[] = []
+const unownedSkinModelIds = (): SpinnerModelId[] => {
+  const out: SpinnerModelId[] = []
   const seen = new Set<string>()
   for (const top of Object.keys(SKINS_PER_TOP) as TopPartId[]) {
     for (const m of SKINS_PER_TOP[top]) {
@@ -95,7 +95,7 @@ const shuffled = <T, >(arr: T[]): T[] => {
 const refreshOfferedSkins = () => {
   const skinStages = stageCards.value.filter(c => c.isSkin && !c.claimed).map(c => c.stage)
   const pool = shuffled(unownedSkinModelIds())
-  const result: Record<number, BaybladeModelId | null> = {}
+  const result: Record<number, SpinnerModelId | null> = {}
   skinStages.forEach((stage, idx) => {
     result[stage] = pool[idx] ?? null
   })
@@ -136,7 +136,7 @@ const onClaim = (stage: number) => {
 </script>
 
 <template lang="pug">
-  //- Open-modal button (positioned by parent flex row in BaybladeArena)
+  //- Open-modal button (positioned by parent flex row in SpinnerArena)
   div.battle-pass
     button.group.cursor-pointer.z-10.transition-transform(
       class="hover:scale-[103%] active:scale-90 scale-80 sm:scale-110"

@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import type { Ref } from 'vue'
-import type { TopPartId, BottomPartId, BaybladeConfig } from '@/types/bayblade'
-import useBaybladeCampaign from '@/use/useBaybladeCampaign'
+import type { TopPartId, BottomPartId, SpinnerConfig } from '@/types/spinner'
+import useSpinnerCampaign from '@/use/useSpinnerCampaign'
 import { crazyPlayerName } from '@/use/useCrazyGames'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -10,7 +10,7 @@ export interface LeaderboardEntry {
   id: string
   name: string
   maxStage: number
-  blade: BaybladeConfig
+  blade: SpinnerConfig
   /** Stages climbed in the current rolling 24h window. Capped at MAX_DAILY_CLIMB. */
   dailyClimbed: number
   /** Timestamp when the daily climb counter was last reset. */
@@ -20,9 +20,9 @@ export interface LeaderboardEntry {
 
 // ─── Tunables ───────────────────────────────────────────────────────────────
 
-const LEADERBOARD_KEY = 'bayblade_leaderboard'
-const LEADERBOARD_UPDATED_KEY = 'bayblade_leaderboard_updated_at'
-const PLAYER_MAX_STAGE_KEY = 'bayblade_player_max_stage'
+const LEADERBOARD_KEY = 'spinner_leaderboard'
+const LEADERBOARD_UPDATED_KEY = 'spinner_leaderboard_updated_at'
+const PLAYER_MAX_STAGE_KEY = 'spinner_player_max_stage'
 
 /** "Every 1 in-game hour" — refresh fake NPC progression once per real hour. */
 export const LEADERBOARD_UPDATE_INTERVAL_MS = 60 * 60 * 1000
@@ -50,8 +50,8 @@ const PROXIMITY_PROTECTION = 2
 const MAX_NEWCOMERS_PER_DAY = 5
 /** Average newcomer chance per hourly tick → 5 / 24 ≈ 0.208 */
 const NEWCOMER_CHANCE_PER_TICK = MAX_NEWCOMERS_PER_DAY / 24
-const NEWCOMERS_KEY = 'bayblade_leaderboard_newcomers'
-const GHOST_FIGHTS_KEY = 'bayblade_ghost_fights_today'
+const NEWCOMERS_KEY = 'spinner_leaderboard_newcomers'
+const GHOST_FIGHTS_KEY = 'spinner_ghost_fights_today'
 
 // Names lean ~60% silly/childish to match the 6–15 target audience.
 // Sensitive themes (sexual, political, religious, slurs, drugs/alcohol,
@@ -94,7 +94,7 @@ const randInt = (min: number, max: number) => Math.floor(min + Math.random() * (
 const partLevelForStage = (stage: number): number =>
   Math.max(0, Math.min(15, Math.round(stage * 0.12 + (Math.random() * 2 - 1))))
 
-const generateBlade = (stage: number): BaybladeConfig => ({
+const generateBlade = (stage: number): SpinnerConfig => ({
   topPartId: rand(TOP_IDS),
   bottomPartId: rand(BOTTOM_IDS),
   topLevel: partLevelForStage(stage),
@@ -460,7 +460,7 @@ const recordPlayerStage = (stage: number) => {
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 const useLeaderboard = () => {
-  const { currentStageId } = useBaybladeCampaign()
+  const { currentStageId } = useSpinnerCampaign()
 
   /** Combined leaderboard: NPCs + the live player, sorted by maxStage desc. */
   const entries = computed<LeaderboardEntry[]>(() => {
