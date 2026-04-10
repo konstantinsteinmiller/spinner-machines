@@ -7,7 +7,6 @@ import IconCoin from '@/components/icons/IconCoin.vue'
 import useSpinnerConfig from '@/use/useSpinnerConfig'
 import {
   SKINS_PER_TOP,
-  MODEL_LABELS,
   isSkinOwned,
   buySkin,
   modelImgPath,
@@ -258,7 +257,7 @@ const collect = (dayIndex: number) => {
           div.font-black.game-text.text-purple-300.uppercase.tracking-wider.leading-tight(
             v-if="isSkinDay(i) && offeredSkins[i]"
             class="text-[8px] sm:text-[10px]"
-          ) {{ MODEL_LABELS[offeredSkins[i]] }}
+          ) {{ t('skins.' + offeredSkins[i]) }}
 
           //- Coin reward amount — shown on every day (additive on skin days)
           div.text-yellow-400.font-black.game-text.leading-tight(class="text-[9px] sm:text-xs") +{{ reward }}

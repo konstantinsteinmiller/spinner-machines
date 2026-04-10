@@ -20,7 +20,10 @@ export const ARENA_TYPES: ArenaType[] = ['default', 'boss', 'lava', 'ice', 'fore
 
 export interface Stage {
   id: number
+  /** Translation key for the stage name (e.g. 'stage_1') */
   name: string
+  /** Cycle suffix for infinite campaign (e.g. 'II', 'III') — empty for cycle 0 */
+  cycleSuffix?: string
   isBoss?: boolean
   arenaType?: ArenaType
   enemyTeam: StageBladeConfig[]
@@ -93,482 +96,482 @@ const s = (
 
 const BASE_STAGES: Stage[] = [
   // ── Tutorial Arc (1-5) ────────────────────────────────────────────────────
-  s(1, 'Rookie Arena', [
+  s(1, 'stage_1', [
     e('cushioned', 'balanced', 0, 0, 'shell'),
     e('round', 'balanced', 0, 0, 'turtle')
   ], 80, 30),
-  s(2, 'Training Grounds', [
+  s(2, 'stage_2', [
     e('quadratic', 'balanced', 0, 0, 'mysticaleye'),
     e('triangle', 'balanced', 0, 0, 'thunder')
   ], 90, 30),
-  s(3, 'Iron League', [
+  s(3, 'stage_3', [
     e('triangle', 'speedy', 1, 0, 'eagle'),
-    e('round', 'tanky', 0, 1, 'castle')
+    e('round', 'tanky', 0, 1, 'bear')
   ], 100, 35),
-  s(4, 'Steel Circuit', [
-    e('star', 'balanced', 1, 0, 'phoenix'),
+  s(4, 'stage_4', [
+    e('star', 'balanced', 1, 0, 'reddragon'),
     e('quadratic', 'speedy', 1, 1, 'chip'),
-    e('cushioned', 'balanced', 0, 0, 'nature')
+    e('cushioned', 'balanced', 0, 0, 'mountain')
   ], 110, 35),
-  s(5, 'The Storm Warlord', [
-    e('star', 'speedy', 5, 5, 'thunderstorm', 'plain')
+  s(5, 'stage_5', [
+    e('star', 'speedy', 5, 5, 'tornado', 'plain')
   ], 200, 50, { isBoss: true }),
 
   // ── Early Game (6-20) ─────────────────────────────────────────────────────
-  s(6, 'Platinum Ring', [
-    e('star', 'speedy', 2, 1, 'scorpion'),
-    e('round', 'tanky', 1, 2, 'prisma')
+  s(6, 'stage_6', [
+    e('star', 'speedy', 2, 1, 'blades'),
+    e('round', 'tanky', 1, 2, 'galaxy')
   ], 140, 45),
-  s(7, 'Diamond Arena', [
-    e('star', 'speedy', 2, 2, 'thunderstorm'),
+  s(7, 'stage_7', [
+    e('star', 'speedy', 2, 2, 'tornado'),
     e('triangle', 'speedy', 2, 1, 'thunder'),
     e('quadratic', 'balanced', 1, 1, 'mysticaleye')
   ], 160, 50, { bouncers: 1 }),
-  s(8, 'Champion\'s Gate', [
-    e('star', 'balanced', 3, 2, 'fire'),
+  s(8, 'stage_8', [
+    e('star', 'balanced', 3, 2, 'axe'),
     e('cushioned', 'tanky', 2, 3, 'castle')
   ], 180, 55),
-  s(9, 'Legend\'s Trial', [
-    e('star', 'speedy', 3, 3, 'phoenix'),
+  s(9, 'stage_9', [
+    e('star', 'speedy', 3, 3, 'reddragon'),
     e('quadratic', 'tanky', 3, 3, 'chip'),
     e('triangle', 'balanced', 2, 2, 'eagle')
   ], 200, 60, { arenaType: 'forest' }),
   // 10 — SPLIT boss (archetype 2)
-  s(10, 'The Hydra King', [
-    e('round', 'tanky', 3, 3, 'turtle', 'split')
+  s(10, 'stage_10', [
+    e('round', 'tanky', 3, 3, 'bear', 'split')
   ], 350, 90, { isBoss: true }),
-  s(11, 'Shadow Pit', [
-    e('triangle', 'speedy', 3, 3, 'bluedragon'),
+  s(11, 'stage_11', [
+    e('triangle', 'speedy', 3, 3, 'salamaner'),
     e('cushioned', 'tanky', 3, 3, 'shell')
   ], 200, 65),
-  s(12, 'Crimson Forge', [
-    e('star', 'speedy', 4, 3, 'fire'),
+  s(12, 'stage_12', [
+    e('star', 'speedy', 4, 3, 'axe'),
     e('round', 'tanky', 3, 4, 'turtle'),
     e('quadratic', 'balanced', 3, 3, 'mysticaleye')
   ], 210, 65, { arenaType: 'lava', bouncers: 2 }),
-  s(13, 'Frost Cavern', [
-    e('round', 'tanky', 4, 4, 'ice'),
-    e('cushioned', 'balanced', 3, 3, 'nature')
+  s(13, 'stage_13', [
+    e('round', 'tanky', 4, 4, 'galaxy'),
+    e('cushioned', 'balanced', 3, 3, 'mountain')
   ], 220, 70, { arenaType: 'ice' }),
-  s(14, 'Thunder Peaks', [
-    e('star', 'speedy', 4, 4, 'thunder'),
+  s(14, 'stage_14', [
+    e('star', 'speedy', 4, 4, 'ice'),
     e('triangle', 'speedy', 4, 3, 'eagle'),
     e('quadratic', 'tanky', 3, 3, 'chip')
   ], 230, 70, { arenaType: 'thunder' }),
   // 15 — GHOST boss (archetype 3)
-  s(15, 'The Phantom Twin', [
+  s(15, 'stage_15', [
     e('triangle', 'speedy', 6, 5, 'snake', 'ghost')
   ], 420, 110, { isBoss: true }),
-  s(16, 'Obsidian Colosseum', [
-    e('star', 'speedy', 5, 4, 'phoenix'),
-    e('quadratic', 'tanky', 4, 5, 'castle')
+  s(16, 'stage_16', [
+    e('star', 'speedy', 5, 4, 'reddragon'),
+    e('quadratic', 'tanky', 4, 5, 'angelic')
   ], 240, 75, { bouncers: 2 }),
-  s(17, 'Volcanic Rift', [
-    e('star', 'speedy', 5, 5, 'fire'),
-    e('triangle', 'balanced', 5, 4, 'thunderstorm'),
-    e('round', 'tanky', 4, 5, 'shell')
+  s(17, 'stage_17', [
+    e('star', 'speedy', 5, 5, 'axe'),
+    e('triangle', 'balanced', 5, 4, 'phoenix'),
+    e('round', 'tanky', 4, 5, 'piranha')
   ], 260, 80, { arenaType: 'lava' }),
-  s(18, 'Crystal Spire', [
+  s(18, 'stage_18', [
     e('quadratic', 'balanced', 5, 5, 'prisma'),
-    e('cushioned', 'tanky', 5, 5, 'nature')
+    e('cushioned', 'tanky', 5, 5, 'mountain')
   ], 250, 75, { arenaType: 'ice', bouncers: 2 }),
-  s(19, 'Storm Citadel', [
-    e('star', 'speedy', 6, 5, 'thunder'),
-    e('triangle', 'speedy', 5, 5, 'bluedragon'),
+  s(19, 'stage_19', [
+    e('star', 'speedy', 6, 5, 'ice'),
+    e('triangle', 'speedy', 5, 5, 'salamaner'),
     e('quadratic', 'tanky', 5, 5, 'mysticaleye')
   ], 280, 85, { arenaType: 'thunder' }),
   // 20 — PARTNERS boss (archetype 4)
-  s(20, 'The Iron Brotherhood', [
+  s(20, 'stage_20', [
     e('cushioned', 'tanky', 5, 5, 'castle', 'partners'),
-    e('round', 'tanky', 5, 5, 'shell', 'partners'),
+    e('round', 'tanky', 5, 5, 'piranha', 'partners'),
     e('quadratic', 'balanced', 5, 5, 'mysticaleye', 'partners')
   ], 500, 130, { isBoss: true }),
 
   // ── Mid Game (21-50) ──────────────────────────────────────────────────────
-  s(21, 'Phantom Depths', [
-    e('star', 'speedy', 6, 6, 'thunderstorm'),
-    e('cushioned', 'tanky', 6, 6, 'turtle')
+  s(21, 'stage_21', [
+    e('star', 'speedy', 6, 6, 'tornado'),
+    e('cushioned', 'tanky', 6, 6, 'shield')
   ], 300, 90, { arenaType: 'forest' }),
-  s(22, 'Abyssal Arena', [
-    e('star', 'speedy', 7, 6, 'phoenix'),
+  s(22, 'stage_22', [
+    e('star', 'speedy', 7, 6, 'reddragon'),
     e('triangle', 'speedy', 6, 6, 'eagle'),
-    e('round', 'tanky', 6, 7, 'ice')
+    e('round', 'tanky', 6, 7, 'galaxy')
   ], 320, 95, { arenaType: 'shock' }),
-  s(23, 'Void Nexus', [
-    e('star', 'balanced', 7, 7, 'chip'),
+  s(23, 'stage_23', [
+    e('star', 'balanced', 7, 7, 'blades'),
     e('quadratic', 'tanky', 7, 7, 'prisma')
   ], 310, 90),
-  s(24, 'Titan\'s Gauntlet', [
-    e('star', 'speedy', 7, 7, 'fire'),
+  s(24, 'stage_24', [
+    e('star', 'speedy', 7, 7, 'axe'),
     e('triangle', 'speedy', 7, 6, 'snake'),
-    e('cushioned', 'tanky', 6, 7, 'wulf')
+    e('cushioned', 'tanky', 6, 7, 'gear')
   ], 340, 100, { bouncers: 1 }),
   // 25 — HEALERS boss (archetype 5)
-  s(25, 'The Mending Choir', [
-    e('cushioned', 'balanced', 7, 7, 'nature', 'healers'),
-    e('round', 'balanced', 7, 7, 'shell', 'healers'),
+  s(25, 'stage_25', [
+    e('cushioned', 'balanced', 7, 7, 'mountain', 'healers'),
+    e('round', 'balanced', 7, 7, 'piranha', 'healers'),
     e('quadratic', 'balanced', 7, 7, 'mysticaleye', 'healers')
   ], 560, 140, { isBoss: true }),
-  s(26, 'Celestial Forge', [
-    e('star', 'speedy', 8, 8, 'phoenix'),
+  s(26, 'stage_26', [
+    e('star', 'speedy', 8, 8, 'reddragon'),
     e('quadratic', 'tanky', 8, 8, 'mysticaleye')
   ], 350, 100),
-  s(27, 'Infernal Summit', [
-    e('star', 'speedy', 8, 8, 'fire'),
+  s(27, 'stage_27', [
+    e('star', 'speedy', 8, 8, 'axe'),
     e('triangle', 'speedy', 8, 8, 'thunder'),
-    e('cushioned', 'tanky', 8, 8, 'nature')
+    e('cushioned', 'tanky', 8, 8, 'mountain')
   ], 380, 110, { arenaType: 'lava', bouncers: 3 }),
-  s(28, 'Eternal Vortex', [
-    e('star', 'speedy', 9, 8, 'snake'),
-    e('round', 'tanky', 8, 9, 'shell')
+  s(28, 'stage_28', [
+    e('star', 'speedy', 9, 8, 'tornado'),
+    e('round', 'tanky', 8, 9, 'piranha')
   ], 370, 105, { arenaType: 'forest', bouncers: 2 }),
-  s(29, 'Omega Trials', [
-    e('star', 'speedy', 9, 9, 'scorpion'),
+  s(29, 'stage_29', [
+    e('star', 'speedy', 9, 9, 'blades'),
     e('triangle', 'speedy', 9, 8, 'eagle'),
     e('quadratic', 'balanced', 8, 9, 'prisma')
   ], 420, 120),
   // 30 — PLAIN boss
-  s(30, 'Chaos Incarnate', [
-    e('star', 'speedy', 11, 12, 'fire', 'plain')
+  s(30, 'stage_30', [
+    e('star', 'speedy', 11, 12, 'axe', 'plain')
   ], 800, 200, { isBoss: true }),
-  s(31, 'Savage Coliseum', [
-    e('triangle', 'speedy', 9, 9, 'thunderstorm'),
-    e('quadratic', 'tanky', 9, 9, 'castle')
+  s(31, 'stage_31', [
+    e('triangle', 'speedy', 9, 9, 'phoenix'),
+    e('quadratic', 'tanky', 9, 9, 'angelic')
   ], 430, 125, { arenaType: 'shock', bouncers: 1 }),
-  s(32, 'Embercore Pit', [
-    e('star', 'speedy', 10, 9, 'fire'),
-    e('cushioned', 'tanky', 9, 10, 'wulf'),
+  s(32, 'stage_32', [
+    e('star', 'speedy', 10, 9, 'axe'),
+    e('cushioned', 'tanky', 9, 10, 'gear'),
     e('round', 'balanced', 9, 9, 'turtle')
   ], 450, 130, { arenaType: 'lava' }),
-  s(33, 'Glacier Stadium', [
-    e('round', 'tanky', 10, 10, 'ice'),
-    e('cushioned', 'balanced', 9, 10, 'nature'),
-    e('star', 'speedy', 9, 9, 'phoenix')
+  s(33, 'stage_33', [
+    e('round', 'tanky', 10, 10, 'galaxy'),
+    e('cushioned', 'balanced', 9, 10, 'mountain'),
+    e('star', 'speedy', 9, 9, 'reddragon')
   ], 460, 135, { arenaType: 'ice', bouncers: 2 }),
-  s(34, 'Arcane Circle', [
+  s(34, 'stage_34', [
     e('quadratic', 'balanced', 10, 10, 'mysticaleye'),
     e('triangle', 'speedy', 10, 9, 'eagle')
   ], 440, 130),
   // 35 — SPLIT boss
-  s(35, 'The Shattering Shell', [
-    e('round', 'tanky', 12, 10, 'shell', 'split')
+  s(35, 'stage_35', [
+    e('round', 'tanky', 12, 10, 'piranha', 'split')
   ], 900, 210, { isBoss: true }),
-  s(36, 'Ember Arena', [
-    e('star', 'speedy', 11, 10, 'thunderstorm'),
-    e('triangle', 'speedy', 10, 11, 'bluedragon')
+  s(36, 'stage_36', [
+    e('star', 'speedy', 11, 10, 'tornado'),
+    e('triangle', 'speedy', 10, 11, 'salamaner')
   ], 470, 140, { arenaType: 'lava' }),
-  s(37, 'Blizzard Ring', [
-    e('round', 'tanky', 11, 11, 'ice'),
+  s(37, 'stage_37', [
+    e('round', 'tanky', 11, 11, 'galaxy'),
     e('quadratic', 'balanced', 11, 10, 'prisma'),
     e('cushioned', 'tanky', 10, 11, 'castle')
   ], 490, 145, { arenaType: 'ice' }),
-  s(38, 'Sylvan Grove', [
-    e('cushioned', 'balanced', 11, 11, 'nature'),
+  s(38, 'stage_38', [
+    e('cushioned', 'balanced', 11, 11, 'mountain'),
     e('round', 'balanced', 11, 11, 'turtle')
   ], 480, 140, { arenaType: 'forest', bouncers: 1 }),
-  s(39, 'Lightning Coliseum', [
-    e('star', 'speedy', 12, 11, 'thunder'),
+  s(39, 'stage_39', [
+    e('star', 'speedy', 12, 11, 'ice'),
     e('triangle', 'speedy', 11, 11, 'eagle'),
     e('quadratic', 'tanky', 11, 11, 'chip')
   ], 510, 150, { arenaType: 'thunder' }),
   // 40 — GHOST boss
-  s(40, 'The Specter King', [
-    e('star', 'speedy', 13, 12, 'phoenix', 'ghost')
+  s(40, 'stage_40', [
+    e('star', 'speedy', 13, 12, 'reddragon', 'ghost')
   ], 1000, 230, { isBoss: true }),
-  s(41, 'Nova Arena', [
-    e('star', 'speedy', 12, 12, 'scorpion'),
+  s(41, 'stage_41', [
+    e('star', 'speedy', 12, 12, 'blades'),
     e('triangle', 'speedy', 12, 11, 'snake')
   ], 520, 155, { arenaType: 'shock' }),
-  s(42, 'Magma Caldera', [
-    e('star', 'speedy', 13, 12, 'fire'),
-    e('cushioned', 'tanky', 12, 13, 'wulf'),
+  s(42, 'stage_42', [
+    e('star', 'speedy', 13, 12, 'axe'),
+    e('cushioned', 'tanky', 12, 13, 'gear'),
     e('round', 'tanky', 12, 12, 'turtle')
   ], 540, 160, { arenaType: 'lava', bouncers: 3 }),
-  s(43, 'Permafrost', [
-    e('round', 'tanky', 13, 13, 'ice'),
+  s(43, 'stage_43', [
+    e('round', 'tanky', 13, 13, 'galaxy'),
     e('quadratic', 'balanced', 12, 12, 'mysticaleye')
   ], 530, 155, { arenaType: 'ice' }),
-  s(44, 'Ancient Wood', [
-    e('cushioned', 'balanced', 13, 12, 'nature'),
-    e('triangle', 'speedy', 12, 13, 'bluedragon'),
+  s(44, 'stage_44', [
+    e('cushioned', 'balanced', 13, 12, 'mountain'),
+    e('triangle', 'speedy', 12, 13, 'salamaner'),
     e('quadratic', 'tanky', 12, 12, 'prisma')
   ], 550, 165, { arenaType: 'forest' }),
   // 45 — PARTNERS boss
-  s(45, 'The Unbroken Trio', [
+  s(45, 'stage_45', [
     e('cushioned', 'tanky', 13, 13, 'castle', 'partners'),
     e('round', 'tanky', 13, 13, 'turtle', 'partners'),
-    e('star', 'balanced', 13, 13, 'phoenix', 'partners')
+    e('star', 'balanced', 13, 13, 'reddragon', 'partners')
   ], 1100, 250, { isBoss: true }),
-  s(46, 'Zenith Arena', [
-    e('star', 'speedy', 14, 13, 'thunderstorm'),
+  s(46, 'stage_46', [
+    e('star', 'speedy', 14, 13, 'tornado'),
     e('triangle', 'speedy', 13, 14, 'eagle')
   ], 560, 170, { arenaType: 'shock', bouncers: 2 }),
-  s(47, 'Pyroclast', [
-    e('star', 'speedy', 14, 14, 'fire'),
-    e('cushioned', 'tanky', 13, 14, 'wulf')
+  s(47, 'stage_47', [
+    e('star', 'speedy', 14, 14, 'axe'),
+    e('cushioned', 'tanky', 13, 14, 'gear')
   ], 570, 170, { arenaType: 'lava' }),
-  s(48, 'Aurora Ring', [
-    e('round', 'tanky', 14, 14, 'ice'),
+  s(48, 'stage_48', [
+    e('round', 'tanky', 14, 14, 'galaxy'),
     e('quadratic', 'balanced', 14, 13, 'prisma'),
-    e('star', 'speedy', 13, 14, 'phoenix')
+    e('star', 'speedy', 13, 14, 'reddragon')
   ], 580, 175, { arenaType: 'ice', bouncers: 3 }),
-  s(49, 'Bramble Thicket', [
-    e('cushioned', 'balanced', 14, 14, 'nature'),
-    e('triangle', 'speedy', 14, 13, 'bluedragon'),
-    e('round', 'tanky', 13, 14, 'shell')
+  s(49, 'stage_49', [
+    e('cushioned', 'balanced', 14, 14, 'mountain'),
+    e('triangle', 'speedy', 14, 13, 'salamaner'),
+    e('round', 'tanky', 13, 14, 'piranha')
   ], 590, 175, { arenaType: 'forest' }),
   // 50 — HEALERS boss
-  s(50, 'The Eternal Grove', [
-    e('cushioned', 'balanced', 14, 14, 'nature', 'healers'),
+  s(50, 'stage_50', [
+    e('cushioned', 'balanced', 14, 14, 'mountain', 'healers'),
     e('round', 'balanced', 14, 14, 'turtle', 'healers'),
     e('cushioned', 'balanced', 14, 14, 'shell', 'healers'),
     e('quadratic', 'balanced', 14, 14, 'mysticaleye', 'healers')
   ], 1300, 280, { isBoss: true }),
 
   // ── Late Game (51-80) ─────────────────────────────────────────────────────
-  s(51, 'Meteor Circuit', [
-    e('star', 'speedy', 15, 14, 'thunderstorm'),
+  s(51, 'stage_51', [
+    e('star', 'speedy', 15, 14, 'tornado'),
     e('quadratic', 'tanky', 14, 15, 'chip')
   ], 600, 180, { arenaType: 'shock' }),
-  s(52, 'Inferno Chasm', [
-    e('star', 'speedy', 15, 15, 'fire'),
+  s(52, 'stage_52', [
+    e('star', 'speedy', 15, 15, 'axe'),
     e('triangle', 'speedy', 15, 14, 'snake'),
     e('cushioned', 'tanky', 14, 15, 'castle')
   ], 620, 185, { arenaType: 'lava' }),
-  s(53, 'Glacial Throne', [
-    e('round', 'tanky', 15, 15, 'ice'),
+  s(53, 'stage_53', [
+    e('round', 'tanky', 15, 15, 'galaxy'),
     e('quadratic', 'balanced', 15, 15, 'prisma')
   ], 610, 180, { arenaType: 'ice' }),
-  s(54, 'Storm Monolith', [
-    e('star', 'speedy', 16, 15, 'thunder'),
+  s(54, 'stage_54', [
+    e('star', 'speedy', 16, 15, 'ice'),
     e('triangle', 'speedy', 15, 16, 'eagle'),
     e('quadratic', 'tanky', 15, 15, 'mysticaleye')
   ], 640, 190, { arenaType: 'thunder' }),
   // 55 — PLAIN boss
-  s(55, 'The Dread Scorpion', [
+  s(55, 'stage_55', [
     e('piercer', 'speedy', 16, 16, 'scorpion', 'plain')
   ], 1200, 260, { isBoss: true }),
-  s(56, 'Verdant Hollow', [
-    e('cushioned', 'balanced', 16, 15, 'nature'),
+  s(56, 'stage_56', [
+    e('cushioned', 'balanced', 16, 15, 'mountain'),
     e('round', 'tanky', 15, 16, 'turtle'),
-    e('triangle', 'speedy', 15, 15, 'bluedragon')
+    e('triangle', 'speedy', 15, 15, 'salamaner')
   ], 650, 195, { arenaType: 'forest' }),
-  s(57, 'Sunforge', [
-    e('star', 'speedy', 16, 16, 'phoenix'),
+  s(57, 'stage_57', [
+    e('star', 'speedy', 16, 16, 'reddragon'),
     e('quadratic', 'tanky', 16, 16, 'chip')
   ], 660, 200, { arenaType: 'lava' }),
-  s(58, 'Frostfall Rink', [
-    e('round', 'tanky', 16, 16, 'ice'),
+  s(58, 'stage_58', [
+    e('round', 'tanky', 16, 16, 'galaxy'),
     e('cushioned', 'balanced', 16, 16, 'shell'),
-    e('star', 'speedy', 15, 16, 'thunderstorm')
+    e('star', 'speedy', 15, 16, 'tornado')
   ], 670, 200, { arenaType: 'ice', bouncers: 2 }),
-  s(59, 'Voltage Arena', [
-    e('star', 'speedy', 17, 16, 'thunder'),
+  s(59, 'stage_59', [
+    e('star', 'speedy', 17, 16, 'ice'),
     e('triangle', 'speedy', 16, 17, 'eagle')
   ], 680, 205, { arenaType: 'thunder' }),
   // 60 — SPLIT boss
-  s(60, 'The Swarm Hive', [
+  s(60, 'stage_60', [
     e('quadratic', 'tanky', 18, 17, 'mysticaleye', 'split')
   ], 1350, 290, { isBoss: true }),
-  s(61, 'Obsidian Pit', [
-    e('star', 'speedy', 17, 17, 'scorpion'),
+  s(61, 'stage_61', [
+    e('star', 'speedy', 17, 17, 'blades'),
     e('triangle', 'speedy', 17, 17, 'snake'),
-    e('cushioned', 'tanky', 17, 17, 'wulf')
+    e('cushioned', 'tanky', 17, 17, 'gear')
   ], 690, 210, { arenaType: 'shock', bouncers: 1 }),
-  s(62, 'Charcoal Arena', [
-    e('star', 'speedy', 18, 17, 'fire'),
-    e('round', 'tanky', 17, 18, 'castle')
+  s(62, 'stage_62', [
+    e('star', 'speedy', 18, 17, 'axe'),
+    e('round', 'tanky', 17, 18, 'bear')
   ], 700, 210, { arenaType: 'lava' }),
-  s(63, 'Crystal Vault', [
+  s(63, 'stage_63', [
     e('quadratic', 'balanced', 18, 18, 'prisma'),
-    e('round', 'tanky', 18, 18, 'ice'),
-    e('cushioned', 'balanced', 17, 17, 'nature')
+    e('round', 'tanky', 18, 18, 'galaxy'),
+    e('cushioned', 'balanced', 17, 17, 'mountain')
   ], 720, 215, { arenaType: 'ice' }),
-  s(64, 'Tempest Crest', [
-    e('star', 'speedy', 18, 18, 'thunder'),
-    e('triangle', 'speedy', 18, 17, 'bluedragon')
+  s(64, 'stage_64', [
+    e('star', 'speedy', 18, 18, 'ice'),
+    e('triangle', 'speedy', 18, 17, 'salamaner')
   ], 730, 220, { arenaType: 'thunder' }),
   // 65 — GHOST boss
-  s(65, 'The Twin Eclipse', [
-    e('star', 'speedy', 19, 18, 'phoenix', 'ghost')
+  s(65, 'stage_65', [
+    e('star', 'speedy', 19, 18, 'reddragon', 'ghost')
   ], 1500, 310, { isBoss: true }),
-  s(66, 'Mirror Arena', [
-    e('star', 'speedy', 19, 18, 'thunderstorm'),
+  s(66, 'stage_66', [
+    e('star', 'speedy', 19, 18, 'tornado'),
     e('quadratic', 'tanky', 18, 19, 'chip'),
     e('triangle', 'speedy', 18, 18, 'eagle')
   ], 740, 225),
-  s(67, 'Cinder Throne', [
-    e('star', 'speedy', 19, 19, 'fire'),
+  s(67, 'stage_67', [
+    e('star', 'speedy', 19, 19, 'axe'),
     e('cushioned', 'tanky', 19, 19, 'castle')
   ], 750, 225, { arenaType: 'lava' }),
-  s(68, 'Frozen Heart', [
-    e('round', 'tanky', 19, 19, 'ice'),
-    e('cushioned', 'balanced', 19, 18, 'nature'),
-    e('star', 'speedy', 18, 19, 'phoenix')
+  s(68, 'stage_68', [
+    e('round', 'tanky', 19, 19, 'galaxy'),
+    e('cushioned', 'balanced', 19, 18, 'mountain'),
+    e('star', 'speedy', 18, 19, 'reddragon')
   ], 760, 230, { arenaType: 'ice' }),
-  s(69, 'Ancient Canopy', [
-    e('cushioned', 'balanced', 19, 19, 'nature'),
-    e('triangle', 'speedy', 19, 19, 'bluedragon'),
+  s(69, 'stage_69', [
+    e('cushioned', 'balanced', 19, 19, 'mountain'),
+    e('triangle', 'speedy', 19, 19, 'salamaner'),
     e('round', 'tanky', 19, 19, 'turtle')
   ], 770, 230, { arenaType: 'forest' }),
   // 70 — PARTNERS boss
-  s(70, 'The Quartet of Fate', [
-    e('star', 'balanced', 18, 18, 'phoenix', 'partners'),
+  s(70, 'stage_70', [
+    e('star', 'balanced', 18, 18, 'reddragon', 'partners'),
     e('triangle', 'balanced', 18, 18, 'thunder', 'partners'),
     e('quadratic', 'balanced', 18, 18, 'chip', 'partners'),
-    e('cushioned', 'balanced', 18, 18, 'wulf', 'partners')
+    e('cushioned', 'balanced', 18, 18, 'gear', 'partners')
   ], 1700, 340, { isBoss: true }),
-  s(71, 'Diamond Apex', [
-    e('star', 'speedy', 20, 19, 'scorpion'),
+  s(71, 'stage_71', [
+    e('star', 'speedy', 20, 19, 'blades'),
     e('triangle', 'speedy', 19, 20, 'snake')
   ], 780, 235, { arenaType: 'shock' }),
-  s(72, 'Magma Spire', [
-    e('star', 'speedy', 20, 20, 'fire'),
-    e('cushioned', 'tanky', 19, 20, 'wulf'),
+  s(72, 'stage_72', [
+    e('star', 'speedy', 20, 20, 'axe'),
+    e('cushioned', 'tanky', 19, 20, 'gear'),
     e('round', 'balanced', 19, 19, 'turtle')
   ], 800, 240, { arenaType: 'lava' }),
-  s(73, 'Polar Apex', [
-    e('round', 'tanky', 20, 20, 'ice'),
+  s(73, 'stage_73', [
+    e('round', 'tanky', 20, 20, 'galaxy'),
     e('quadratic', 'balanced', 20, 19, 'prisma')
   ], 810, 245, { arenaType: 'ice' }),
-  s(74, 'Emerald Dome', [
-    e('cushioned', 'balanced', 20, 20, 'nature'),
+  s(74, 'stage_74', [
+    e('cushioned', 'balanced', 20, 20, 'mountain'),
     e('triangle', 'speedy', 20, 19, 'eagle'),
-    e('star', 'speedy', 19, 20, 'phoenix')
+    e('star', 'speedy', 19, 20, 'reddragon')
   ], 820, 245, { arenaType: 'forest', bouncers: 3 }),
   // 75 — HEALERS boss
-  s(75, 'The Hallowed Circle', [
-    e('cushioned', 'balanced', 20, 20, 'nature', 'healers'),
-    e('round', 'balanced', 20, 20, 'shell', 'healers'),
-    e('cushioned', 'balanced', 20, 20, 'wulf', 'healers'),
+  s(75, 'stage_75', [
+    e('cushioned', 'balanced', 20, 20, 'mountain', 'healers'),
+    e('round', 'balanced', 20, 20, 'piranha', 'healers'),
+    e('cushioned', 'balanced', 20, 20, 'gear', 'healers'),
     e('quadratic', 'balanced', 20, 20, 'mysticaleye', 'healers')
   ], 1900, 380, { isBoss: true }),
-  s(76, 'Thunder Bowl', [
-    e('star', 'speedy', 21, 20, 'thunder'),
-    e('triangle', 'speedy', 20, 21, 'bluedragon'),
+  s(76, 'stage_76', [
+    e('star', 'speedy', 21, 20, 'ice'),
+    e('triangle', 'speedy', 20, 21, 'salamaner'),
     e('quadratic', 'tanky', 20, 20, 'chip')
   ], 830, 250, { arenaType: 'thunder' }),
-  s(77, 'Scorched Rift', [
-    e('star', 'speedy', 21, 21, 'fire'),
+  s(77, 'stage_77', [
+    e('star', 'speedy', 21, 21, 'axe'),
     e('piercer', 'speedy', 20, 21, 'scorpion')
   ], 840, 250, { arenaType: 'lava' }),
-  s(78, 'Iceblade Ring', [
-    e('round', 'tanky', 21, 21, 'ice'),
+  s(78, 'stage_78', [
+    e('round', 'tanky', 21, 21, 'galaxy'),
     e('cushioned', 'balanced', 21, 21, 'shell')
   ], 850, 255, { arenaType: 'ice' }),
-  s(79, 'Storm Nexus', [
-    e('star', 'speedy', 22, 21, 'thunderstorm'),
+  s(79, 'stage_79', [
+    e('star', 'speedy', 22, 21, 'tornado'),
     e('triangle', 'speedy', 21, 22, 'eagle'),
     e('quadratic', 'tanky', 21, 21, 'mysticaleye')
   ], 870, 260, { arenaType: 'thunder' }),
   // 80 — PLAIN boss
-  s(80, 'The Molten Titan', [
+  s(80, 'stage_80', [
     e('cushioned', 'tanky', 24, 22, 'castle', 'plain')
   ], 1800, 360, { isBoss: true, arenaType: 'lava' }),
 
   // ── Endgame Showcase (81-100) ─────────────────────────────────────────────
-  s(81, 'Abyss Ring', [
+  s(81, 'stage_81', [
     e('piercer', 'speedy', 22, 22, 'scorpion'),
     e('triangle', 'speedy', 22, 21, 'snake'),
-    e('star', 'speedy', 21, 22, 'phoenix')
+    e('star', 'speedy', 21, 22, 'reddragon')
   ], 880, 265),
-  s(82, 'Obsidian Crown', [
-    e('star', 'speedy', 22, 22, 'fire'),
-    e('cushioned', 'tanky', 22, 22, 'wulf'),
+  s(82, 'stage_82', [
+    e('star', 'speedy', 22, 22, 'axe'),
+    e('cushioned', 'tanky', 22, 22, 'gear'),
     e('quadratic', 'balanced', 22, 22, 'chip')
   ], 900, 270, { arenaType: 'lava' }),
-  s(83, 'Glacier Apex', [
-    e('round', 'tanky', 23, 22, 'ice'),
+  s(83, 'stage_83', [
+    e('round', 'tanky', 23, 22, 'galaxy'),
     e('quadratic', 'balanced', 22, 23, 'prisma'),
-    e('cushioned', 'balanced', 22, 22, 'nature')
+    e('cushioned', 'balanced', 22, 22, 'mountain')
   ], 910, 270, { arenaType: 'ice' }),
-  s(84, 'Wildwood Arena', [
-    e('cushioned', 'balanced', 23, 23, 'nature'),
+  s(84, 'stage_84', [
+    e('cushioned', 'balanced', 23, 23, 'mountain'),
     e('round', 'tanky', 22, 23, 'turtle'),
-    e('triangle', 'speedy', 23, 22, 'bluedragon')
+    e('triangle', 'speedy', 23, 22, 'salamaner')
   ], 920, 275, { arenaType: 'forest' }),
   // 85 — SPLIT boss
-  s(85, 'The Riftborn', [
-    e('star', 'balanced', 26, 24, 'thunderstorm', 'split')
+  s(85, 'stage_85', [
+    e('star', 'balanced', 26, 24, 'tornado', 'split')
   ], 2100, 400, { isBoss: true }),
-  s(86, 'Solar Forge', [
-    e('star', 'speedy', 23, 23, 'phoenix'),
-    e('quadratic', 'tanky', 23, 23, 'castle')
+  s(86, 'stage_86', [
+    e('star', 'speedy', 23, 23, 'reddragon'),
+    e('quadratic', 'tanky', 23, 23, 'angelic')
   ], 930, 280, { arenaType: 'lava' }),
-  s(87, 'Frostbite Arena', [
-    e('round', 'tanky', 24, 23, 'ice'),
+  s(87, 'stage_87', [
+    e('round', 'tanky', 24, 23, 'galaxy'),
     e('cushioned', 'balanced', 23, 24, 'shell'),
-    e('star', 'speedy', 23, 23, 'thunderstorm')
+    e('star', 'speedy', 23, 23, 'tornado')
   ], 950, 285, { arenaType: 'ice' }),
-  s(88, 'Darkwood Hollow', [
-    e('cushioned', 'balanced', 24, 24, 'nature'),
+  s(88, 'stage_88', [
+    e('cushioned', 'balanced', 24, 24, 'mountain'),
     e('triangle', 'speedy', 24, 23, 'eagle'),
     e('round', 'tanky', 23, 24, 'turtle'),
     e('quadratic', 'tanky', 23, 23, 'mysticaleye')
   ], 970, 290, { arenaType: 'forest' }),
-  s(89, 'Stormborn Arena', [
-    e('star', 'speedy', 25, 24, 'thunder'),
-    e('triangle', 'speedy', 24, 25, 'bluedragon'),
+  s(89, 'stage_89', [
+    e('star', 'speedy', 25, 24, 'ice'),
+    e('triangle', 'speedy', 24, 25, 'salamaner'),
     e('quadratic', 'tanky', 24, 24, 'chip')
   ], 990, 295, { arenaType: 'thunder' }),
   // 90 — GHOST boss
-  s(90, 'The Wraith Sovereign', [
-    e('star', 'speedy', 28, 26, 'phoenix', 'ghost')
+  s(90, 'stage_90', [
+    e('star', 'speedy', 28, 26, 'reddragon', 'ghost')
   ], 2400, 440, { isBoss: true }),
-  s(91, 'Apex Arena', [
-    e('star', 'speedy', 25, 25, 'scorpion'),
-    e('piercer', 'speedy', 25, 24, 'snake'),
+  s(91, 'stage_91', [
+    e('star', 'speedy', 25, 25, 'blades'),
+    e('piercer', 'speedy', 25, 24, 'demon'),
     e('triangle', 'speedy', 24, 25, 'eagle')
   ], 1000, 300, { bouncers: 3 }),
-  s(92, 'Infernal Throne', [
-    e('star', 'speedy', 26, 25, 'fire'),
+  s(92, 'stage_92', [
+    e('star', 'speedy', 26, 25, 'axe'),
     e('cushioned', 'tanky', 25, 26, 'castle'),
     e('round', 'tanky', 25, 25, 'turtle')
   ], 1020, 305, { arenaType: 'lava' }),
-  s(93, 'Eternal Winter', [
-    e('round', 'tanky', 26, 26, 'ice'),
-    e('cushioned', 'balanced', 26, 25, 'nature'),
-    e('star', 'speedy', 25, 26, 'phoenix')
+  s(93, 'stage_93', [
+    e('round', 'tanky', 26, 26, 'galaxy'),
+    e('cushioned', 'balanced', 26, 25, 'mountain'),
+    e('star', 'speedy', 25, 26, 'reddragon')
   ], 1040, 310, { arenaType: 'ice' }),
-  s(94, 'World Tree', [
-    e('cushioned', 'balanced', 26, 26, 'nature'),
-    e('triangle', 'speedy', 26, 25, 'bluedragon'),
+  s(94, 'stage_94', [
+    e('cushioned', 'balanced', 26, 26, 'mountain'),
+    e('triangle', 'speedy', 26, 25, 'salamaner'),
     e('quadratic', 'balanced', 25, 26, 'mysticaleye'),
-    e('round', 'tanky', 25, 25, 'shell')
+    e('round', 'tanky', 25, 25, 'piranha')
   ], 1060, 315, { arenaType: 'forest' }),
   // 95 — PARTNERS boss
-  s(95, 'The Final Guard', [
+  s(95, 'stage_95', [
     e('cushioned', 'tanky', 26, 25, 'castle', 'partners'),
-    e('round', 'tanky', 26, 25, 'shell', 'partners'),
-    e('star', 'balanced', 26, 25, 'phoenix', 'partners'),
+    e('round', 'tanky', 26, 25, 'piranha', 'partners'),
+    e('star', 'balanced', 26, 25, 'reddragon', 'partners'),
     e('quadratic', 'balanced', 26, 25, 'mysticaleye', 'partners')
   ], 2700, 480, { isBoss: true }),
-  s(96, 'Void Summit', [
-    e('star', 'speedy', 27, 26, 'thunderstorm'),
+  s(96, 'stage_96', [
+    e('star', 'speedy', 27, 26, 'tornado'),
     e('triangle', 'speedy', 27, 26, 'snake'),
-    e('cushioned', 'tanky', 26, 27, 'wulf')
-  ], 1080, 320),
-  s(97, 'Ember Citadel', [
-    e('star', 'speedy', 27, 27, 'fire'),
+    e('cushioned', 'tanky', 26, 27, 'gear')
+  ], 1080, 320, { arenaType: 'shock' }),
+  s(97, 'stage_97', [
+    e('star', 'speedy', 27, 27, 'axe'),
     e('piercer', 'speedy', 26, 27, 'scorpion'),
     e('quadratic', 'tanky', 27, 26, 'chip')
   ], 1100, 325, { arenaType: 'lava' }),
-  s(98, 'Astral Arena', [
-    e('star', 'speedy', 28, 27, 'phoenix'),
+  s(98, 'stage_98', [
+    e('star', 'speedy', 28, 27, 'reddragon'),
     e('quadratic', 'balanced', 27, 28, 'prisma'),
     e('triangle', 'speedy', 27, 27, 'eagle')
   ], 1120, 330),
-  s(99, 'Omega Gauntlet', [
-    e('star', 'speedy', 28, 28, 'thunder'),
-    e('triangle', 'speedy', 28, 27, 'thunderstorm'),
-    e('quadratic', 'tanky', 27, 28, 'castle'),
-    e('cushioned', 'balanced', 27, 27, 'nature')
+  s(99, 'stage_99', [
+    e('star', 'speedy', 28, 28, 'ice'),
+    e('triangle', 'speedy', 28, 27, 'phoenix'),
+    e('quadratic', 'tanky', 27, 28, 'angelic'),
+    e('cushioned', 'balanced', 27, 27, 'mountain')
   ], 1150, 340, { arenaType: 'thunder' }),
   // 100 — HEALERS boss (grand finale)
-  s(100, 'The Everlasting Choir', [
-    e('cushioned', 'balanced', 30, 30, 'nature', 'healers'),
-    e('round', 'balanced', 30, 30, 'shell', 'healers'),
-    e('cushioned', 'balanced', 30, 30, 'wulf', 'healers'),
+  s(100, 'stage_100', [
+    e('cushioned', 'balanced', 30, 30, 'mountain', 'healers'),
+    e('round', 'balanced', 30, 30, 'piranha', 'healers'),
+    e('cushioned', 'balanced', 30, 30, 'gear', 'healers'),
     e('round', 'balanced', 30, 30, 'turtle', 'healers'),
     e('quadratic', 'balanced', 30, 30, 'mysticaleye', 'healers')
   ], 3500, 600, { isBoss: true })
@@ -629,7 +632,7 @@ const scaleStage = (base: Stage, targetId: number, cycle: number): Stage => {
   return {
     ...base,
     id: targetId,
-    name: suffix ? `${base.name} ${suffix}` : base.name,
+    cycleSuffix: suffix || undefined,
     enemyTeam: base.enemyTeam.map(cfg => ({
       ...cfg,
       topLevel: cfg.topLevel + lvlBonus,
@@ -828,24 +831,24 @@ export const buildCheatBossStage = (ability: BossAbility): Stage => {
   const t = (id: TopPartId) => Math.max(tops[id] ?? 0, peakTop)
   const b = (id: BottomPartId) => Math.max(bots[id] ?? 0, peakBot)
 
-  let name = 'Cheat Boss'
+  let name = 'cheat_boss'
   let enemyTeam: StageBladeConfig[] = []
 
   switch (ability) {
     case 'ghost':
-      name = '[Cheat] Phantom Twin'
+      name = 'cheat_ghost'
       enemyTeam = [
         e('triangle', 'speedy', t('triangle'), b('speedy'), 'snake', 'ghost')
       ]
       break
     case 'split':
-      name = '[Cheat] Shattering Shell'
+      name = 'cheat_split'
       enemyTeam = [
-        e('round', 'tanky', t('round'), b('tanky'), 'shell', 'split')
+        e('round', 'tanky', t('round'), b('tanky'), 'piranha', 'split')
       ]
       break
     case 'partners':
-      name = '[Cheat] Iron Brotherhood'
+      name = 'cheat_partners'
       enemyTeam = [
         e('cushioned', 'tanky', t('cushioned'), b('tanky'), 'castle', 'partners'),
         e('round', 'tanky', t('round'), b('tanky'), 'turtle', 'partners'),
@@ -853,11 +856,11 @@ export const buildCheatBossStage = (ability: BossAbility): Stage => {
       ]
       break
     case 'healers':
-      name = '[Cheat] Mending Choir'
+      name = 'cheat_healers'
       enemyTeam = [
-        e('cushioned', 'balanced', t('cushioned'), b('balanced'), 'nature', 'healers'),
-        e('round', 'balanced', t('round'), b('balanced'), 'shell', 'healers'),
-        e('cushioned', 'balanced', t('cushioned'), b('balanced'), 'wulf', 'healers'),
+        e('cushioned', 'balanced', t('cushioned'), b('balanced'), 'mountain', 'healers'),
+        e('round', 'balanced', t('round'), b('balanced'), 'piranha', 'healers'),
+        e('cushioned', 'balanced', t('cushioned'), b('balanced'), 'gear', 'healers'),
         e('quadratic', 'balanced', t('quadratic'), b('balanced'), 'mysticaleye', 'healers')
       ]
       break

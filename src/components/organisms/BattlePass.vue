@@ -9,7 +9,6 @@ import useBattlePass, {
   BP_XP_PER_STAGE
 } from '@/use/useBattlePass'
 import {
-  MODEL_LABELS,
   modelImgPath,
   SKINS_PER_TOP,
   isSkinOwned,
@@ -311,7 +310,7 @@ const onClaimHonor = (stage: number) => {
             div.font-black.game-text.text-purple-300.uppercase.tracking-wider.leading-tight(
               v-if="card.isSkin && offeredSkins[card.stage]"
               class="text-[7px] sm:text-[9px] truncate max-w-full"
-            ) {{ MODEL_LABELS[offeredSkins[card.stage]] }}
+            ) {{ t('skins.' + offeredSkins[card.stage]) }}
 
             //- Coin amount (shown on coin stages, and as fallback hint on skin stages w/ empty pool)
             div.text-yellow-400.font-black.game-text.leading-tight(
@@ -406,7 +405,7 @@ const onClaimHonor = (stage: number) => {
             div.font-black.game-text.text-purple-300.uppercase.tracking-wider.leading-tight(
               v-if="honorOfferedSkins[card.stage]"
               class="text-[7px] sm:text-[9px] truncate max-w-full"
-            ) {{ MODEL_LABELS[honorOfferedSkins[card.stage]] }}
+            ) {{ t('skins.' + honorOfferedSkins[card.stage]) }}
 
             //- Status
             div(class="mt-0.5 text-[8px] sm:text-[10px] font-bold")

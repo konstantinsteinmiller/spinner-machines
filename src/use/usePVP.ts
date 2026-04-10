@@ -54,7 +54,7 @@ export type PvPMessage =
 const INVITE_EXPIRY_MS = 2 * 60 * 1000  // 2 minutes
 const PING_INTERVAL_MS = 5000
 const PONG_TIMEOUT_MS = 10000
-const PEER_ID_PREFIX = 'chaos-arena-'
+const PEER_ID_PREFIX = 'ca-'
 
 // ─── Composable ────────────────────────────────────────────────────────────
 
@@ -89,7 +89,7 @@ let onRemoteStateCheck: ((hash: string, turn: number) => void) | null = null
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 const generatePeerId = (): string =>
-  PEER_ID_PREFIX + Math.random().toString(36).substring(2, 10)
+  PEER_ID_PREFIX + Math.random().toString(36).substring(2, 8).toLowerCase()
 
 const buildInviteLink = (hostId: string): string => {
   const base = window.location.href.split('?')[0].split('#')[0]
@@ -297,7 +297,6 @@ const setupConnection = (connection: DataConnection) => {
 // ─── Public API ────────────────────────────────────────────────────────────
 
 const usePVP = () => {
-  console.log('window?.location.host: ', window?.location.host, window?.location.hostname)
   const canShowPvP = computed(() =>
     isPvpEnabled && ((isSdkActive.value && isCrazyGamesFullRelease) || isDebug.value || window?.location.host === 'konstantinsteinmiller.github.io')
   )

@@ -11,6 +11,7 @@ export interface LeaderboardEntry {
   name: string
   maxStage: number
   blade: SpinnerConfig
+  blade2: SpinnerConfig
   /** Stages climbed in the current rolling 24h window. Capped at MAX_DAILY_CLIMB. */
   dailyClimbed: number
   /** Timestamp when the daily climb counter was last reset. */
@@ -80,9 +81,12 @@ const FAKE_NAMES = [
 const TOP_IDS: TopPartId[] = ['star', 'triangle', 'round', 'quadratic', 'cushioned', 'piercer']
 const BOTTOM_IDS: BottomPartId[] = ['speedy', 'tanky', 'balanced']
 const FAKE_MODEL_IDS = [
-  'shell', 'turtle', 'mysticaleye', 'bluedragon', 'eagle', 'castle', 'phoenix',
-  'chip', 'nature', 'thunderstorm', 'scorpion', 'prisma', 'snake', 'fire',
-  'ice', 'thunder', 'wulf'
+  'blades', 'ice', 'tornado', 'reddragon', 'axe',
+  'thunder', 'snake', 'phoenix', 'eagle', 'salamaner',
+  'nature', 'turtle', 'piranha', 'bear', 'galaxy',
+  'chip', 'mysticaleye', 'bluedragon', 'angelic', 'prisma',
+  'shell', 'shield', 'castle', 'mountain', 'gear',
+  'scorpion', 'wulf', 'demon', 'hawk', 'ape'
 ]
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -281,6 +285,7 @@ const generateNewcomer = (): LeaderboardEntry => {
     name: makeName(randInt(0, FAKE_NAMES.length * 4 - 1)),
     maxStage: stage,
     blade: generateBlade(stage),
+    blade2: generateBlade(stage),
     dailyClimbed: 0,
     dailyResetAt: now
   }
@@ -323,6 +328,7 @@ const seedLeaderboard = () => {
       name: makeName(i),
       maxStage: finalStage,
       blade: generateBlade(finalStage),
+      blade2: generateBlade(finalStage),
       dailyClimbed: 0,
       dailyResetAt: now
     })
@@ -398,6 +404,7 @@ const tickLeaderboard = (playerStage: number) => {
     const newStage = Math.min(MAX_FAKE_STAGE, e.maxStage + climb)
     // Occasionally swap to a fresh build to feel alive
     let newBlade = e.blade
+    let newBlade2 = e.blade2
     if (Math.random() < 0.18) {
       newBlade = {
         ...e.blade,
@@ -407,17 +414,24 @@ const tickLeaderboard = (playerStage: number) => {
         bottomLevel: Math.max(e.blade.bottomLevel ?? 0, partLevelForStage(newStage)),
         modelId: rand(FAKE_MODEL_IDS)
       }
+      newBlade2 = generateBlade(newStage)
     } else {
       newBlade = {
         ...e.blade,
         topLevel: Math.max(e.blade.topLevel ?? 0, partLevelForStage(newStage)),
         bottomLevel: Math.max(e.blade.bottomLevel ?? 0, partLevelForStage(newStage))
       }
+      newBlade2 = {
+        ...(e.blade2 ?? generateBlade(newStage)),
+        topLevel: Math.max((e.blade2?.topLevel ?? e.blade.topLevel) ?? 0, partLevelForStage(newStage)),
+        bottomLevel: Math.max((e.blade2?.bottomLevel ?? e.blade.bottomLevel) ?? 0, partLevelForStage(newStage))
+      }
     }
     list[idx] = {
       ...e,
       maxStage: newStage,
       blade: newBlade,
+      blade2: newBlade2,
       dailyClimbed: e.dailyClimbed + climb
     }
   }
@@ -473,6 +487,7 @@ const useLeaderboard = () => {
       name: crazyPlayerName.value || 'You',
       maxStage: playerStage,
       blade: { topPartId: 'star', bottomPartId: 'balanced' },
+      blade2: { topPartId: 'round', bottomPartId: 'balanced' },
       dailyClimbed: 0,
       dailyResetAt: 0,
       isPlayer: true

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { isCrazyWeb, orientation } from '@/use/useUser'
 import { mobileCheck } from '@/utils/function'
 import { useMusic } from '@/use/useSound'
@@ -9,6 +10,7 @@ import { windowWidth, windowHeight } from '@/use/useUser'
 import useCheats from '@/use/useCheats'
 import useAssets from '@/use/useAssets'
 
+const { t } = useI18n()
 const { initMusic, pauseMusic, continueMusic } = useMusic()
 useExtensionGuard()
 useCheats()
@@ -109,7 +111,7 @@ const allowedToShow = computed(() => (isCrazyWeb && isCrazyGamesUrl()) || !isCra
     RouterView
 
   div.relative.w-full.h-full(v-else-if="isCrazyWeb")
-    h1.absolute(class="left-1/2 -translate-x-[50%] top-1/2 -translate-y-[50%] text-3xl") This game is only available on
+    h1.absolute(class="left-1/2 -translate-x-[50%] top-1/2 -translate-y-[50%] text-3xl") {{ t('crazyGamesOnly') }}
       span.ml-2.text-amber-500 CrazyGames.com
 </template>
 

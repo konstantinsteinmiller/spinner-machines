@@ -40,6 +40,7 @@ import usePvpStats, { calcHonorPoints } from '@/use/usePvpStats'
 import useLeaderboard, { type LeaderboardEntry } from '@/use/useLeaderboard'
 import { isSdkActive, startGameplay, stopGameplay, showRewardedAd, showMidgameAd } from '@/use/useCrazyGames'
 import useBottomSafe from '@/use/useBottomSafe'
+import { getSelectedSkin } from '@/use/useModels'
 import { isCrazyGamesFullRelease } from '@/use/useMatch.ts'
 import { spawnCoinExplosion } from '@/use/useCoinExplosion'
 
@@ -142,6 +143,12 @@ const configModalOpen: Ref<boolean> = ref(false)
 const showOptions: Ref<boolean> = ref(false)
 const coinsAwarded: Ref<boolean> = ref(false)
 
+// ─── First-Config Spotlight ──────────────────────────────────────────────
+// After the player's first campaign win (stage 2), we spotlight the team
+// config button so they discover team building. Dismissed on first open.
+const CONFIG_OPENED_KEY = 'spinner_config_opened'
+const hasOpenedConfig: Ref<boolean> = ref(localStorage.getItem(CONFIG_OPENED_KEY) === '1')
+
 // ─── Ghost Fight (Leaderboard 1v1) ────────────────────────────────────────
 // While true, the current match is a ghost battle launched from the
 // leaderboard: rewards are custom, campaign progress does not advance,
@@ -179,16 +186,18 @@ const playerTeamWithUpgrades = (): SpinnerConfig[] => {
     const bots = playerUpgrades.value.bottoms
     const peakTop = Math.max(0, ...Object.values(tops))
     const peakBot = Math.max(0, ...Object.values(bots))
-    return playerTeam.value.map(c => ({
+    return playerTeam.value.map((c, i) => ({
       ...c,
       topLevel: Math.max(tops[c.topPartId] ?? 0, peakTop) + CHEAT_PLAYER_BONUS_LEVELS,
-      bottomLevel: Math.max(bots[c.bottomPartId] ?? 0, peakBot) + CHEAT_PLAYER_BONUS_LEVELS
+      bottomLevel: Math.max(bots[c.bottomPartId] ?? 0, peakBot) + CHEAT_PLAYER_BONUS_LEVELS,
+      modelId: getSelectedSkin(c.topPartId, i)
     }))
   }
-  return playerTeam.value.map(c => ({
+  return playerTeam.value.map((c, i) => ({
     ...c,
     topLevel: playerUpgrades.value.tops[c.topPartId],
-    bottomLevel: playerUpgrades.value.bottoms[c.bottomPartId]
+    bottomLevel: playerUpgrades.value.bottoms[c.bottomPartId],
+    modelId: getSelectedSkin(c.topPartId, i)
   }))
 }
 
@@ -256,6 +265,10 @@ const rewardAmount = computed(() => {
 // Config button: only when game over and no new game started
 const showConfigButton = computed(() =>
   phase.value === 'game_over' || phase.value === 'idle' || phase.value === 'tap_to_start'
+)
+
+const showConfigSpotlight = computed(() =>
+  !hasOpenedConfig.value && currentStageId.value === 2 && showConfigButton.value && !showReward.value
 )
 
 // Surrender is available during active battle phases (not pre-game or post-game)
@@ -619,19 +632,23 @@ const onGhostFight = (entry: LeaderboardEntry) => {
   ghostEnemy.value = entry
   ghostMode.value = true
   markGhostFought(entry.id)
-  const playerLead = playerTeamWithUpgrades()[0]
-  if (!playerLead) return
-  const ghostBlade: SpinnerConfig = {
-    topPartId: entry.blade.topPartId,
-    bottomPartId: entry.blade.bottomPartId,
-    topLevel: entry.blade.topLevel ?? 0,
-    bottomLevel: entry.blade.bottomLevel ?? 0,
-    modelId: entry.blade.modelId
-  }
-  initGame([playerLead], [ghostBlade], false, 'default')
+  const myTeam = playerTeamWithUpgrades()
+  if (!myTeam.length) return
+  const toConfig = (b: SpinnerConfig): SpinnerConfig => ({
+    topPartId: b.topPartId,
+    bottomPartId: b.bottomPartId,
+    topLevel: b.topLevel ?? 0,
+    bottomLevel: b.bottomLevel ?? 0,
+    modelId: b.modelId
+  })
+  initGame(myTeam, [toConfig(entry.blade), toConfig(entry.blade2)], false, 'default')
 }
 
 const onOpenConfig = () => {
+  if (!hasOpenedConfig.value) {
+    hasOpenedConfig.value = true
+    localStorage.setItem(CONFIG_OPENED_KEY, '1')
+  }
   configModalOpen.value = true
 }
 
@@ -804,6 +821,7 @@ onUnmounted(() => {
           v-if="!ghostMode && !pvpMode"
           :stage-id="currentStageId"
           :name="currentStage.name"
+          :cycle-suffix="currentStage.cycleSuffix"
           :is-boss="currentStage.isBoss"
           :arena-type="currentStage.arenaType"
         )
@@ -878,7 +896,7 @@ onUnmounted(() => {
       //- Blade Stats HUD — bottom corners during active battle
       div(
         v-if="isBattleActive && bladeStats.length > 0"
-        class="absolute bottom-0 left-0 right-0 flex justify-between pointer-events-none z-[5]"
+        class="fixed bottom-0 left-0 right-0 flex justify-between pointer-events-none z-[5]"
         :style="{\
           paddingBottom: `calc(0.375rem + env(safe-area-inset-bottom, 0px) + ${bottomGapPx}px)`,\
           paddingLeft: 'calc(0.375rem + env(safe-area-inset-left, 0px))',\
@@ -908,7 +926,7 @@ onUnmounted(() => {
 
       //- Bottom-left column: mute → settings → daily/ad/battlepass row
       div(
-        v-if="showConfigButton && !showReward"
+        v-if="showConfigButton && !showReward && !showConfigSpotlight"
         class="fixed pointer-events-auto z-50 flex flex-col items-start gap-1"
         :style="{\
           bottom: `calc(0.5rem + env(safe-area-inset-bottom, 0px) + ${bottomGapPx}px)`,\
@@ -937,15 +955,16 @@ onUnmounted(() => {
       //-   row 2: pvp → leaderboard → team config
       div(
         v-if="showConfigButton && !showReward"
-        class="fixed pointer-events-auto z-50 flex flex-col items-end gap-2"
+        class="fixed pointer-events-auto flex flex-col items-end gap-2"
+        :class="showConfigSpotlight ? 'z-[60]' : 'z-50'"
         :style="{\
           bottom: `calc(0.5rem + env(safe-area-inset-bottom, 0px) + ${bottomGapPx}px)`,\
           right: 'calc(0.5rem + env(safe-area-inset-right, 0px))'\
         }"
       )
-        //- Row 1: speed switch
+        //- Row 1: speed switch (hidden during spotlight)
         FButtonSwitch.speedup-switch.scale-90(
-          v-if="isSdkActive && isCrazyGamesFullRelease"
+          v-if="isSdkActive && isCrazyGamesFullRelease && !showConfigSpotlight"
           class="sm:scale-100"
           :model-value="simSpeed"
           :options="[{ value: 1 }, { value: 2 }]"
@@ -963,20 +982,28 @@ onUnmounted(() => {
         //- Row 2: pvp → leaderboard → team
         div.flex.items-end(class="gap-0 sm:gap-1")
           PvPButton(
-            v-if="canShowPvP && !ghostMode && !pvpMode && currentStageId >= 2"
+            v-if="canShowPvP && !ghostMode && !pvpMode && currentStageId >= 2 && !showConfigSpotlight"
             @click="pvpModalOpen = true"
           )
           FakeLeaderBoard(
-            v-if="currentStageId >= 5 && !ghostMode"
+            v-if="currentStageId >= 5 && !ghostMode && !showConfigSpotlight"
             @fight="onGhostFight"
           )
           FIconButton(
             v-if="hasFirstWin || currentStageId >= 2"
             type="secondary"
+            :class="{ 'instant-bounce': showConfigSpotlight }"
             size="md"
             :img-src="prependBaseUrl('images/icons/team_128x128.webp')"
             @click="onOpenConfig"
           )
+
+    //- First-config spotlight — darkens everything except the team button
+    Transition(name="fade")
+      div.config-spotlight(
+        v-if="showConfigSpotlight"
+        @click.self=""
+      )
 
     //- Reward Overlay
     FReward(
@@ -1041,12 +1068,27 @@ onUnmounted(() => {
 </template>
 
 <style scoped lang="sass">
+// ── First-Config Spotlight ──────────────────────────────────────────────
+.config-spotlight
+  position: fixed
+  inset: 0
+  z-index: 55
+  background: rgba(0, 0, 0, 0.65)
+  pointer-events: auto
+
+.fade-enter-active, .fade-leave-active
+  transition: opacity 0.4s ease
+
+.fade-enter-from, .fade-leave-to
+  opacity: 0
+
 .speedup-switch
   :deep(.button-wrap:last-of-type button)
     margin-right: 0.5rem
 
 .animate-pulse
   animation: pulse 2s ease-in-out infinite
+
 @keyframes pulse
   0%, 100%
     opacity: 1

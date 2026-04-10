@@ -8,13 +8,20 @@ const { t } = useI18n()
 interface Props {
   stageId: number
   name: string
+  cycleSuffix?: string
   isBoss?: boolean
   arenaType?: ArenaType
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  cycleSuffix: '',
   isBoss: false,
   arenaType: 'default'
+})
+
+const displayName = computed(() => {
+  const translated = t(`stages.${props.name}`, props.name)
+  return props.cycleSuffix ? `${translated} ${props.cycleSuffix}` : translated
 })
 
 // Per-arena gradient + accent palette. Boss stages always use the red palette
@@ -129,5 +136,5 @@ const stageTheme = computed<StageTheme>(() => {
         span.font-bold.italic.game-text(
           :class="stageTheme.accent"
           class="text-[10px] sm:text-xs"
-        ) {{ name }}
+        ) {{ displayName }}
 </template>

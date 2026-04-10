@@ -13,7 +13,7 @@ import {
 import useSpinnerConfig from '@/use/useSpinnerConfig'
 import useSpinnerCampaign, { upgradeCost, TOP_UPGRADE_BONUS, BOTTOM_UPGRADE_BONUS } from '@/use/useSpinnerCampaign'
 import {
-  SKINS_PER_TOP, SKIN_COST, MODEL_LABELS,
+  SKINS_PER_TOP, SKIN_COST,
   modelImgPath, isSkinOwned, buySkin, selectSkin, getSelectedSkin,
   ownedSkinsForTop, hasUnownedSkinsForTop,
   markSkinPickerOpened, wasSkinPickerOpened,
@@ -168,7 +168,7 @@ const handleBuySkin = (topId: TopPartId, modelId: SpinnerModelId) => {
 }
 
 const handleSelectSkin = (topId: TopPartId, modelId: SpinnerModelId) => {
-  selectSkin(topId, modelId)
+  selectSkin(topId, modelId, activeBladeIndex.value as number)
   skinPickerKey.value++
   emit('save', localTeam.value.map(c => ({ ...c })))
 }
@@ -219,10 +219,10 @@ const handleSelectSkin = (topId: TopPartId, modelId: SpinnerModelId) => {
                   :key="skinId"
                   @click.stop="handleSelectSkin(part.id, skinId)"
                   class="inline-flex shrink-0 rounded-full cursor-pointer transition-all skin-row-thumb"
-                  :class="getSelectedSkin(part.id) === skinId\
+                  :class="getSelectedSkin(part.id, Number(activeBladeIndex)) === skinId\
                     ? 'ring-2 ring-yellow-300/80 scale-110'\
                     : 'hover:ring-2 hover:ring-slate-300 opacity-60 hover:opacity-100'"
-                  :title="MODEL_LABELS[skinId]"
+                  :title="t('skins.' + skinId)"
                 )
                   img(
                     :src="modelImgPath(skinId)"
@@ -262,7 +262,7 @@ const handleSelectSkin = (topId: TopPartId, modelId: SpinnerModelId) => {
             div.level-badge.absolute.font-black.game-text.text-white.flex.items-center.justify-center.pointer-events-none(
               v-if="topLevel(part.id) > 0"
               class="-mb-[4px] bg-gradient-to-b from-purple-500 to-purple-800 border border-yellow-300 rounded-md shadow-md z-20"
-            ) Lv.{{ topLevel(part.id) }}
+            ) {{ t('lv') }}{{ topLevel(part.id) }}
 
       //- ── Bottom + Stats Column ────────────────────────────────────────────
       div.bottom-col
@@ -309,7 +309,7 @@ const handleSelectSkin = (topId: TopPartId, modelId: SpinnerModelId) => {
               div.level-badge.absolute.font-black.game-text.text-white.flex.items-center.justify-center.pointer-events-none(
                 v-if="bottomLevel(part.id) > 0"
                 class="-mb-[4px] bg-gradient-to-b from-purple-500 to-purple-800 border border-yellow-300 rounded-md shadow-md z-20"
-              ) Lv.{{ bottomLevel(part.id) }}
+              ) {{ t('lv') }}{{ bottomLevel(part.id) }}
 
         //- ── Stats Summary ──────────────────────────────────────────────────
         div.stats-bar(class="border-t border-slate-500/50")
@@ -354,7 +354,7 @@ const handleSelectSkin = (topId: TopPartId, modelId: SpinnerModelId) => {
           :key="modelId"
           class="flex flex-col items-center rounded-xl p-1.5 border-2 transition-all"
           :class="[\
-            getSelectedSkin(skinPickerTopId) === modelId\
+            getSelectedSkin(skinPickerTopId, Number(activeBladeIndex)) === modelId\
               ? 'bg-gradient-to-b from-yellow-500/30 to-yellow-600/30 border-yellow-400'\
               : isSkinOwned(skinPickerTopId, modelId)\
                 ? 'bg-slate-700 border-slate-500 hover:border-slate-300 cursor-pointer'\
@@ -366,9 +366,9 @@ const handleSelectSkin = (topId: TopPartId, modelId: SpinnerModelId) => {
             class="w-12 h-12 sm:w-16 sm:h-16 object-contain rounded-lg"
             :alt="modelId"
           )
-          div.text-white.font-bold(class="mt-0.5 text-[9px] sm:text-xs") {{ MODEL_LABELS[modelId] }}
+          div.text-white.font-bold(class="mt-0.5 text-[9px] sm:text-xs") {{ t('skins.' + modelId) }}
           //- Action button
-          template(v-if="getSelectedSkin(skinPickerTopId) === modelId")
+          template(v-if="getSelectedSkin(skinPickerTopId, Number(activeBladeIndex)) === modelId")
             div.text-yellow-400.font-bold(class="mt-0.5 text-[8px] sm:text-[10px]") {{ t('equipped') }}
           template(v-else-if="isSkinOwned(skinPickerTopId, modelId)")
             button.rounded-lg.font-bold.transition-all(

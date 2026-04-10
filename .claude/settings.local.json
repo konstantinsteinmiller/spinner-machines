@@ -25,7 +25,12 @@
       "Bash(npm ls:*)",
       "Bash(pnpm add:*)",
       "Bash(curl -s \"http://localhost:5174/src/components/organisms/PvPLobbyModal.vue?vue&type=template&lang.js\")",
-      "Bash(curl -s \"http://localhost:5174/src/components/organisms/PvPLobbyModal.vue?t=$\\(date +%s\\)&vue&type=template&lang.js\")"
+      "Bash(curl -s \"http://localhost:5174/src/components/organisms/PvPLobbyModal.vue?t=$\\(date +%s\\)&vue&type=template&lang.js\")",
+      "Bash(sed -i \"s/s\\(8, 'stage_8's Gate'/s\\(8, 'stage_8'/\" src/use/useSpinnerCampaign.ts)",
+      "Bash(sed -i \"s/s\\(9, 'stage_9's Trial'/s\\(9, 'stage_9'/\" src/use/useSpinnerCampaign.ts)",
+      "Bash(sed -i \"s/s\\(24, 'stage_24's Gauntlet'/s\\(24, 'stage_24'/\" src/use/useSpinnerCampaign.ts)",
+      "Bash(find \"/c/Users/konst/chaos-arena/src/components\" -name \"*.vue\" -exec grep -l \"label\\\\|:title\\\\|:placeholder\" {} \\\\;)",
+      "Bash(find:*)"
     ]
   }
 }

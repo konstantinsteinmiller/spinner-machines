@@ -111,6 +111,19 @@ html[native-dark-active] .game-ui-immune
   50%, 100%
     transform: translateY(0) scale(1)
 
+
+@keyframes instant-bounce-cycle
+  // Bouncing phase (0% to 100% = 3 seconds)
+  0%, 7.5%, 18.75%, 30%, 37.5%, 57.5%, 68.75%, 80%, 87.5%, 50%, 100%
+    transform: translateY(0) scale(1)
+  22%, 72%
+    transform: translateY(-15px) scale(1.06)
+  34.5%, 84.5%
+    transform: translateY(-7px) scale(1.03)
+
+.instant-bounce
+  animation: instant-bounce-cycle 3s infinite ease-in-out
+
 .hint-bounce
   animation: hint-bounce-cycle 6s infinite ease-in-out
 
