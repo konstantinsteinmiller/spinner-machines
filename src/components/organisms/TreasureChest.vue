@@ -7,19 +7,34 @@ import { spawnCoinExplosion } from '@/use/useCoinExplosion'
 interface Props {
   /** Element where the coin explosion VFX should fly to (e.g. the coin badge). */
   targetEl?: HTMLElement | null
+  /** Cooldown in ms. Default 10 minutes. */
+  cooldownMs?: number
+  /** localStorage key for the cooldown timestamp. */
+  storageKey?: string
+  /** Coins awarded on collection. */
+  reward?: number
+  /** Visual scale factor (1 = default size). */
+  scale?: number
+  /** Aura color when ready. Default gold. */
+  auraColor?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  targetEl: null
+  targetEl: null,
+  cooldownMs: 10 * 60 * 1000,
+  storageKey: 'spinner_chest_ready_at',
+  reward: 100,
+  scale: 1,
+  auraColor: 'rgba(255,200,0,0.8)'
 })
 
 const { addCoins } = useSpinnerConfig()
 
 // ─── Cooldown State ──────────────────────────────────────────────────────────
 
-const CHEST_COOLDOWN_MS = 10 * 60 * 1000
-const CHEST_KEY = 'spinner_chest_ready_at'
-const CHEST_REWARD = 100
+const CHEST_COOLDOWN_MS = props.cooldownMs
+const CHEST_KEY = props.storageKey
+const CHEST_REWARD = props.reward
 
 const chestReadyAt = ref(parseInt(localStorage.getItem(CHEST_KEY) || '0', 10))
 const chestRemaining = ref(0)
@@ -78,11 +93,12 @@ onUnmounted(() => {
   div.flex.flex-col.items-center.pointer-events-auto(
     @click="collectChest"
     :class="chestReady ? 'cursor-pointer chest-pulse' : ''"
+    :style="scale !== 1 ? { transform: `scale(${scale})`, transformOrigin: 'center' } : undefined"
   )
     div.relative(ref="chestRef" class="w-10 h-10 sm:w-12 sm:h-12")
       img.object-contain.w-full.h-full(
         src="/images/icons/chest_128x128.webp"
-        :class="chestReady ? 'drop-shadow-[0_0_8px_rgba(255,200,0,0.8)]' : ''"
+        :style="chestReady ? { filter: `drop-shadow(0 0 8px ${auraColor})` } : undefined"
       )
       //- Circular cooldown overlay
       svg.absolute.inset-0.w-full.h-full(

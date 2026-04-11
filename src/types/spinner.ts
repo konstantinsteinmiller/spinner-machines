@@ -50,7 +50,7 @@ export interface BottomPart {
  *  - 'partners' → every enemy blade in the team shares a group; no FF
  *  - 'healers'  → like 'partners' + heals on contact; 20% oversize only
  */
-export type BossAbility = 'ghost' | 'split' | 'partners' | 'healers'
+export type BossAbility = 'ghost' | 'split' | 'partners' | 'healers' | 'child-emitter' | 'stat-switch' | 'life-leech'
 
 export interface SpinnerConfig {
   topPartId: TopPartId
@@ -125,6 +125,22 @@ export interface SpinnerState {
     defense?: number
     speed?: number
   }
+  // ── child-emitter boss ────────────────────────────────────────────────
+  /** Emits a mini distraction spinner on each collision. */
+  isChildEmitter?: boolean
+  /** Total children ever spawned by this emitter (used for HP scaling). */
+  emittedChildCount?: number
+  /** Mini spinners spawned by child-emitter — cannot emit further. */
+  isEmittedChild?: boolean
+  // ── stat-switch boss ──────────────────────────────────────────────────
+  /** Swaps ATK/DEF depending on whose turn it is. */
+  statSwitchPhase?: 'attack' | 'defense'
+  // ── life-leech boss ───────────────────────────────────────────────────
+  /** 30% of damage dealt is gained as self-heal. */
+  isLifeLeech?: boolean
+  // ── teleporter boss ───────────────────────────────────────────────────
+  /** Passes through arena walls and emerges on the opposite side. */
+  isTeleporter?: boolean
 }
 
 // ─── Arena Powerup ───────────────────────────────────────────────────────────

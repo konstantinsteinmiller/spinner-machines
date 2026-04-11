@@ -62,11 +62,12 @@ const bootstrap = async () => {
   if (!(cgLocale && LANGUAGES.includes(cgLocale))) {
     const { userLanguage: storedLang } = useUser()
     const { isDbInitialized: dbReady } = await import('@/use/useMatch')
-    const stopLangSync = watch(
+    let stopLangSync: (() => void) | null = null
+    stopLangSync = watch(
       dbReady,
       (ready) => {
         if (!ready) return
-        stopLangSync()
+        stopLangSync?.()
         if (storedLang.value && LANGUAGES.includes(storedLang.value)) {
           i18n.global.locale.value = storedLang.value
         }

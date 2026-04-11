@@ -13,7 +13,7 @@ import {
 import useSpinnerConfig from '@/use/useSpinnerConfig'
 import useSpinnerCampaign, { upgradeCost, TOP_UPGRADE_BONUS, BOTTOM_UPGRADE_BONUS } from '@/use/useSpinnerCampaign'
 import {
-  SKINS_PER_TOP, SKIN_COST,
+  SKINS_PER_TOP, skinCost,
   modelImgPath, isSkinOwned, buySkin, selectSkin, getSelectedSkin,
   ownedSkinsForTop, hasUnownedSkinsForTop,
   markSkinPickerOpened, wasSkinPickerOpened,
@@ -161,8 +161,9 @@ const shouldBouncePlus = (topId: TopPartId): boolean =>
   hasUnownedSkinsForTop(topId) && !wasSkinPickerOpened(topId)
 
 const handleBuySkin = (topId: TopPartId, modelId: SpinnerModelId) => {
-  if (coins.value < SKIN_COST) return
-  addCoins(-SKIN_COST)
+  const cost = skinCost(modelId)
+  if (coins.value < cost) return
+  addCoins(-cost)
   buySkin(topId, modelId)
   skinPickerKey.value++
 }
@@ -394,13 +395,13 @@ const handleSelectSkin = (topId: TopPartId, modelId: SpinnerModelId) => {
           template(v-else)
             button.rounded-lg.font-bold.transition-all(
               class="mt-0.5 text-[8px] sm:text-[10px] px-2 py-0.5 flex items-center gap-1"
-              :class="coins >= SKIN_COST\
+              :class="coins >= skinCost(modelId)\
                 ? 'bg-yellow-500 hover:bg-yellow-400 text-white cursor-pointer'\
                 : 'bg-slate-600 text-slate-400 cursor-not-allowed'"
               @click="handleBuySkin(skinPickerTopId, modelId)"
             )
               IconCoin(class="w-3 h-3 text-yellow-300")
-              span.game-text {{ SKIN_COST }}
+              span.game-text {{ skinCost(modelId) }}
 </template>
 
 <style scoped lang="sass">

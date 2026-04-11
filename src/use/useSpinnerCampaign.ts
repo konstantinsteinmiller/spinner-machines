@@ -230,9 +230,9 @@ const BASE_STAGES: Stage[] = [
     e('triangle', 'speedy', 9, 12, 'eagle'),
     e('quadratic', 'balanced', 10, 9, 'prisma')
   ], 420, 120),
-  // 30 — PLAIN boss
+  // 30 — LIFE-LEECH boss
   s(30, 'stage_30', [
-    e('star', 'speedy', 25, 25, 'axe', 'plain')
+    e('triangle', 'speedy', 25, 25, 'life-leech', 'life-leech')
   ], 800, 200, { isBoss: true }),
   s(31, 'stage_31', [
     e('triangle', 'speedy', 12, 9, 'phoenix'),
@@ -347,9 +347,9 @@ const BASE_STAGES: Stage[] = [
     e('triangle', 'speedy', 15, 16, 'eagle'),
     e('quadratic', 'tanky', 15, 15, 'mysticaleye')
   ], 640, 190, { arenaType: 'thunder' }),
-  // 55 — PLAIN boss
+  // 55 — CHILD-EMITTER boss
   s(55, 'stage_55', [
-    e('piercer', 'speedy', 25, 33, 'scorpion', 'plain')
+    e('round', 'tanky', 25, 33, 'dark', 'child-emitter')
   ], 1200, 260, { isBoss: true }),
   s(56, 'stage_56', [
     e('cushioned', 'balanced', 16, 15, 'mountain'),
@@ -423,7 +423,7 @@ const BASE_STAGES: Stage[] = [
   ], 1700, 340, { isBoss: true }),
   s(71, 'stage_71', [
     e('star', 'speedy', 20, 19, 'blades'),
-    e('triangle', 'speedy', 19, 20, 'snake')
+    e('triangle', 'speedy', 26, 24, 'life-leech', 'life-leech')
   ], 780, 235, { arenaType: 'shock' }),
   s(72, 'stage_72', [
     e('star', 'speedy', 20, 20, 'axe'),
@@ -464,10 +464,10 @@ const BASE_STAGES: Stage[] = [
     e('triangle', 'speedy', 21, 22, 'eagle'),
     e('quadratic', 'tanky', 21, 21, 'mysticaleye')
   ], 870, 260, { arenaType: 'thunder' }),
-  // 80 — PLAIN boss
+  // 80 — STAT-SWITCH boss
   s(80, 'stage_80', [
-    e('cushioned', 'tanky', 39, 39, 'castle', 'plain')
-  ], 1800, 360, { isBoss: true, arenaType: 'lava' }),
+    e('cushioned', 'tanky', 39, 39, 'boulder', 'stat-switch')
+  ], 1800, 360, { isBoss: true }),
 
   // ── Endgame Showcase (81-100) ─────────────────────────────────────────────
   s(81, 'stage_81', [
@@ -490,9 +490,9 @@ const BASE_STAGES: Stage[] = [
     e('round', 'tanky', 22, 23, 'turtle'),
     e('triangle', 'speedy', 23, 22, 'salamaner')
   ], 920, 275, { arenaType: 'forest' }),
-  // 85 — SPLIT boss
+  // 85 — CHILD-EMITTER boss (2nd appearance)
   s(85, 'stage_85', [
-    e('star', 'balanced', 41, 48, 'tornado', 'split')
+    e('round', 'tanky', 41, 48, 'dark', 'child-emitter')
   ], 2100, 400, { isBoss: true }),
   s(86, 'stage_86', [
     e('star', 'speedy', 23, 23, 'reddragon'),
@@ -862,6 +862,24 @@ export const buildCheatBossStage = (ability: BossAbility): Stage => {
         e('round', 'balanced', t('round'), b('balanced'), 'piranha', 'healers'),
         e('cushioned', 'balanced', t('cushioned'), b('balanced'), 'gear', 'healers'),
         e('quadratic', 'balanced', t('quadratic'), b('balanced'), 'mysticaleye', 'healers')
+      ]
+      break
+    case 'child-emitter':
+      name = 'cheat_child_emitter'
+      enemyTeam = [
+        e('round', 'tanky', t('round'), b('tanky'), 'dark', 'child-emitter')
+      ]
+      break
+    case 'stat-switch':
+      name = 'cheat_stat_switch'
+      enemyTeam = [
+        e('cushioned', 'tanky', t('cushioned'), b('tanky'), 'boulder', 'stat-switch')
+      ]
+      break
+    case 'life-leech':
+      name = 'cheat_life_leech'
+      enemyTeam = [
+        e('triangle', 'speedy', t('triangle'), b('speedy'), 'snake', 'life-leech')
       ]
       break
   }

@@ -847,8 +847,10 @@ onUnmounted(() => {
           )
           div.flex.flex-col.items-end.gap-2
             CoinBadge(ref="coinBadgeRef")
-            //- Treasure chest (cooldown + collect logic + VFX, fully self-contained) — hidden during PvP
-            TreasureChest(v-if="!pvpMode" :target-el="coinBadgeEl")
+            //- Treasure chests — hidden during PvP
+            div.flex.flex-row.items-end.gap-1(v-if="!pvpMode")
+              TreasureChest(:target-el="coinBadgeEl" :cooldown-ms="3 * 60 * 1000" storage-key="spinner_mini_chest_ready_at" :reward="25" :scale="0.5" aura-color="rgba(192,210,225,0.8)")
+              TreasureChest(:target-el="coinBadgeEl")
 
       //- Center overlay messages
       div.absolute.flex.items-center.justify-center(class="inset-0 z-[10]")

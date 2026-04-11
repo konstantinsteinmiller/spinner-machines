@@ -19,6 +19,7 @@ import { isMobileLandscape, isMobilePortrait } from '@/use/useUser.ts'
 import { useScreenshake } from '@/use/useScreenshake'
 import useSounds from '@/use/useSound'
 import { prependBaseUrl } from '@/utils/function.ts'
+import { resourceCache } from '@/use/useAssets'
 
 const { triggerShake } = useScreenshake()
 const { playSound } = useSounds()
@@ -39,7 +40,7 @@ const STOP_THRESHOLD = 0.25
 // damage to one roll per contact entry (Option C). Clean head-on slams
 // read very close to the old numbers; sliding/chase "grind" that used
 // to rack up damage now deals near-zero, which is the intended fix.
-const DAMAGE_SCALE = isDebug.value ? 5 : 1.4
+const DAMAGE_SCALE = isDebug.value ? 1 : 1.4
 const HIT_FLASH_FRAMES = 50
 const NPC_THINK_MS = 500
 const BOUNCE_DAMPENING = 0.75
@@ -474,6 +475,7 @@ export const useSpinnerGame = () => {
   interface TrailData {
     pts: TrailPoint[];
     owner: 'player' | 'npc'
+    modelId?: string
   }
 
   const TRAIL_DURATION = 700
@@ -489,7 +491,7 @@ export const useSpinnerGame = () => {
 
       let data = trails.get(blade.id)
       if (!data) {
-        data = { pts: [], owner: blade.owner }
+        data = { pts: [], owner: blade.owner, modelId: blade.config.modelId }
         trails.set(blade.id, data)
       }
       const pts = data.pts
@@ -502,6 +504,139 @@ export const useSpinnerGame = () => {
         pts.shift()
       }
     }
+  }
+
+  // ─── Special Skin VFX ─────────────────────────────────────────────────────
+
+  // Dark smoke spritesheet (for 'dark' skin) — cloned from resourceCache
+  const SMOKE_FRAMES = 10
+  const SMOKE_FW = 128   // frame width
+  const SMOKE_FH = 128   // frame height
+  const darkSmokeImg = resourceCache.images.get(prependBaseUrl('images/vfx/dark-smoke_1280x128.webp'))?.cloneNode() as HTMLImageElement | undefined
+
+  interface CloudParticle {
+    x: number;
+    y: number
+    vx: number;
+    vy: number
+    life: number;
+    maxLife: number
+    size: number;
+    alpha: number
+    frame: number         // current spritesheet frame (0-8)
+    frameTick: number     // time accumulator for frame advance
+  }
+
+  const cloudParticles: CloudParticle[] = []
+  const SMOKE_FRAME_MS = 70 // ms per frame
+
+  // Boulder ground destruction decals (for 'boulder' skin) — rendered under blades
+  const earthRipImg = resourceCache.images.get(prependBaseUrl('images/vfx/earth-rip-decal_138x138.webp'))?.cloneNode() as HTMLImageElement | undefined
+
+  interface GroundDecal {
+    x: number;
+    y: number
+    size: number
+    time: number // creation timestamp
+    rotation: number // random rotation per decal
+  }
+
+  const groundDecals: GroundDecal[] = []
+  const GROUND_DECAL_DURATION = 800 // follows trail duration loosely
+
+  // Stat-switch phase indicator particles (floating icon over boss)
+  // Rendered in renderAura so it layers correctly.
+
+  const updateSpecialSkinVFX = (blades: SpinnerState[], now: number) => {
+    // Dark cloud emission
+    for (const blade of blades) {
+      if (blade.hp <= 0) continue
+      const spd = speed(blade)
+      if (blade.config.modelId !== 'dark' || spd < 0.5) continue
+      // Emit 1-2 cloud particles per frame when moving
+      const count = spd > 3 ? 2 : 1
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2
+        const drift = 0.2 + Math.random() * 0.3
+        const maxLife = 400 + Math.random() * 300
+        cloudParticles.push({
+          x: blade.x + (Math.random() - 0.5) * blade.radius,
+          y: blade.y + (Math.random() - 0.5) * blade.radius,
+          vx: Math.cos(angle) * drift,
+          vy: Math.sin(angle) * drift,
+          life: maxLife,
+          maxLife,
+          size: 8 + Math.random() * 6,
+          alpha: 0.7 + Math.random() * 0.3,
+          frame: 0,
+          frameTick: 0
+        })
+      }
+    }
+    // Update cloud particles
+    for (let i = cloudParticles.length - 1; i >= 0; i--) {
+      const p = cloudParticles[i]!
+      p.x += p.vx
+      p.y += p.vy
+      p.life -= 16
+      p.size += 0.08
+      // Advance spritesheet frame
+      p.frameTick += 16
+      if (p.frameTick >= SMOKE_FRAME_MS) {
+        p.frameTick -= SMOKE_FRAME_MS
+        if (p.frame < SMOKE_FRAMES - 1) p.frame++
+      }
+      if (p.life <= 0) cloudParticles.splice(i, 1)
+    }
+
+    // Boulder ground decals
+    for (const blade of blades) {
+      if (blade.hp <= 0) continue
+      const spd = speed(blade)
+      if (blade.config.modelId !== 'boulder' || spd < 1.0) continue
+      groundDecals.push({
+        x: blade.x, y: blade.y,
+        size: blade.radius * (0.6 + spd * 0.04),
+        time: now,
+        rotation: Math.random() * Math.PI * 2
+      })
+    }
+    // Prune old decals
+    while (groundDecals.length > 0 && now - groundDecals[0]!.time > GROUND_DECAL_DURATION) {
+      groundDecals.shift()
+    }
+  }
+
+  const renderCloudParticles = (ctx: CanvasRenderingContext2D) => {
+    if (!darkSmokeImg) return
+    for (const p of cloudParticles) {
+      const fade = Math.max(0, p.life / p.maxLife)
+      ctx.globalAlpha = p.alpha * fade
+      const drawSize = p.size * 2
+      ctx.drawImage(
+        darkSmokeImg,
+        p.frame * SMOKE_FW, 0, SMOKE_FW, SMOKE_FH, // source rect
+        p.x - drawSize / 2, p.y - (drawSize * SMOKE_FH / SMOKE_FW) / 2,
+        drawSize, drawSize * SMOKE_FH / SMOKE_FW   // dest rect (preserve aspect)
+      )
+    }
+    ctx.globalAlpha = 1
+  }
+
+  const renderGroundDecals = (ctx: CanvasRenderingContext2D, now: number) => {
+    if (!earthRipImg) return
+    for (const d of groundDecals) {
+      const age = now - d.time
+      const fade = Math.max(0, 1 - age / GROUND_DECAL_DURATION)
+      ctx.globalAlpha = 0.6 * fade
+      const drawSize = d.size * 2
+      ctx.save()
+      ctx.translate(d.x, d.y)
+      ctx.rotate(d.rotation)
+      ctx.drawImage(earthRipImg, -drawSize / 2, -drawSize / 2, drawSize, drawSize)
+      ctx.restore()
+    }
+    ctx.globalAlpha = 1
   }
 
   // ─── Floating Damage Numbers ──────────────────────────────────────────────
@@ -729,6 +864,13 @@ export const useSpinnerGame = () => {
     // Split-boss children hit for a fraction of the parent's damage so a
     // swarm can't simply out-DPS a focused target.
     if (blade.isSplitChild) dmg *= SPLIT_CHILD_DAMAGE_PCT
+    // Stat-switch boss: in attack phase pick max(ATK, DEF) as ATK;
+    // in defense phase pick max(ATK, DEF) as DEF.
+    if (blade.statSwitchPhase === 'attack') {
+      dmg = Math.max(dmg, def)
+    } else if (blade.statSwitchPhase === 'defense') {
+      def = Math.max(dmg, def)
+    }
     // Powerup buffs collected during this match. Each pickup multiplies the
     // matching axis (e.g. two attack pickups stack to 1.25 * 1.25).
     const buffs = blade.buffs
@@ -1062,6 +1204,36 @@ export const useSpinnerGame = () => {
           blade.splitsOnDeath = true
         }
       }
+    } else if (leadAbility === 'child-emitter') {
+      // Child-emitter: marks boss blades so they spawn a mini distraction
+      // spinner on each collision (handled in resolveCollision).
+      for (const blade of npcBlades.value) {
+        if (blade.config.bossAbility === 'child-emitter') {
+          blade.isChildEmitter = true
+          blade.groupId = nextGroupId++
+        }
+      }
+    } else if (leadAbility === 'stat-switch') {
+      // Stat-switch boss: starts in defense phase. Phase toggled each turn.
+      for (const blade of npcBlades.value) {
+        if (blade.config.bossAbility === 'stat-switch') {
+          blade.statSwitchPhase = 'defense'
+        }
+      }
+    } else if (leadAbility === 'life-leech') {
+      // Life-leech boss: heals 30% of damage dealt on collision.
+      for (const blade of npcBlades.value) {
+        if (blade.config.bossAbility === 'life-leech') {
+          blade.isLifeLeech = true
+        }
+      }
+    }
+
+    // Teleporter skin: set on any blade using the 'teleporter' model (boss only)
+    for (const blade of [...npcBlades.value, ...playerBlades.value]) {
+      if (blade.config.modelId === 'teleporter') {
+        blade.isTeleporter = true
+      }
     }
 
     isBossStage.value = nTeam.some(cfg => cfg.isBoss)
@@ -1079,6 +1251,8 @@ export const useSpinnerGame = () => {
     meteorParticles.value = []
     meteorIntroTimer = 0
     trails.clear()
+    cloudParticles.length = 0
+    groundDecals.length = 0
     comboState.clear()
     lastCritAt.clear()
     spikyChipCooldowns.clear()
@@ -1707,7 +1881,9 @@ export const useSpinnerGame = () => {
     }
 
     // Record trail points
-    updateTrails(all, performance.now())
+    const trailNow = performance.now()
+    updateTrails(all, trailNow)
+    updateSpecialSkinVFX(all, trailNow)
 
     // All-pairs collision (including friendly fire!)
     for (let i = 0; i < all.length; i++) {
@@ -1771,6 +1947,10 @@ export const useSpinnerGame = () => {
       npcThinkingElapsed = 0
       launchedBladeId.value = null
       comboState.clear()
+      // Stat-switch boss: switch to attack phase on NPC turn
+      for (const b of npcBlades.value) {
+        if (b.statSwitchPhase) b.statSwitchPhase = 'attack'
+      }
       // PvP state-check: send hash after our launch resolved
       if (pvpMode.value) {
         pvpTurnCounter++
@@ -1790,6 +1970,10 @@ export const useSpinnerGame = () => {
       launchedBladeId.value = null
       comboState.clear()
       npcActiveBladeId.value = null
+      // Stat-switch boss: switch to defense phase on player turn
+      for (const b of npcBlades.value) {
+        if (b.statSwitchPhase) b.statSwitchPhase = 'defense'
+      }
       // PvP state-check: send hash after opponent's launch resolved
       if (pvpMode.value) {
         pvpTurnCounter++
@@ -1817,6 +2001,14 @@ export const useSpinnerGame = () => {
 
     if (dist <= maxDist) return
     if (dist < 0.01) return // avoid division by zero at exact center
+
+    // Teleporter: pass through wall → emerge on opposite side
+    if (blade.isTeleporter) {
+      blade.x = -blade.x * (maxDist - 2) / dist
+      blade.y = -blade.y * (maxDist - 2) / dist
+      // Keep velocity — blade continues in the same direction
+      return
+    }
 
     // Outward normal at contact point
     const nx = blade.x / dist
@@ -1908,6 +2100,7 @@ export const useSpinnerGame = () => {
    */
   const bounceOffBouncers = (blade: SpinnerState) => {
     if (arenaBouncers.length === 0) return
+    if (blade.isTeleporter) return // teleporters pass through bouncers
     for (const bouncer of arenaBouncers) {
       const dx = blade.x - bouncer.x
       const dy = blade.y - bouncer.y
@@ -2211,6 +2404,20 @@ export const useSpinnerGame = () => {
           * DAMAGE_SCALE * bSpeedAdv * aComboMul
           * (friendlyFire ? FRIENDLY_FIRE_MUL : 1)
         if (applyBladeDamage(b, dmg, cx, cy, a.owner, isCrit)) hadKill = true
+        // Life-leech: attacker heals 30% of damage dealt
+        if (a.isLifeLeech && dmg > 0) {
+          const heal = dmg * 0.3
+          a.hp = Math.min(a.maxHp, a.hp + heal)
+          if (Math.round(heal) > 0) {
+            const ha = -Math.PI / 2 + (Math.random() - 0.5) * (Math.PI / 3)
+            const hs = 0.06 + Math.random() * 0.03
+            damageNumbers.push({
+              x: a.x, y: a.y, value: Math.round(heal),
+              vx: Math.cos(ha) * hs, vy: Math.sin(ha) * hs,
+              color: '#44cc66', life: DAMAGE_NUMBER_LIFE, maxLife: DAMAGE_NUMBER_LIFE, isCrit: false
+            })
+          }
+        }
       }
       // b attacks a
       if (bSpeed > STOP_THRESHOLD && !bHitInBack) {
@@ -2233,6 +2440,58 @@ export const useSpinnerGame = () => {
           * DAMAGE_SCALE * aSpeedAdv * bComboMul
           * (friendlyFire ? FRIENDLY_FIRE_MUL : 1)
         if (applyBladeDamage(a, dmg, cx, cy, b.owner, isCrit)) hadKill = true
+        // Life-leech: attacker heals 30% of damage dealt
+        if (b.isLifeLeech && dmg > 0) {
+          const heal = dmg * 0.3
+          b.hp = Math.min(b.maxHp, b.hp + heal)
+          if (Math.round(heal) > 0) {
+            const ha = -Math.PI / 2 + (Math.random() - 0.5) * (Math.PI / 3)
+            const hs = 0.06 + Math.random() * 0.03
+            damageNumbers.push({
+              x: b.x, y: b.y, value: Math.round(heal),
+              vx: Math.cos(ha) * hs, vy: Math.sin(ha) * hs,
+              color: '#44cc66', life: DAMAGE_NUMBER_LIFE, maxLife: DAMAGE_NUMBER_LIFE, isCrit: false
+            })
+          }
+        }
+      }
+    }
+
+    // Child-emitter: spawn a mini distraction spinner on collision
+    if (contactArmed) {
+      for (const emitter of [a, b]) {
+        if (!emitter.isChildEmitter || emitter.hp <= 0) continue
+        // Don't spawn if emitted children already exist and are still alive
+        const emittedCount = allBlades.value.filter(
+          bl => bl.isEmittedChild && bl.owner === emitter.owner && bl.hp > 0
+        ).length
+        if (emittedCount >= 3) continue // max 3 active emitted children
+        const angle = Math.random() * Math.PI * 2
+        const spawnDist = emitter.radius + BLADE_RADIUS * 0.5 + 2
+        const child = createBladeState(
+          emitter.owner,
+          emitter.x + Math.cos(angle) * spawnDist,
+          emitter.y + Math.sin(angle) * spawnDist,
+          { ...emitter.config, bossAbility: undefined, isBoss: false },
+          false
+        )
+        child.radius = BLADE_RADIUS * 0.45
+        // Every 2nd child adds +1 HP: 1→1, 2→2, 3→2, 4→3, 5→3, 6→4 …
+        emitter.emittedChildCount = (emitter.emittedChildCount ?? 0) + 1
+        const bonusHp = Math.floor((emitter.emittedChildCount) / 2)
+        child.maxHp = 1 + bonusHp
+        child.hp = child.maxHp
+        child.isEmittedChild = true
+        // Own groupId so emitted children collide with the boss blade
+        child.groupId = nextGroupId++
+        // Small drift so it spreads out
+        child.vx = Math.cos(angle) * 1.5
+        child.vy = Math.sin(angle) * 1.5
+        if (emitter.owner === 'npc') {
+          npcBlades.value = [...npcBlades.value, child]
+        } else {
+          playerBlades.value = [...playerBlades.value, child]
+        }
       }
     }
 
@@ -2370,7 +2629,9 @@ export const useSpinnerGame = () => {
     renderBouncers(ctx)
     renderPowerups(ctx)
     renderMeteorShower(ctx)
+    renderGroundDecals(ctx, performance.now())
     renderTrails(ctx)
+    renderCloudParticles(ctx)
 
     // Auras (rendered under blades)
     for (const blade of allBlades.value) {
@@ -2475,9 +2736,10 @@ export const useSpinnerGame = () => {
     const TEAM_COLOR = { player: [80, 160, 255], npc: [255, 80, 80] } as const
 
     for (const [, data] of trails) {
-      const { pts, owner } = data
+      const { pts, owner, modelId } = data
       if (pts.length < 2) continue
 
+      const isRainbow = modelId === 'rainbow'
       const oldestTime = pts[0]!.time
       const newestTime = pts[pts.length - 1]!.time
       const timeSpan = newestTime - oldestTime
@@ -2486,7 +2748,9 @@ export const useSpinnerGame = () => {
       for (const layer of TRAIL_LAYERS) {
         ctx.lineCap = 'round'
         ctx.lineJoin = 'round'
-        ctx.lineWidth = layer.widthBase + layer.widthSpeed
+        ctx.lineWidth = isRainbow
+          ? (layer.widthBase + layer.widthSpeed) * 1.3
+          : layer.widthBase + layer.widthSpeed
 
         for (let i = 1; i < pts.length; i++) {
           const p0 = pts[i - 1]!
@@ -2501,12 +2765,17 @@ export const useSpinnerGame = () => {
           const alpha = ageFade * layer.alphaScale
           if (alpha <= 0.01) continue
 
-          // Interpolate white(t=0) → team color(t=1)
-          const r = Math.round(255 + (tr - 255) * t)
-          const g = Math.round(255 + (tg - 255) * t)
-          const b = Math.round(255 + (tb - 255) * t)
-
-          ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`
+          if (isRainbow) {
+            // Rainbow trail: hue cycles along the trail length + time
+            const hue = ((1 - t) * 360 + now * 0.15) % 360
+            ctx.strokeStyle = `hsla(${hue}, 90%, 65%, ${alpha * 1.2})`
+          } else {
+            // Interpolate white(t=0) → team color(t=1)
+            const r = Math.round(255 + (tr - 255) * t)
+            const g = Math.round(255 + (tg - 255) * t)
+            const b = Math.round(255 + (tb - 255) * t)
+            ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`
+          }
           ctx.beginPath()
           ctx.moveTo(p0.x, p0.y)
           ctx.lineTo(p1.x, p1.y)
@@ -3182,6 +3451,103 @@ export const useSpinnerGame = () => {
 
   const renderAura = (ctx: CanvasRenderingContext2D, blade: SpinnerState) => {
     const isPlayer = blade.owner === 'player'
+    const mid = blade.config.modelId
+
+    // ── Tornado skin aura ──────────────────────────────────────────────
+    if (mid === 'tornado') {
+      const now = performance.now()
+      ctx.save()
+      ctx.translate(blade.x, blade.y)
+      const rings = 4
+      for (let r = 0; r < rings; r++) {
+        const phase = now * 0.004 + r * Math.PI * 0.5
+        const yOff = (r - rings / 2) * blade.radius * 0.35
+        const ringR = blade.radius * (1.1 + r * 0.15)
+        const wobble = Math.sin(phase) * 3
+        ctx.globalAlpha = 0.15 - r * 0.025
+        ctx.strokeStyle = '#aaddff'
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.ellipse(wobble, yOff, ringR, ringR * 0.3, phase * 0.5, 0, Math.PI * 2)
+        ctx.stroke()
+      }
+      ctx.globalAlpha = 1
+      ctx.restore()
+    }
+
+    // ── Thunderstorm skin aura ─────────────────────────────────────────
+    if (mid === 'thunderstorm') {
+      const now = performance.now()
+      ctx.save()
+      ctx.translate(blade.x, blade.y)
+      // Random lightning bolts radiating outward
+      const boltSeed = Math.floor(now / 120)
+      const boltCount = 3
+      for (let i = 0; i < boltCount; i++) {
+        // Deterministic-ish angle from seed
+        const angle = ((boltSeed * 7 + i * 137) % 360) * Math.PI / 180
+        const len = blade.radius * (1.2 + ((boltSeed * 3 + i * 41) % 100) * 0.008)
+        const midLen = len * 0.5
+        const jitter = ((boltSeed * 11 + i * 53) % 100 - 50) * 0.06
+        const mx = Math.cos(angle + jitter) * midLen
+        const my = Math.sin(angle + jitter) * midLen
+        const ex = Math.cos(angle) * len
+        const ey = Math.sin(angle) * len
+        ctx.globalAlpha = 0.7
+        ctx.strokeStyle = '#ffee44'
+        ctx.lineWidth = 1.2
+        ctx.beginPath()
+        ctx.moveTo(0, 0)
+        ctx.lineTo(mx, my)
+        ctx.lineTo(ex, ey)
+        ctx.stroke()
+        // Glow
+        ctx.globalAlpha = 0.25
+        ctx.strokeStyle = '#aaccff'
+        ctx.lineWidth = 3
+        ctx.beginPath()
+        ctx.moveTo(0, 0)
+        ctx.lineTo(mx, my)
+        ctx.lineTo(ex, ey)
+        ctx.stroke()
+      }
+      ctx.globalAlpha = 1
+      ctx.restore()
+    }
+
+    // ── Stat-switch boss phase indicator ───────────────────────────────
+    if (blade.statSwitchPhase) {
+      const now = performance.now()
+      const pulse = 0.6 + 0.4 * Math.sin(now * 0.005)
+      const isAtk = blade.statSwitchPhase === 'attack'
+      ctx.save()
+      ctx.translate(blade.x, blade.y - blade.radius - 10)
+      ctx.globalAlpha = pulse
+      ctx.fillStyle = isAtk ? '#ff4444' : '#4488ff'
+      ctx.font = 'bold 8px sans-serif'
+      ctx.textAlign = 'center'
+      ctx.fillText(isAtk ? '⚔ ATK' : '🛡 DEF', 0, 0)
+      ctx.globalAlpha = 1
+      ctx.restore()
+    }
+
+    // ── Life-leech boss indicator ──────────────────────────────────────
+    if (blade.isLifeLeech) {
+      const now = performance.now()
+      const pulse = 0.4 + 0.3 * Math.sin(now * 0.004)
+      const auraR = blade.radius * 1.6
+      const grad = ctx.createRadialGradient(
+        blade.x, blade.y, blade.radius * 0.3,
+        blade.x, blade.y, auraR
+      )
+      grad.addColorStop(0, `rgba(100, 255, 100, ${0.4 * pulse})`)
+      grad.addColorStop(0.5, `rgba(0, 180, 0, ${0.2 * pulse})`)
+      grad.addColorStop(1, 'rgba(0, 100, 0, 0)')
+      ctx.fillStyle = grad
+      ctx.beginPath()
+      ctx.arc(blade.x, blade.y, auraR, 0, Math.PI * 2)
+      ctx.fill()
+    }
 
     if (blade.isBoss) {
       // Boss: large fiery pulsating aura

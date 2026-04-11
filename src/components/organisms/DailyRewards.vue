@@ -6,7 +6,7 @@ import FIconButton from '@/components/atoms/FIconButton.vue'
 import IconCoin from '@/components/icons/IconCoin.vue'
 import useSpinnerConfig from '@/use/useSpinnerConfig'
 import {
-  SKINS_PER_TOP,
+  SKINS_PER_TOP, SPECIAL_SKINS,
   isSkinOwned,
   buySkin,
   modelImgPath,
@@ -51,6 +51,11 @@ const unownedSkinModelIds = (): SpinnerModelId[] => {
   for (const topPartId of Object.keys(SKINS_PER_TOP) as TopPartId[]) {
     for (const modelId of SKINS_PER_TOP[topPartId]) {
       if (seen.has(modelId)) continue
+      // Special skins are excluded from daily rewards
+      if (SPECIAL_SKINS.has(modelId)) {
+        seen.add(modelId)
+        continue
+      }
       if (!isSkinOwned(topPartId, modelId)) {
         result.push(modelId)
         seen.add(modelId)

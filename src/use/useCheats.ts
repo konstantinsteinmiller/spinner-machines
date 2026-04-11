@@ -6,6 +6,7 @@ import useSpinnerCampaign, { STAGES, type ArenaType } from '@/use/useSpinnerCamp
 import useLeaderboard from '@/use/useLeaderboard'
 import { arenaType, resetGameStartCount } from '@/use/useSpinnerGame'
 import type { BossAbility } from '@/types/spinner'
+import useSpinnerConfig from '@/use/useSpinnerConfig.ts'
 
 const storedCheat = localStorage.getItem('cheat') || 'false'
 const isCheat = ref<boolean>(JSON.parse(storedCheat))
@@ -36,7 +37,8 @@ const useCheats = () => {
 
   const resetChestCooldown = () => {
     localStorage.setItem('spinner_chest_ready_at', '0')
-    console.warn('[CHEAT] Chest cooldown reset to 00:00.')
+    localStorage.setItem('spinner_mini_chest_ready_at', '0')
+    console.warn('[CHEAT] All chest cooldowns reset to 00:00.')
   }
 
   const resetGameStartCounter = () => {
@@ -87,6 +89,7 @@ const useCheats = () => {
     setSettingValue('quest-campaign', false)
     console.warn('[CHEAT] Campaign progress reset.')
   }
+  const { addCoins } = useSpinnerConfig()
 
   /**
    * CHEAT MAPPING
@@ -134,6 +137,10 @@ const useCheats = () => {
     'ctrl+shift+alt+w': () => spawnCheatBoss('split'),
     'ctrl+shift+alt+e': () => spawnCheatBoss('partners'),
     'ctrl+shift+alt+r': () => spawnCheatBoss('healers'),
+    'ctrl+shift+alt+z': () => spawnCheatBoss('child-emitter'),
+    'ctrl+shift+alt+x': () => spawnCheatBoss('stat-switch'),
+    'ctrl+shift+alt+v': () => spawnCheatBoss('life-leech'),
+    'ctrl+shift+alt+k': () => addCoins(3000),
     'ctrl+shift+alt+c': clearCheatStage
   }
 

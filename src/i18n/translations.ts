@@ -140,7 +140,19 @@ export default {
       shield: 'Shield',
       salamaner: 'Salamander',
       galaxy: 'Galaxy',
-      piranha: 'Piranha'
+      piranha: 'Piranha',
+      rainbow: 'Rainbow',
+      boulder: 'Boulder',
+      teleporter: 'Teleporter',
+      wasp: 'Wasp',
+      'life-leech': 'Life Leech',
+      dark: 'Dark',
+      'spiky-eagle': 'Spiky Eagle',
+      'forest-dragon': 'Forest Dragon',
+      chain: 'Chain',
+      'wolf-demon': 'Wolf Demon',
+      rhino: 'Rhino',
+      'golden-eagle': 'Golden Eagle'
     }
   },
   de: {
@@ -284,7 +296,19 @@ export default {
       shield: 'Schild',
       salamaner: 'Salamander',
       galaxy: 'Galaxie',
-      piranha: 'Piranha'
+      piranha: 'Piranha',
+      rainbow: 'Regenbogen',
+      boulder: 'Felsbrocken',
+      teleporter: 'Teleporter',
+      wasp: 'Wespe',
+      'life-leech': 'Lebensräuber',
+      dark: 'Dunkel',
+      'spiky-eagle': 'Stachelnadler',
+      'forest-dragon': 'Walddrache',
+      chain: 'Kette',
+      'wolf-demon': 'Wolfsdämon',
+      rhino: 'Nashorn',
+      'golden-eagle': 'Goldadler'
     }
   },
   fr: {
@@ -428,7 +452,19 @@ export default {
       shield: 'Bouclier',
       salamaner: 'Salamandre',
       galaxy: 'Galaxie',
-      piranha: 'Piranha'
+      piranha: 'Piranha',
+      rainbow: 'Arc-en-ciel',
+      boulder: 'Rocher',
+      teleporter: 'Téléporteur',
+      wasp: 'Guêpe',
+      'life-leech': 'Vampire',
+      dark: 'Sombre',
+      'spiky-eagle': 'Aigle Épineux',
+      'forest-dragon': 'Dragon Forestier',
+      chain: 'Chaîne',
+      'wolf-demon': 'Loup Démon',
+      rhino: 'Rhinocéros',
+      'golden-eagle': 'Aigle Doré'
     }
   },
   es: {
@@ -572,7 +608,19 @@ export default {
       shield: 'Escudo',
       salamaner: 'Salamandra',
       galaxy: 'Galaxia',
-      piranha: 'Piraña'
+      piranha: 'Piraña',
+      rainbow: 'Arcoíris',
+      boulder: 'Roca',
+      teleporter: 'Teletransportador',
+      wasp: 'Avispa',
+      'life-leech': 'Sanguijuela',
+      dark: 'Oscuro',
+      'spiky-eagle': 'Águila Espinosa',
+      'forest-dragon': 'Dragón del Bosque',
+      chain: 'Cadena',
+      'wolf-demon': 'Lobo Demonio',
+      rhino: 'Rinoceronte',
+      'golden-eagle': 'Águila Dorada'
     },
     rule: {
       high: 'Alto',
@@ -728,7 +776,19 @@ export default {
       shield: 'シールド',
       salamaner: 'サラマンダー',
       galaxy: 'ギャラクシー',
-      piranha: 'ピラニア'
+      piranha: 'ピラニア',
+      rainbow: 'レインボー',
+      boulder: 'ボルダー',
+      teleporter: 'テレポーター',
+      wasp: 'ワスプ',
+      'life-leech': '吸血',
+      dark: 'ダーク',
+      'spiky-eagle': 'スパイクイーグル',
+      'forest-dragon': 'フォレストドラゴン',
+      chain: 'チェーン',
+      'wolf-demon': 'ウルフデーモン',
+      rhino: 'ライノ',
+      'golden-eagle': 'ゴールデンイーグル'
     }
   },
   kr: {
@@ -872,7 +932,19 @@ export default {
       shield: '쉴드',
       salamaner: '살라만더',
       galaxy: '갤럭시',
-      piranha: '피라냐'
+      piranha: '피라냐',
+      rainbow: '무지개',
+      boulder: '바위',
+      teleporter: '텔레포터',
+      wasp: '말벌',
+      'life-leech': '흡혈',
+      dark: '다크',
+      'spiky-eagle': '가시 독수리',
+      'forest-dragon': '숲의 용',
+      chain: '체인',
+      'wolf-demon': '늑대 악마',
+      rhino: '코뿔소',
+      'golden-eagle': '황금 독수리'
     }
   },
   zh: {
@@ -1016,7 +1088,19 @@ export default {
       shield: '盾牌',
       salamaner: '火蜥蜴',
       galaxy: '银河',
-      piranha: '食人鱼'
+      piranha: '食人鱼',
+      rainbow: '彩虹',
+      boulder: '巨石',
+      teleporter: '传送者',
+      wasp: '黄蜂',
+      'life-leech': '吸血',
+      dark: '暗黑',
+      'spiky-eagle': '刺鹰',
+      'forest-dragon': '森林龙',
+      chain: '锁链',
+      'wolf-demon': '狼魔',
+      rhino: '犀牛',
+      'golden-eagle': '金鹰'
     }
   },
   ru: {
@@ -1160,7 +1244,19 @@ export default {
       shield: 'Щит',
       salamaner: 'Саламандра',
       galaxy: 'Галактика',
-      piranha: 'Пиранья'
+      piranha: 'Пиранья',
+      rainbow: 'Радуга',
+      boulder: 'Валун',
+      teleporter: 'Телепортер',
+      wasp: 'Оса',
+      'life-leech': 'Вампир',
+      dark: 'Тёмный',
+      'spiky-eagle': 'Шипастый Орёл',
+      'forest-dragon': 'Лесной Дракон',
+      chain: 'Цепь',
+      'wolf-demon': 'Волк-Демон',
+      rhino: 'Носорог',
+      'golden-eagle': 'Золотой Орёл'
     }
   }
 }

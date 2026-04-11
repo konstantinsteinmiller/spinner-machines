@@ -19,7 +19,10 @@ export const SPINNER_MODEL_IDS = [
   'snake', 'axe', 'demon', 'angelic', 'mountain',
   'tornado', 'reddragon', 'bear', 'hawk', 'blades',
   'gear', 'ape', 'shield', 'salamaner', 'galaxy',
-  'piranha', 'thunderstorm'
+  'piranha', 'thunderstorm',
+  'rainbow', 'dark', 'boulder', 'teleporter', 'life-leech',
+  'wasp', 'spiky-eagle', 'forest-dragon', 'chain', 'wolf-demon',
+  'rhino', 'golden-eagle'
 ] as const
 
 export type SpinnerModelId = (typeof SPINNER_MODEL_IDS)[number]
@@ -28,17 +31,28 @@ export type SpinnerModelId = (typeof SPINNER_MODEL_IDS)[number]
 export const SKINS_PER_TOP: Record<TopPartId, SpinnerModelId[]> = {
   // "star" top keeps its bold elemental roster. Swapped thunderstorm out
   // to give the new spiky ("triangle") top a jagged-themed lineup.
-  star: ['blades', 'ice', 'tornado', 'reddragon', 'axe'],
+  star: ['blades', 'ice', 'wasp', 'tornado', 'reddragon', 'chain', 'axe'],
   // Spiky top — jagged / barbed aesthetic (thunder bolts, thunderstorm,
   // razor-winged eagle).
-  triangle: ['thunder', 'snake', 'phoenix', 'eagle', 'salamaner'],
-  round: ['nature', 'turtle', 'piranha', 'bear', 'galaxy'],
-  quadratic: ['chip', 'mysticaleye', 'bluedragon', 'angelic', 'prisma'],
-  cushioned: ['shell', 'shield', 'castle', 'mountain', 'gear'],
-  piercer: ['scorpion', 'wulf', 'demon', 'hawk', 'ape']
+  triangle: ['thunder', 'snake', 'phoenix', 'eagle', 'spiky-eagle', 'salamaner', 'thunderstorm'],
+  round: ['nature', 'turtle', 'piranha', 'bear', 'galaxy', 'golden-eagle', 'wolf-demon', 'dark'],
+  quadratic: ['chip', 'mysticaleye', 'bluedragon', 'angelic', 'prisma', 'forest-dragon', 'rainbow'],
+  cushioned: ['shell', 'shield', 'castle', 'mountain', 'gear', 'boulder'],
+  piercer: ['scorpion', 'wulf', 'demon', 'hawk', 'rhino', 'ape', 'teleporter']
 }
 
 export const SKIN_COST = 300
+export const SPECIAL_SKIN_COST = 1500
+
+/** Special skins with unique VFX — cost 1500 coins and are excluded from
+ *  daily rewards and battle pass skin draws. */
+export const SPECIAL_SKINS: ReadonlySet<SpinnerModelId> = new Set([
+  'rainbow', 'dark', 'tornado', 'thunderstorm', 'boulder', 'teleporter'
+])
+
+/** Returns the coin cost for a given skin. */
+export const skinCost = (modelId: SpinnerModelId): number =>
+  SPECIAL_SKINS.has(modelId) ? SPECIAL_SKIN_COST : SKIN_COST
 
 /** Pick a random skin from the available pool for a given top part */
 export const getRandomSkinForTop = (topPartId: TopPartId): SpinnerModelId => {
