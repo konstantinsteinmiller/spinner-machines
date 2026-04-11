@@ -160,7 +160,7 @@ const BASE_STAGES: Stage[] = [
   ], 230, 70, { arenaType: 'thunder' }),
   // 15 — GHOST boss (archetype 3)
   s(15, 'stage_15', [
-    e('triangle', 'speedy', 6, 5, 'snake', 'ghost')
+    e('triangle', 'speedy', 8, 10, 'snake', 'ghost')
   ], 420, 110, { isBoss: true }),
   s(16, 'stage_16', [
     e('star', 'speedy', 5, 4, 'reddragon'),
@@ -226,16 +226,16 @@ const BASE_STAGES: Stage[] = [
     e('round', 'tanky', 8, 9, 'piranha')
   ], 370, 105, { arenaType: 'forest', bouncers: 2 }),
   s(29, 'stage_29', [
-    e('star', 'speedy', 9, 9, 'blades'),
-    e('triangle', 'speedy', 9, 8, 'eagle'),
-    e('quadratic', 'balanced', 8, 9, 'prisma')
+    e('star', 'speedy', 12, 8, 'blades'),
+    e('triangle', 'speedy', 9, 12, 'eagle'),
+    e('quadratic', 'balanced', 10, 9, 'prisma')
   ], 420, 120),
   // 30 — PLAIN boss
   s(30, 'stage_30', [
-    e('star', 'speedy', 11, 12, 'axe', 'plain')
+    e('star', 'speedy', 25, 25, 'axe', 'plain')
   ], 800, 200, { isBoss: true }),
   s(31, 'stage_31', [
-    e('triangle', 'speedy', 9, 9, 'phoenix'),
+    e('triangle', 'speedy', 12, 9, 'phoenix'),
     e('quadratic', 'tanky', 9, 9, 'angelic')
   ], 430, 125, { arenaType: 'shock', bouncers: 1 }),
   s(32, 'stage_32', [
@@ -254,7 +254,7 @@ const BASE_STAGES: Stage[] = [
   ], 440, 130),
   // 35 — SPLIT boss
   s(35, 'stage_35', [
-    e('round', 'tanky', 12, 10, 'piranha', 'split')
+    e('round', 'tanky', 16, 14, 'piranha', 'split')
   ], 900, 210, { isBoss: true }),
   s(36, 'stage_36', [
     e('star', 'speedy', 11, 10, 'tornado'),
@@ -276,7 +276,7 @@ const BASE_STAGES: Stage[] = [
   ], 510, 150, { arenaType: 'thunder' }),
   // 40 — GHOST boss
   s(40, 'stage_40', [
-    e('star', 'speedy', 13, 12, 'reddragon', 'ghost')
+    e('triangle', 'tanky', 22, 20, 'salamaner', 'ghost')
   ], 1000, 230, { isBoss: true }),
   s(41, 'stage_41', [
     e('star', 'speedy', 12, 12, 'blades'),
@@ -349,7 +349,7 @@ const BASE_STAGES: Stage[] = [
   ], 640, 190, { arenaType: 'thunder' }),
   // 55 — PLAIN boss
   s(55, 'stage_55', [
-    e('piercer', 'speedy', 16, 16, 'scorpion', 'plain')
+    e('piercer', 'speedy', 25, 33, 'scorpion', 'plain')
   ], 1200, 260, { isBoss: true }),
   s(56, 'stage_56', [
     e('cushioned', 'balanced', 16, 15, 'mountain'),
@@ -371,7 +371,7 @@ const BASE_STAGES: Stage[] = [
   ], 680, 205, { arenaType: 'thunder' }),
   // 60 — SPLIT boss
   s(60, 'stage_60', [
-    e('quadratic', 'tanky', 18, 17, 'mysticaleye', 'split')
+    e('quadratic', 'tanky', 27, 32, 'mysticaleye', 'split')
   ], 1350, 290, { isBoss: true }),
   s(61, 'stage_61', [
     e('star', 'speedy', 17, 17, 'blades'),
@@ -393,7 +393,7 @@ const BASE_STAGES: Stage[] = [
   ], 730, 220, { arenaType: 'thunder' }),
   // 65 — GHOST boss
   s(65, 'stage_65', [
-    e('star', 'speedy', 19, 18, 'reddragon', 'ghost')
+    e('star', 'balanced', 35, 28, 'reddragon', 'ghost')
   ], 1500, 310, { isBoss: true }),
   s(66, 'stage_66', [
     e('star', 'speedy', 19, 18, 'tornado'),
@@ -466,7 +466,7 @@ const BASE_STAGES: Stage[] = [
   ], 870, 260, { arenaType: 'thunder' }),
   // 80 — PLAIN boss
   s(80, 'stage_80', [
-    e('cushioned', 'tanky', 24, 22, 'castle', 'plain')
+    e('cushioned', 'tanky', 39, 39, 'castle', 'plain')
   ], 1800, 360, { isBoss: true, arenaType: 'lava' }),
 
   // ── Endgame Showcase (81-100) ─────────────────────────────────────────────
@@ -492,7 +492,7 @@ const BASE_STAGES: Stage[] = [
   ], 920, 275, { arenaType: 'forest' }),
   // 85 — SPLIT boss
   s(85, 'stage_85', [
-    e('star', 'balanced', 26, 24, 'tornado', 'split')
+    e('star', 'balanced', 41, 48, 'tornado', 'split')
   ], 2100, 400, { isBoss: true }),
   s(86, 'stage_86', [
     e('star', 'speedy', 23, 23, 'reddragon'),
@@ -516,7 +516,7 @@ const BASE_STAGES: Stage[] = [
   ], 990, 295, { arenaType: 'thunder' }),
   // 90 — GHOST boss
   s(90, 'stage_90', [
-    e('star', 'speedy', 28, 26, 'reddragon', 'ghost')
+    e('star', 'speedy', 45, 48, 'reddragon', 'ghost')
   ], 2400, 440, { isBoss: true }),
   s(91, 'stage_91', [
     e('star', 'speedy', 25, 25, 'blades'),
@@ -541,10 +541,10 @@ const BASE_STAGES: Stage[] = [
   ], 1060, 315, { arenaType: 'forest' }),
   // 95 — PARTNERS boss
   s(95, 'stage_95', [
-    e('cushioned', 'tanky', 26, 25, 'castle', 'partners'),
-    e('round', 'tanky', 26, 25, 'piranha', 'partners'),
-    e('star', 'balanced', 26, 25, 'reddragon', 'partners'),
-    e('quadratic', 'balanced', 26, 25, 'mysticaleye', 'partners')
+    e('cushioned', 'tanky', 28, 28, 'castle', 'partners'),
+    e('round', 'tanky', 28, 28, 'piranha', 'partners'),
+    e('star', 'balanced', 28, 23, 'reddragon', 'partners'),
+    e('quadratic', 'balanced', 28, 23, 'mysticaleye', 'partners')
   ], 2700, 480, { isBoss: true }),
   s(96, 'stage_96', [
     e('star', 'speedy', 27, 26, 'tornado'),
@@ -569,11 +569,11 @@ const BASE_STAGES: Stage[] = [
   ], 1150, 340, { arenaType: 'thunder' }),
   // 100 — HEALERS boss (grand finale)
   s(100, 'stage_100', [
-    e('cushioned', 'balanced', 30, 30, 'mountain', 'healers'),
-    e('round', 'balanced', 30, 30, 'piranha', 'healers'),
-    e('cushioned', 'balanced', 30, 30, 'gear', 'healers'),
-    e('round', 'balanced', 30, 30, 'turtle', 'healers'),
-    e('quadratic', 'balanced', 30, 30, 'mysticaleye', 'healers')
+    e('cushioned', 'balanced', 29, 32, 'mountain', 'healers'),
+    e('round', 'balanced', 33, 28, 'piranha', 'healers'),
+    e('cushioned', 'tanky', 28, 33, 'gear', 'healers'),
+    e('round', 'balanced', 33, 30, 'turtle', 'healers'),
+    e('quadratic', 'speedy', 29, 32, 'mysticaleye', 'healers')
   ], 3500, 600, { isBoss: true })
 ]
 

@@ -7,7 +7,7 @@ const loadingProgress = ref(0)
 const areAllAssetsLoaded = ref(false)
 
 // THIS IS THE KEY: A persistent memory reference
-const resourceCache = {
+export const resourceCache = {
   images: new Map<string, HTMLImageElement>(),
   audio: new Map<string, HTMLAudioElement>()
 }

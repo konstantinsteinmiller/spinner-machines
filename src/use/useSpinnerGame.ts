@@ -1802,15 +1802,24 @@ export const useSpinnerGame = () => {
     const maxDist = ARENA_RADIUS - blade.radius
 
     if (dist <= maxDist) return
+    if (dist < 0.01) return // avoid division by zero at exact center
 
-    const ratio = maxDist / dist
-    blade.x *= ratio
-    blade.y *= ratio
+    // Outward normal at contact point
+    const nx = blade.x / dist
+    const ny = blade.y / dist
 
-    // Reflect velocity along outward normal
-    const nx = blade.x / maxDist
-    const ny = blade.y / maxDist
+    // Push blade inside the arena by a small margin so it doesn't
+    // re-trigger the wall bounce on the very next frame ("wall hug").
+    const pushInside = 0.5
+    const clampDist = maxDist - pushInside
+    blade.x = nx * clampDist
+    blade.y = ny * clampDist
+
+    // Only reflect if the blade is moving INTO the wall (dot > 0,
+    // since the normal points outward). Blades already heading inward
+    // (e.g. after a previous reflection) should not get re-reflected.
     const dot = blade.vx * nx + blade.vy * ny
+    if (dot <= 0) return
 
     // Speed-based boost: faster models bounce harder
     const currentSpeed = Math.sqrt(blade.vx * blade.vx + blade.vy * blade.vy)
@@ -1829,6 +1838,16 @@ export const useSpinnerGame = () => {
     blade.vx = (blade.vx - 2 * dot * nx) * effectiveBoost
     blade.vy = (blade.vy - 2 * dot * ny) * effectiveBoost
     blade.wallBounceCount++
+
+    // Reflect the remaining acceleration so the launch ramp doesn't
+    // push the blade back into the wall it just bounced off of.
+    if (blade.accelFramesLeft > 0) {
+      const aDot = blade.ax * nx + blade.ay * ny
+      if (aDot > 0) {
+        blade.ax -= 2 * aDot * nx
+        blade.ay -= 2 * aDot * ny
+      }
+    }
 
     // Arena-specific wall effects
     if (arenaType.value === 'lava') {

@@ -26,7 +26,6 @@ import useBattlePass from '@/use/useBattlePass'
 import TreasureChest from '@/components/organisms/TreasureChest.vue'
 import AdRewardButton from '@/components/organisms/AdRewardButton.vue'
 import CoinBadge from '@/components/organisms/CoinBadge.vue'
-import FLogoProgress from '@/components/atoms/FLogoProgress.vue'
 import { prependBaseUrl } from '@/utils/function'
 import FMuteButton from '@/components/atoms/FMuteButton.vue'
 import FButtonSwitch from '@/components/atoms/FButtonSwitch.vue'
@@ -43,6 +42,9 @@ import useBottomSafe from '@/use/useBottomSafe'
 import { getSelectedSkin } from '@/use/useModels'
 import { isCrazyGamesFullRelease } from '@/use/useMatch.ts'
 import { spawnCoinExplosion } from '@/use/useCoinExplosion'
+import useCheats from '@/use/useCheats'
+
+useCheats()
 
 // ─── Game & Config ─────────────────────────────────────────────────────────
 
@@ -689,11 +691,12 @@ onMounted(() => {
 
   recordPlayerStage(currentStageId.value)
 
-  // Check URL for incoming PvP invite — auto-join the lobby
+  // Check URL for incoming PvP invite — open modal and auto-join
   const pendingPvpHost = checkInviteFromUrl()
   if (pendingPvpHost) {
     pvpModalOpen.value = true
-    pvpJoinLobby(pendingPvpHost)
+    // Small delay so the modal renders before we trigger join
+    setTimeout(() => pvpJoinLobby(pendingPvpHost), 100)
   }
 
   // Register PvP game event callbacks
@@ -782,9 +785,6 @@ onUnmounted(() => {
   div.arena.relative.w-screen.overflow-hidden.flex.items-center.justify-center(
     class="bg-[#0d1117] h-screen h-dvh"
   )
-    //- Logo Preloader
-    FLogoProgress
-
     //- Game Canvas
     //- Screen-shake transform lives ONLY on the canvas, not on .arena, so
     //- the HUD's `position: fixed` buttons stay anchored to the real viewport.

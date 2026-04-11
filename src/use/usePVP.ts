@@ -16,6 +16,49 @@ import { isCrazyGamesFullRelease, isDebug } from '@/use/useMatch'
 
 export const isPvpEnabled = import.meta.env.VITE_APP_PVP_ENABLED === 'true'
 
+// ─── Debug Log ────────────────────────────────────────────────────────
+// Collects timestamped entries at every critical PvP connection point.
+// Can be copied to clipboard from the UI for remote debugging.
+
+const debugLog: string[] = []
+const MAX_DEBUG_ENTRIES = 100
+
+const pvpLog = (msg: string) => {
+  const ts = new Date().toISOString().slice(11, 23) // HH:mm:ss.SSS
+  const entry = `[${ts}] ${msg}`
+  debugLog.push(entry)
+  if (debugLog.length > MAX_DEBUG_ENTRIES) debugLog.shift()
+  console.log('[PvP]', entry)
+}
+
+export const debugCopied: Ref<boolean> = ref(false)
+
+export const copyPvpDebugLog = async (): Promise<boolean> => {
+  const info = [
+    `── PvP Debug Log ──`,
+    `UA: ${navigator.userAgent}`,
+    `URL: ${window.location.href}`,
+    `Time: ${new Date().toISOString()}`,
+    `Status: ${status.value} | Role: ${role.value} | PeerId: ${peerId.value}`,
+    `RemotePeerId: ${remotePeerId.value}`,
+    `PeerOpen: ${peer?.open ?? 'no peer'} | PeerDestroyed: ${peer?.destroyed ?? 'no peer'}`,
+    `ConnOpen: ${conn?.open ?? 'no conn'} | ConnType: ${conn?.type ?? 'n/a'}`,
+    `Error: ${errorMessage.value || 'none'}`,
+    `──────────────────`,
+    ...debugLog
+  ].join('\n')
+  try {
+    await navigator.clipboard.writeText(info)
+    debugCopied.value = true
+    setTimeout(() => {
+      debugCopied.value = false
+    }, 2000)
+    return true
+  } catch {
+    return false
+  }
+}
+
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 export type PvPRole = 'host' | 'guest' | null
@@ -54,7 +97,30 @@ export type PvPMessage =
 const INVITE_EXPIRY_MS = 2 * 60 * 1000  // 2 minutes
 const PING_INTERVAL_MS = 5000
 const PONG_TIMEOUT_MS = 10000
+const CONN_OPEN_TIMEOUT_MS = 15000       // Give up if conn never opens
 const PEER_ID_PREFIX = 'ca-'
+
+// ICE servers: STUN for direct connections + free TURN relays for
+// carrier-grade NAT (mobile networks) where STUN alone fails.
+const ICE_SERVERS: RTCIceServer[] = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  {
+    urls: 'turn:openrelay.metered.ca:80',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:openrelay.metered.ca:443',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  }
+]
 
 // ─── Composable ────────────────────────────────────────────────────────────
 
@@ -73,10 +139,30 @@ const hostTeam: Ref<SpinnerConfig[]> = ref([])
 const guestTeam: Ref<SpinnerConfig[]> = ref([])
 const remotePlayerName: Ref<string> = ref('')
 
+// ─── Early Invite Capture ─────────────────────────────────────────────────
+// Extract pvp= param from URL hash at module load time (before any component
+// mounts) so the invite code survives code-split lazy loading.
+const extractPvpFromHash = (): string | null => {
+  const hash = window.location.hash
+  const match = hash.match(/[?&]pvp=([^&]+)/)
+  if (match) {
+    const cleanHash = hash.replace(/[?&]pvp=[^&]+/, '').replace(/\?$/, '')
+    history.replaceState(null, '', window.location.pathname + cleanHash)
+    return decodeURIComponent(match[1])
+  }
+  return null
+}
+
+/** Invite code captured from URL before any component mounted. */
+const _earlyInvite = extractPvpFromHash()
+if (_earlyInvite) pvpLog(`early invite capture: ${_earlyInvite}`)
+export const pendingInviteCode: Ref<string | null> = ref(_earlyInvite)
+
 let peer: Peer | null = null
 let conn: DataConnection | null = null
 let expiryTimer: ReturnType<typeof setInterval> | null = null
 let expiryTimeout: ReturnType<typeof setTimeout> | null = null
+let connOpenTimeout: ReturnType<typeof setTimeout> | null = null
 let pingInterval: ReturnType<typeof setInterval> | null = null
 let lastPongAt = 0
 
@@ -104,6 +190,10 @@ const cleanup = () => {
   if (expiryTimeout) {
     clearTimeout(expiryTimeout)
     expiryTimeout = null
+  }
+  if (connOpenTimeout) {
+    clearTimeout(connOpenTimeout)
+    connOpenTimeout = null
   }
   if (pingInterval) {
     clearInterval(pingInterval)
@@ -151,13 +241,32 @@ const send = (msg: PvPMessage) => {
   }
 }
 
+// Reset the pong timer whenever the app regains focus so we don't
+// falsely detect a disconnect after the browser throttled our timers
+// while the user was sharing via WhatsApp / switching apps.
+document.addEventListener('visibilitychange', () => {
+  pvpLog(`visibility: hidden=${document.hidden} connOpen=${conn?.open} status=${status.value}`)
+  if (!document.hidden && conn?.open) {
+    lastPongAt = Date.now()
+    // Immediately ping to verify the connection is still alive
+    send({ type: 'ping' })
+  }
+})
+
 const startPingLoop = () => {
   lastPongAt = Date.now()
   pingInterval = setInterval(() => {
     if (!conn || !conn.open) return
+    // Skip ping/pong checks while the app is in the background — the
+    // browser throttles timers so we'd get false positives.
+    if (document.hidden) {
+      lastPongAt = Date.now()
+      return
+    }
     send({ type: 'ping' })
-    // Check if we missed pongs
-    if (Date.now() - lastPongAt > PONG_TIMEOUT_MS && status.value === 'playing') {
+    // Check if we missed pongs (in any connected state, not just playing)
+    const activeStates: PvPStatus[] = ['lobby', 'ready', 'playing']
+    if (Date.now() - lastPongAt > PONG_TIMEOUT_MS && activeStates.includes(status.value)) {
       status.value = 'disconnected'
       errorMessage.value = 'Connection lost — opponent not responding.'
       cleanup()
@@ -249,8 +358,42 @@ const handleMessage = (msg: PvPMessage) => {
 
 const setupConnection = (connection: DataConnection) => {
   conn = connection
+  pvpLog(`setupConnection: connId=${connection.connectionId} peer=${connection.peer} type=${connection.type} reliable=${connection.reliable}`)
+
+  // Log ICE connection state changes for debugging NAT traversal issues
+  try {
+    const pc = (connection as any).peerConnection as RTCPeerConnection | undefined
+    if (pc) {
+      pc.oniceconnectionstatechange = () => {
+        pvpLog(`ICE state: ${pc.iceConnectionState}`)
+      }
+      pc.onicecandidate = (e) => {
+        if (e.candidate) {
+          pvpLog(`ICE candidate: ${e.candidate.type ?? 'unknown'} ${e.candidate.protocol ?? ''} ${e.candidate.address ?? ''}`)
+        }
+      }
+    }
+  } catch { /* peerConnection not exposed — ignore */
+  }
+
+  // Timeout: if the data channel never opens, the WebRTC handshake
+  // likely failed (NAT traversal / TURN issue). Surface an error.
+  connOpenTimeout = setTimeout(() => {
+    if (conn && !conn.open) {
+      pvpLog(`conn open timeout after ${CONN_OPEN_TIMEOUT_MS}ms`)
+      status.value = 'error'
+      errorMessage.value = 'Connection timed out — could not reach host. Both players may be behind strict NATs.'
+      cleanup()
+    }
+  }, CONN_OPEN_TIMEOUT_MS)
 
   conn.on('open', () => {
+    pvpLog(`conn.open: role=${role.value} connOpen=${conn?.open}`)
+    // Cancel the open timeout — we made it
+    if (connOpenTimeout) {
+      clearTimeout(connOpenTimeout)
+      connOpenTimeout = null
+    }
     if (role.value === 'host') {
       // Stop expiry countdown
       if (expiryTimer) {
@@ -276,6 +419,7 @@ const setupConnection = (connection: DataConnection) => {
   })
 
   conn.on('close', () => {
+    pvpLog(`conn.close: status=${status.value} role=${role.value}`)
     if (status.value === 'playing') {
       status.value = 'disconnected'
       errorMessage.value = 'Opponent disconnected.'
@@ -287,6 +431,7 @@ const setupConnection = (connection: DataConnection) => {
   })
 
   conn.on('error', (err: any) => {
+    pvpLog(`conn.error: type=${err?.type} msg=${err?.message}`)
     console.error('[PvP] Connection error:', err)
     status.value = 'error'
     errorMessage.value = `Connection error: ${err.type || err.message || 'unknown'}`
@@ -306,15 +451,18 @@ const usePVP = () => {
   /** Host: create a lobby and wait for a guest */
   const createLobby = (config: PvPGameConfig) => {
     try {
+      pvpLog(`createLobby: arena=${config.arenaType} team=${config.teamSize} lvl1=${config.levelOne}`)
       resetState()
       role.value = 'host'
       status.value = 'creating'
       gameConfig.value = config
 
       const id = generatePeerId()
-      peer = new Peer(id)
+      pvpLog(`createLobby: peerId=${id}`)
+      peer = new Peer(id, { config: { iceServers: ICE_SERVERS } })
 
       peer.on('open', (openId: string) => {
+        pvpLog(`host peer.open: id=${openId}`)
         peerId.value = openId
         inviteLink.value = buildInviteLink(openId)
         status.value = 'waiting'
@@ -322,10 +470,12 @@ const usePVP = () => {
       })
 
       peer.on('connection', (connection: DataConnection) => {
+        pvpLog(`host peer.connection: remote=${connection.peer}`)
         setupConnection(connection)
       })
 
       peer.on('error', (err: any) => {
+        pvpLog(`host peer.error: type=${err?.type} msg=${err?.message}`)
         console.error('[PvP] Peer error:', err)
         // If ID is taken, retry with a new one
         if (err.type === 'unavailable-id') {
@@ -336,7 +486,16 @@ const usePVP = () => {
         status.value = 'error'
         errorMessage.value = `Peer error: ${err.type || err.message || 'unknown'}`
       })
+
+      peer.on('disconnected', () => {
+        pvpLog(`host peer.disconnected: destroyed=${peer?.destroyed}`)
+      })
+
+      peer.on('close', () => {
+        pvpLog(`host peer.close`)
+      })
     } catch (e) {
+      pvpLog(`createLobby exception: ${e}`)
       console.error('[PvP] Failed to create lobby:', e)
       status.value = 'error'
       errorMessage.value = 'Failed to create lobby. Please try again.'
@@ -346,19 +505,24 @@ const usePVP = () => {
   /** Guest: join a host's lobby by their peer ID */
   const joinLobby = (hostPeerId: string) => {
     try {
+      pvpLog(`joinLobby: hostPeerId=${hostPeerId}`)
       resetState()
       role.value = 'guest'
       status.value = 'connecting'
       remotePeerId.value = hostPeerId
 
-      peer = new Peer(generatePeerId())
+      const myId = generatePeerId()
+      pvpLog(`joinLobby: myPeerId=${myId}`)
+      peer = new Peer(myId, { config: { iceServers: ICE_SERVERS } })
 
-      peer.on('open', () => {
+      peer.on('open', (openId: string) => {
+        pvpLog(`guest peer.open: id=${openId}, connecting to host=${hostPeerId}`)
         const connection = peer!.connect(hostPeerId, { reliable: true })
         setupConnection(connection)
       })
 
       peer.on('error', (err: any) => {
+        pvpLog(`guest peer.error: type=${err?.type} msg=${err?.message}`)
         console.error('[PvP] Peer error:', err)
         if (err.type === 'peer-unavailable') {
           status.value = 'error'
@@ -368,7 +532,16 @@ const usePVP = () => {
           errorMessage.value = `Connection failed: ${err.type || err.message || 'unknown'}`
         }
       })
+
+      peer.on('disconnected', () => {
+        pvpLog(`guest peer.disconnected: destroyed=${peer?.destroyed}`)
+      })
+
+      peer.on('close', () => {
+        pvpLog(`guest peer.close`)
+      })
     } catch (e) {
+      pvpLog(`joinLobby exception: ${e}`)
       console.error('[PvP] Failed to join lobby:', e)
       status.value = 'error'
       errorMessage.value = 'Failed to join lobby. Please try again.'
@@ -472,12 +645,20 @@ const usePVP = () => {
     }
   }
 
-  /** Check URL for incoming PvP invite on page load */
+  /** Check URL for incoming PvP invite on page load.
+   *  Also consumes the early-captured pendingInviteCode (extracted at
+   *  module load time before any component mounted). */
   const checkInviteFromUrl = (): string | null => {
+    // First check the module-level early capture
+    if (pendingInviteCode.value) {
+      const code = pendingInviteCode.value
+      pendingInviteCode.value = null
+      return code
+    }
+    // Fallback: re-check the hash in case it was set after module init
     const hash = window.location.hash
     const match = hash.match(/[?&]pvp=([^&]+)/)
     if (match) {
-      // Clean the URL param so it doesn't re-trigger
       const cleanHash = hash.replace(/[?&]pvp=[^&]+/, '').replace(/\?$/, '')
       history.replaceState(null, '', window.location.pathname + cleanHash)
       return decodeURIComponent(match[1])
@@ -508,6 +689,7 @@ const usePVP = () => {
     bothReady,
     whatsappShareLink,
 
+    pendingInviteCode,
     // Actions
     createLobby,
     joinLobby,
@@ -522,7 +704,10 @@ const usePVP = () => {
     copyInviteLink,
     sendCrazyGamesInvite,
     checkInviteFromUrl,
-    leavePvP
+    leavePvP,
+    // Debug
+    copyPvpDebugLog,
+    debugCopied
   }
 }
 

@@ -32,6 +32,7 @@ const {
   bpCoinReward,
   bpIsSkinStage,
   claimStage,
+  claimedSkins,
   isMaxed
 } = useBattlePass()
 
@@ -43,7 +44,8 @@ const {
   pendingHonorClaims,
   isHonorStageClaimed,
   isHonorStageUnlocked,
-  claimHonorStage
+  claimHonorStage,
+  claimedHonorSkins
 } = usePvpStats()
 
 const { canShowPvP } = usePVP()
@@ -181,6 +183,14 @@ const refreshHonorOfferedSkins = () => {
 
 // ─── Claim action ──────────────────────────────────────────────────────────
 
+/** Resolve which skin image to show for a BP skin stage. */
+const bpSkinForStage = (stage: number): SpinnerModelId | null =>
+  claimedSkins.value[stage] ?? offeredSkins.value[stage] ?? null
+
+/** Resolve which skin image to show for an honor track stage. */
+const honorSkinForStage = (stage: number): SpinnerModelId | null =>
+  claimedHonorSkins.value[stage] ?? honorOfferedSkins.value[stage] ?? null
+
 const onClaim = (stage: number) => {
   const { playSound } = useSounds()
   playSound('happy')
@@ -195,7 +205,7 @@ const onClaim = (stage: number) => {
 const onClaimHonor = (stage: number) => {
   const skin = honorOfferedSkins.value[stage]
   if (!skin) return
-  if (!claimHonorStage(stage)) return
+  if (!claimHonorStage(stage, skin)) return
   const { playSound } = useSounds()
   playSound('happy')
   // Unlock the skin everywhere (same as BP skin claim)
@@ -289,13 +299,13 @@ const onClaimHonor = (stage: number) => {
             div.text-gray-300.font-bold.uppercase(class="text-[8px] sm:text-[10px]") S{{ card.stage }}
 
             //- Reward icon
-            template(v-if="card.isSkin && offeredSkins[card.stage]")
+            template(v-if="card.isSkin && bpSkinForStage(card.stage)")
               div.skin-thumb-wrap.relative.flex.items-center.justify-center(
                 class="w-6 h-6 sm:w-8 sm:h-8 my-0.5"
               )
                 div.absolute.inset-0.rounded-full.pointer-events-none.skin-thumb-halo
                 img(
-                  :src="modelImgPath(offeredSkins[card.stage])"
+                  :src="modelImgPath(bpSkinForStage(card.stage))"
                   class="relative w-full h-full object-contain"
                   :class="{ 'opacity-60': !card.unlocked && !card.claimed }"
                 )
@@ -308,13 +318,13 @@ const onClaimHonor = (stage: number) => {
 
             //- Skin label
             div.font-black.game-text.text-purple-300.uppercase.tracking-wider.leading-tight(
-              v-if="card.isSkin && offeredSkins[card.stage]"
+              v-if="card.isSkin && bpSkinForStage(card.stage)"
               class="text-[7px] sm:text-[9px] truncate max-w-full"
-            ) {{ t('skins.' + offeredSkins[card.stage]) }}
+            ) {{ t('skins.' + bpSkinForStage(card.stage)) }}
 
             //- Coin amount (shown on coin stages, and as fallback hint on skin stages w/ empty pool)
             div.text-yellow-400.font-black.game-text.leading-tight(
-              v-if="!card.isSkin || !offeredSkins[card.stage]"
+              v-if="!card.isSkin || !bpSkinForStage(card.stage)"
               class="text-[9px] sm:text-xs"
             ) +{{ card.coins }}
 
@@ -388,13 +398,13 @@ const onClaimHonor = (stage: number) => {
             div.text-purple-300.font-bold.uppercase(class="text-[8px] sm:text-[10px]") H{{ card.stage }}
 
             //- Skin preview
-            template(v-if="honorOfferedSkins[card.stage]")
+            template(v-if="honorSkinForStage(card.stage)")
               div.skin-thumb-wrap.relative.flex.items-center.justify-center(
                 class="w-8 h-8 sm:w-10 sm:h-10 my-0.5"
               )
                 div.absolute.inset-0.rounded-full.pointer-events-none.skin-thumb-halo
                 img(
-                  :src="modelImgPath(honorOfferedSkins[card.stage])"
+                  :src="modelImgPath(honorSkinForStage(card.stage))"
                   class="relative w-full h-full object-contain"
                   :class="{ 'opacity-60': !card.unlocked && !card.claimed }"
                 )
@@ -403,9 +413,9 @@ const onClaimHonor = (stage: number) => {
 
             //- Skin label
             div.font-black.game-text.text-purple-300.uppercase.tracking-wider.leading-tight(
-              v-if="honorOfferedSkins[card.stage]"
+              v-if="honorSkinForStage(card.stage)"
               class="text-[7px] sm:text-[9px] truncate max-w-full"
-            ) {{ t('skins.' + honorOfferedSkins[card.stage]) }}
+            ) {{ t('skins.' + honorSkinForStage(card.stage)) }}
 
             //- Status
             div(class="mt-0.5 text-[8px] sm:text-[10px] font-bold")

@@ -207,36 +207,52 @@ const handleSelectSkin = (topId: TopPartId, modelId: SpinnerModelId) => {
             : 'bg-slate-700 border-2 border-slate-600 hover:border-slate-400'"
           )
             //- Floating skin row above the card border:
-            //- owned skin thumbnails + plus button to open the purchase modal
+            //- Desktop/landscape: all owned skin thumbnails + plus button
+            //- Mobile portrait: selected skin + plus button only (skin selection in shop)
             div.skin-row.-mt-2.absolute.left-0.right-0.flex.justify-center.items-center.pointer-events-none(
               class="z-10"
             )
               div.flex.items-center.justify-center.rounded-full.bg-slate-900.border.border-slate-600.pointer-events-auto.skin-row-inner(
                 class="px-1 py-0.5 gap-0.5 sm:gap-1 shadow-md"
               )
-                div(
-                  v-for="skinId in ownedSkinsForTop(part.id)"
-                  :key="skinId"
-                  @click.stop="handleSelectSkin(part.id, skinId)"
-                  class="inline-flex shrink-0 rounded-full cursor-pointer transition-all skin-row-thumb"
-                  :class="getSelectedSkin(part.id, Number(activeBladeIndex)) === skinId\
-                    ? 'ring-2 ring-yellow-300/80 scale-110'\
-                    : 'hover:ring-2 hover:ring-slate-300 opacity-60 hover:opacity-100'"
-                  :title="t('skins.' + skinId)"
-                )
-                  img(
-                    :src="modelImgPath(skinId)"
-                    class="block rounded-full object-cover skin-row-img"
-                    :alt="skinId"
+                //- Full skin row (sm+): all owned skins selectable
+                div.skin-row-full
+                  div(
+                    v-for="skinId in ownedSkinsForTop(part.id)"
+                    :key="skinId"
+                    @click.stop="handleSelectSkin(part.id, skinId)"
+                    class="inline-flex shrink-0 rounded-full cursor-pointer transition-all skin-row-thumb"
+                    :class="getSelectedSkin(part.id, Number(activeBladeIndex)) === skinId\
+                      ? 'ring-2 ring-yellow-300/80 scale-110'\
+                      : 'hover:ring-2 hover:ring-slate-300 opacity-60 hover:opacity-100'"
+                    :title="t('skins.' + skinId)"
                   )
-                button.skin-plus-btn.ml-1.rounded-full.border-2.border-yellow-400.bg-slate-700.text-yellow-300.font-black.flex.items-center.justify-center.cursor-pointer.transition-all(
-                  class="hover:bg-slate-600 hover:scale-110"
-                  :class="shouldBouncePlus(part.id) ? 'hint-bounce-2' : ''"
+                    img(
+                      :src="modelImgPath(skinId)"
+                      class="block rounded-full object-cover skin-row-img"
+                      :alt="skinId"
+                    )
+                //- Compact skin row (mobile portrait): selected skin only
+                div.skin-row-compact
+                  div(
+                    class="inline-flex shrink-0 rounded-full skin-row-thumb ring-2 ring-yellow-300/80"
+                  )
+                    img(
+                      :src="modelImgPath(getSelectedSkin(part.id, Number(activeBladeIndex)))"
+                      class="block rounded-full object-cover skin-row-img"
+                      :alt="getSelectedSkin(part.id, Number(activeBladeIndex))"
+                    )
+                //- Plus button to open skin shop — oversized tap target on mobile
+                div.skin-plus-hitbox.pointer-events-auto(
                   @click.stop="openSkinPicker(part.id)"
-                  :title="t('purchaseMoreSkins')"
-                ) +
+                )
+                  button.skin-plus-btn.rounded-full.border-2.border-yellow-400.bg-slate-700.text-yellow-300.font-black.flex.items-center.justify-center.cursor-pointer.transition-all(
+                    class="hover:bg-slate-600 hover:scale-110"
+                    :class="shouldBouncePlus(part.id) ? 'hint-bounce-2' : ''"
+                    :title="t('purchaseMoreSkins')"
+                  ) +
             div.text-center.part-card-body
-              div.text-white.font-bold.truncate.game-text(class="text-[11px] sm:text-xs") {{ part.label }}
+              div.text-white.font-bold.truncate.game-text(class="text-[11px] sm:text-xs") {{ t('parts.' + part.id) }}
               div.flex.flex-col.items-center.stat-list
                 div.flex.items-center.justify-center.text-red-400.rounded-full.stat-glass(class="gap-0.5 px-[2px] py-[1px]")
                   IconAttack.inline-block.stat-icon
@@ -283,7 +299,7 @@ const handleSelectSkin = (topId: TopPartId, modelId: SpinnerModelId) => {
               : 'bg-slate-700 border-2 border-slate-600 hover:border-slate-400'"
             )
               div.text-center.part-card-body
-                div.text-white.font-bold.game-text(class="text-[11px] sm:text-xs") {{ part.label }}
+                div.text-white.font-bold.game-text(class="text-[11px] sm:text-xs") {{ t('parts.' + part.id) }}
                 div.flex.flex-col.items-center.stat-list
                   div.flex.items-center.justify-center.text-cyan-400.rounded-full.stat-glass(class="gap-0.5 px-[2px] py-[1px]")
                     IconSpeed.inline-block.stat-icon
@@ -452,6 +468,23 @@ const handleSelectSkin = (topId: TopPartId, modelId: SpinnerModelId) => {
   width: 100%
   height: 100%
 
+// Mobile portrait: show only selected skin, hide full row
+.skin-row-full
+  display: none
+
+.skin-row-compact
+  display: flex
+  align-items: center
+
+.skin-plus-hitbox
+  display: flex
+  align-items: center
+  justify-content: center
+  padding: 0.5rem
+  margin: -0.5rem
+  margin-left: 0
+  cursor: pointer
+
 .skin-plus-btn
   width: 1.25rem
   height: 1.25rem
@@ -534,6 +567,19 @@ const handleSelectSkin = (topId: TopPartId, modelId: SpinnerModelId) => {
     width: 100%
     height: 100%
 
+  .skin-row-full
+    display: flex
+    align-items: center
+    gap: 0.25rem
+
+  .skin-row-compact
+    display: none
+
+  .skin-plus-hitbox
+    padding: 0.25rem
+    margin: -0.25rem
+    margin-left: 0
+
   .skin-plus-btn
     width: 1.45rem
     height: 1.45rem
@@ -606,6 +652,14 @@ const handleSelectSkin = (topId: TopPartId, modelId: SpinnerModelId) => {
   .skin-row
     top: -0.7rem
 
+  .skin-row-full
+    display: flex
+    align-items: center
+    gap: 0.125rem
+
+  .skin-row-compact
+    display: none
+
   .skin-row-thumb
     width: 0.75rem
     height: 0.75rem
@@ -613,6 +667,11 @@ const handleSelectSkin = (topId: TopPartId, modelId: SpinnerModelId) => {
   .skin-row-img
     width: 100%
     height: 100%
+
+  .skin-plus-hitbox
+    padding: 0.25rem
+    margin: -0.25rem
+    margin-left: 0
 
   .skin-plus-btn
     width: 0.85rem
@@ -658,6 +717,16 @@ en:
   purchaseMoreSkins: "Purchase more skins"
   equipped: "EQUIPPED"
   selectButton: "SELECT"
+  parts:
+    star: "Star Blade"
+    triangle: "Spiky"
+    round: "Round Guard"
+    quadratic: "Quad Core"
+    cushioned: "Soft Shell"
+    piercer: "Tank Piercer"
+    speedy: "Speedy"
+    tanky: "Tanky"
+    balanced: "Balanced"
 de:
   bladeLabel: "Blade"
   topBlade: "Obere Klinge"
@@ -667,6 +736,16 @@ de:
   purchaseMoreSkins: "Weitere Skins kaufen"
   equipped: "AUSGERÜSTET"
   selectButton: "WÄHLEN"
+  parts:
+    star: "Sternklinge"
+    triangle: "Stachel"
+    round: "Rundschutz"
+    quadratic: "Quad-Kern"
+    cushioned: "Weichpanzer"
+    piercer: "Panzerbrecher"
+    speedy: "Flink"
+    tanky: "Robust"
+    balanced: "Ausgeglichen"
 fr:
   bladeLabel: "Toupie"
   topBlade: "Partie haute"
@@ -676,6 +755,16 @@ fr:
   purchaseMoreSkins: "Acheter plus de skins"
   equipped: "ÉQUIPÉ"
   selectButton: "CHOISIR"
+  parts:
+    star: "Lame étoile"
+    triangle: "Épineux"
+    round: "Bouclier rond"
+    quadratic: "Noyau carré"
+    cushioned: "Carapace"
+    piercer: "Perce-blindage"
+    speedy: "Rapide"
+    tanky: "Résistant"
+    balanced: "Équilibré"
 es:
   bladeLabel: "Peonza"
   topBlade: "Parte superior"
@@ -685,6 +774,16 @@ es:
   purchaseMoreSkins: "Comprar más skins"
   equipped: "EQUIPADO"
   selectButton: "ELEGIR"
+  parts:
+    star: "Cuchilla estelar"
+    triangle: "Espinoso"
+    round: "Guardia redonda"
+    quadratic: "Núcleo cuádruple"
+    cushioned: "Coraza blanda"
+    piercer: "Perforador"
+    speedy: "Veloz"
+    tanky: "Tanque"
+    balanced: "Equilibrado"
 jp:
   bladeLabel: "ブレード"
   topBlade: "アッパー"
@@ -694,6 +793,16 @@ jp:
   purchaseMoreSkins: "スキンを追加購入"
   equipped: "装備中"
   selectButton: "選択"
+  parts:
+    star: "スターブレード"
+    triangle: "スパイキー"
+    round: "ラウンドガード"
+    quadratic: "クアッドコア"
+    cushioned: "ソフトシェル"
+    piercer: "アーマーブレイク"
+    speedy: "スピード"
+    tanky: "タンク"
+    balanced: "バランス"
 kr:
   bladeLabel: "블레이드"
   topBlade: "상단 파츠"
@@ -703,6 +812,16 @@ kr:
   purchaseMoreSkins: "스킨 추가 구매"
   equipped: "장착됨"
   selectButton: "선택"
+  parts:
+    star: "스타 블레이드"
+    triangle: "가시"
+    round: "라운드 가드"
+    quadratic: "쿼드 코어"
+    cushioned: "소프트 쉘"
+    piercer: "관통자"
+    speedy: "스피드"
+    tanky: "탱커"
+    balanced: "밸런스"
 zh:
   bladeLabel: "陀螺"
   topBlade: "上部"
@@ -712,6 +831,16 @@ zh:
   purchaseMoreSkins: "购买更多皮肤"
   equipped: "已装备"
   selectButton: "选择"
+  parts:
+    star: "星刃"
+    triangle: "尖刺"
+    round: "圆盾"
+    quadratic: "方核"
+    cushioned: "软甲"
+    piercer: "穿甲者"
+    speedy: "极速"
+    tanky: "坦克"
+    balanced: "均衡"
 ru:
   bladeLabel: "Волчок"
   topBlade: "Верхняя часть"
@@ -721,4 +850,14 @@ ru:
   purchaseMoreSkins: "Купить ещё скины"
   equipped: "ЭКИПИРОВАНО"
   selectButton: "ВЫБРАТЬ"
+  parts:
+    star: "Звёздный клинок"
+    triangle: "Шипастый"
+    round: "Круглый щит"
+    quadratic: "Квадро-ядро"
+    cushioned: "Мягкий панцирь"
+    piercer: "Бронебой"
+    speedy: "Быстрый"
+    tanky: "Танк"
+    balanced: "Баланс"
 </i18n>

@@ -1,8 +1,12 @@
 <template lang="pug">
+  //- Splash backdrop — blurred overlay behind the logo during loading
+  Transition(name="splash-fade")
+    div.splash-backdrop(v-if="!backdropHidden")
+
   div(
     ref="logoRef"
-    class="fixed z-[100] transition-all ease-in-out"
-    :class="[settled ? 'duration-700 !z-[1]' : 'duration-0 z-[200]']"
+    class="fixed transition-all ease-in-out"
+    :class="[settled ? 'duration-700' : 'duration-0', done ? 'z-[1]' : 'z-[200]']"
     :style="positionStyle"
   )
     div(class="relative flex flex-col items-center")
@@ -44,6 +48,7 @@ preloadAssets()
 
 const done = ref(false)
 const settled = ref(false)
+const backdropHidden = ref(false)
 
 // Compute 40% of the smaller viewport dimension
 const viewportSize = ref(Math.min(window.innerWidth, window.innerHeight))
@@ -60,13 +65,21 @@ let settleFallbackId: number | null = null
 
 onMounted(() => {
   window.addEventListener('resize', onResize)
+
+  // Hide the static HTML splash from index.html now that Vue has taken over
+  const staticSplash = document.getElementById('static-splash')
+  if (staticSplash) {
+    staticSplash.classList.add('hidden')
+    setTimeout(() => staticSplash.remove(), 500)
+  }
+
   // Let initial position render before enabling transitions
   requestAnimationFrame(() => {
     settled.value = true
   })
   settleFallbackId = window.setTimeout(() => {
     if (!done.value) done.value = true
-  }, 2000)
+  }, 4000)
 })
 onUnmounted(() => {
   window.removeEventListener('resize', onResize)
@@ -109,6 +122,16 @@ watch(progress, (val) => {
   }
 })
 
+// Hide backdrop shortly after logo starts moving to corner
+watch(done, (isDone) => {
+  if (isDone) {
+    // Fade out backdrop after a brief delay (let the logo start moving first)
+    setTimeout(() => {
+      backdropHidden.value = true
+    }, 150)
+  }
+})
+
 // Create the circular mask style
 const maskStyle = computed(() => {
   return {
@@ -129,4 +152,20 @@ div[style*="conic-gradient"]
   transform: rotate(0deg)
   mask-repeat: no-repeat
   -webkit-mask-repeat: no-repeat
+
+// ─── Splash backdrop ────────────────────────────────────────────────────────
+.splash-backdrop
+  position: fixed
+  inset: 0
+  z-index: 150
+  background: #0d1117
+// No pointer events so nothing underneath is accidentally clickable anyway
+// (there's nothing interactive rendered yet during initial load)
+
+// Fade-out transition for the backdrop
+.splash-fade-leave-active
+  transition: opacity 0.4s ease-out
+
+.splash-fade-leave-to
+  opacity: 0
 </style>

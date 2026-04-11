@@ -34,6 +34,7 @@ const {
   hostReady,
   guestReady,
   bothReady,
+  pendingInviteCode,
   createLobby,
   joinLobby,
   setReady,
@@ -42,7 +43,9 @@ const {
   startMatch,
   copyInviteLink,
   sendCrazyGamesInvite,
-  leavePvP
+  leavePvP,
+  copyPvpDebugLog,
+  debugCopied
 } = usePVP()
 
 const { wins, losses, honor } = usePvpStats()
@@ -251,10 +254,19 @@ watch(gameConfig, (cfg) => {
   levelOne.value = cfg.levelOne
 }, { deep: true })
 
-// Auto-read clipboard when modal opens in idle state
+// Auto-read clipboard when modal opens in idle state.
+// Also populate join input from URL invite code if available.
 watch(() => props.isOpen, (open) => {
   if (open && status.value === 'idle') {
-    tryReadClipboard()
+    if (pendingInviteCode.value) {
+      joiningPeerId.value = pendingInviteCode.value
+      clipboardHighlight.value = true
+      setTimeout(() => {
+        clipboardHighlight.value = false
+      }, 1500)
+    } else {
+      tryReadClipboard()
+    }
   }
 })
 </script>
@@ -324,7 +336,7 @@ watch(() => props.isOpen, (open) => {
             div.text-gray-400.game-text.uppercase.font-bold(class="text-xs") {{ t('pvp.joinLobby') }}
             div.flex.gap-2
               div.relative.min-w-0.flex-1
-                input.w-full.rounded-lg.border-2.bg-slate-800.text-white.py-2.game-text(
+                input.w-full.rounded-lg.border-2.bg-slate-800.text-white.py-2.font-mono.tracking-wider(
                   v-model="joiningPeerId"
                   :placeholder="t('pvp.enterCode')"
                   class="text-sm focus:outline-none focus:border-blue-400 pl-3 pr-8"
@@ -353,6 +365,11 @@ watch(() => props.isOpen, (open) => {
             class="border-t-transparent w-10 h-10"
           )
           div.text-white.game-text.font-bold {{ status === 'creating' ? t('pvp.creatingLobby') : t('pvp.connecting') }}
+          button.mt-2.cursor-pointer(
+            @click="copyPvpDebugLog"
+            class="px-3 py-1 rounded border text-xs game-text font-bold transition-colors"
+            :class="debugCopied ? 'border-green-400 bg-green-900/40 text-green-300' : 'border-slate-600 bg-slate-800 text-gray-400 hover:text-white hover:border-slate-400'"
+          ) {{ debugCopied ? 'Debug copied!' : 'Copy debug log' }}
 
       //- ── Waiting for Guest ──────────────────────────────────────────────
       template(v-else-if="status === 'waiting'")
@@ -367,7 +384,7 @@ watch(() => props.isOpen, (open) => {
           div.rounded-lg.border-2.border-slate-600.bg-slate-800.p-3
             div.text-gray-400.game-text.uppercase.font-bold.mb-1(class="text-[10px]") {{ t('pvp.inviteCode') }}
             div.flex.items-center.gap-2
-              div.text-yellow-300.font-mono.font-bold.truncate.flex-1.select-all(class="text-sm") {{ inviteCode }}
+              div.text-yellow-300.font-mono.font-bold.truncate.flex-1.select-all.tracking-widest(class="text-base") {{ inviteCode }}
               button.shrink-0.cursor-pointer(
                 @click="onCopyCode"
                 class="px-3 py-1 rounded border border-slate-500 bg-slate-700 text-white game-text font-bold text-xs hover:bg-slate-600 transition-colors"
@@ -513,6 +530,11 @@ watch(() => props.isOpen, (open) => {
         div.flex.flex-col.items-center.gap-4.py-6
           div.text-red-400.font-bold.game-text(class="text-lg") {{ t('pvp.' + status) }}
           div.text-gray-400.game-text.text-center(class="text-sm") {{ errorMessage }}
+          button.mt-2.cursor-pointer(
+            @click="copyPvpDebugLog"
+            class="px-3 py-1 rounded border text-xs game-text font-bold transition-colors"
+            :class="debugCopied ? 'border-green-400 bg-green-900/40 text-green-300' : 'border-slate-600 bg-slate-800 text-gray-400 hover:text-white hover:border-slate-400'"
+          ) {{ debugCopied ? 'Debug copied!' : 'Copy debug log' }}
 
     //- ── Sticky Footer Actions (always visible) ─────────────────────────
     template(#footer)

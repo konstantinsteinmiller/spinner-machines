@@ -38,6 +38,8 @@ interface DailyState {
   currentDay: number
   /** ISO date string of the last collection */
   lastCollected: string | null
+  /** Maps day index → skin model id that was awarded on that day. */
+  claimedSkins: Record<number, SpinnerModelId>
 }
 
 // ─── Skin Pool Helpers ──────────────────────────────────────────────────────
@@ -75,11 +77,13 @@ const loadState = (): DailyState => {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
-      if (typeof parsed.currentDay === 'number') return parsed
+      if (typeof parsed.currentDay === 'number') {
+        return { ...parsed, claimedSkins: parsed.claimedSkins ?? {} }
+      }
     }
   } catch { /* fall through */
   }
-  return { currentDay: 0, lastCollected: null }
+  return { currentDay: 0, lastCollected: null, claimedSkins: {} }
 }
 
 const saveState = (state: DailyState) => {
@@ -142,6 +146,7 @@ watch(isModalOpen, (open) => {
     // Missed a day — reset streak
     s.currentDay = 0
     s.lastCollected = null
+    s.claimedSkins = {}
     saveState(s)
   }
   state.value = s
@@ -149,6 +154,10 @@ watch(isModalOpen, (open) => {
 })
 
 const collectedToday = computed(() => state.value.lastCollected === todayStr())
+
+/** Resolve which skin to show for a daily reward day. */
+const dailySkinForDay = (dayIndex: number): SpinnerModelId | null =>
+  state.value.claimedSkins[dayIndex] ?? offeredSkins.value[dayIndex] ?? null
 
 // True whenever there is a reward ready to collect (drives the bouncing hint
 // on the open-modal button).
@@ -182,6 +191,7 @@ const collect = (dayIndex: number) => {
       preview && pool.includes(preview) ? preview : pickRandom(pool)
     if (toUnlock) {
       unlockSkinEverywhere(toUnlock)
+      state.value.claimedSkins = { ...state.value.claimedSkins, [dayIndex]: toUnlock }
     }
     // If the pool was empty, the coin reward above already covered the slot.
   }
@@ -238,7 +248,7 @@ const collect = (dayIndex: number) => {
           div.text-gray-300.font-bold.uppercase(class="text-[8px] sm:text-[10px]") D{{ i + 1 }}
 
           //- Reward icon — skin image on skin days, coin on all others
-          template(v-if="isSkinDay(i) && offeredSkins[i]")
+          template(v-if="isSkinDay(i) && dailySkinForDay(i)")
             //- Whiteish radial halo behind the skin so dark models (snake,
             //- scorpion, shell, etc.) stay readable on the dark modal bg.
             div.skin-thumb-wrap.relative.flex.items-center.justify-center(
@@ -246,7 +256,7 @@ const collect = (dayIndex: number) => {
             )
               div.absolute.inset-0.rounded-full.pointer-events-none.skin-thumb-halo
               img(
-                :src="modelImgPath(offeredSkins[i])"
+                :src="modelImgPath(dailySkinForDay(i))"
                 class="relative w-full h-full object-contain"
                 :class="{ 'opacity-80': i !== state.currentDay }"
               )
@@ -255,9 +265,9 @@ const collect = (dayIndex: number) => {
 
           //- Skin label (only when a skin is actually offered for this day)
           div.font-black.game-text.text-purple-300.uppercase.tracking-wider.leading-tight(
-            v-if="isSkinDay(i) && offeredSkins[i]"
+            v-if="isSkinDay(i) && dailySkinForDay(i)"
             class="text-[8px] sm:text-[10px]"
-          ) {{ t('skins.' + offeredSkins[i]) }}
+          ) {{ t('skins.' + dailySkinForDay(i)) }}
 
           //- Coin reward amount — shown on every day (additive on skin days)
           div.text-yellow-400.font-black.game-text.leading-tight(class="text-[9px] sm:text-xs") +{{ reward }}

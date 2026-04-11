@@ -10,6 +10,7 @@
 import { ref, computed } from 'vue'
 import type { Ref } from 'vue'
 import { crazyPlayerName } from '@/use/useCrazyGames'
+import type { SpinnerModelId } from '@/use/useModels'
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
@@ -42,6 +43,8 @@ interface PvpStatsState {
   honorStages: number
   /** 1-based stage indices the player has already claimed on the honor track. */
   claimedHonorStages: number[]
+  /** Maps honor stage number → skin model id that was awarded. */
+  claimedHonorSkins: Record<number, SpinnerModelId>
 }
 
 const generateUUID = (): string =>
@@ -56,7 +59,8 @@ const defaultState = (): PvpStatsState => ({
   losses: 0,
   honor: 0,
   honorStages: 0,
-  claimedHonorStages: []
+  claimedHonorStages: [],
+  claimedHonorSkins: {}
 })
 
 const loadState = (): PvpStatsState => {
@@ -75,7 +79,8 @@ const loadState = (): PvpStatsState => {
             ? p.claimedHonorStages.filter(
               (n: unknown) => typeof n === 'number' && n >= 1 && n <= HONOR_TOTAL_STAGES
             )
-            : []
+            : [],
+          claimedHonorSkins: p.claimedHonorSkins ?? {}
         }
       }
     }
@@ -152,11 +157,14 @@ const isHonorStageClaimed = (stage: number): boolean =>
 const isHonorStageUnlocked = (stage: number): boolean =>
   stage <= state.value.honorStages
 
-const claimHonorStage = (stage: number): boolean => {
+const claimHonorStage = (stage: number, skin?: SpinnerModelId): boolean => {
   if (stage < 1 || stage > HONOR_TOTAL_STAGES) return false
   if (stage > state.value.honorStages) return false
   if (state.value.claimedHonorStages.includes(stage)) return false
   state.value.claimedHonorStages = [...state.value.claimedHonorStages, stage]
+  if (skin) {
+    state.value.claimedHonorSkins = { ...state.value.claimedHonorSkins, [stage]: skin }
+  }
   saveState()
   return true
 }
@@ -201,6 +209,7 @@ export default function usePvpStats() {
     // honor track
     isHonorStageClaimed,
     isHonorStageUnlocked,
-    claimHonorStage
+    claimHonorStage,
+    claimedHonorSkins: computed(() => state.value.claimedHonorSkins)
   }
 }

@@ -1,5 +1,6 @@
 import { prependBaseUrl } from '@/utils/function'
 import useUser from '@/use/useUser'
+import { resourceCache } from '@/use/useAssets'
 
 import { ref, onMounted, watch, onUnmounted } from 'vue'
 
@@ -60,14 +61,25 @@ export const useMusic = () => {
     shouldPlay.value = true
     const idx = Math.floor(Math.random() * 3) + 1
     const filename = `battle-${idx}.ogg`
+    const src = prependBaseUrl('audio/music/' + filename)
+    const cached = resourceCache.audio.get(src)
+
     bgMusic.value.pause()
     bgMusic.value.volume = 0
-    bgMusic.value.src = prependBaseUrl('audio/music/' + filename)
-    bgMusic.value.load()
-    bgMusic.value.addEventListener('canplaythrough', () => {
+
+    if (cached) {
+      // Use preloaded audio — already decoded, skip network fetch
+      bgMusic.value.src = cached.src
       isLoaded.value = true
       playWithFade()
-    }, { once: true })
+    } else {
+      bgMusic.value.src = src
+      bgMusic.value.load()
+      bgMusic.value.addEventListener('canplaythrough', () => {
+        isLoaded.value = true
+        playWithFade()
+      }, { once: true })
+    }
   }
 
   const stopBattleMusic = () => {
@@ -142,7 +154,12 @@ const useSounds = () => {
   const { userSoundVolume } = useUser()
 
   const playSound = (effect: string, ratio = 0.025) => {
-    const audio = new Audio(prependBaseUrl(`audio/sfx/${effect}.ogg`))
+    const src = prependBaseUrl(`audio/sfx/${effect}.ogg`)
+    const cached = resourceCache.audio.get(src)
+    // Clone from preloaded cache to avoid re-decoding; fall back to new Audio
+    const audio = cached
+      ? cached.cloneNode(false) as HTMLAudioElement
+      : new Audio(src)
     // iOS requires volume to be set BEFORE play()
     audio.volume = userSoundVolume.value * ratio
     audio.play().catch(e => console.warn('SFX play blocked:', e))

@@ -24,16 +24,6 @@ export const SPINNER_MODEL_IDS = [
 
 export type SpinnerModelId = (typeof SPINNER_MODEL_IDS)[number]
 
-/** Maps each top part to a player and default NPC model image */
-export const SPINNER_MODEL_MAP: Record<TopPartId, { player: SpinnerModelId; npc: SpinnerModelId }> = {
-  star: { player: 'blades', npc: 'phoenix' },
-  triangle: { player: 'thunder', npc: 'wulf' },
-  round: { player: 'nature', npc: 'ice' },
-  quadratic: { player: 'chip', npc: 'mysticaleye' },
-  cushioned: { player: 'shell', npc: 'mountain' },
-  piercer: { player: 'scorpion', npc: 'snake' }
-}
-
 /** Available skins per top part (default skin is always first and free) */
 export const SKINS_PER_TOP: Record<TopPartId, SpinnerModelId[]> = {
   // "star" top keeps its bold elemental roster. Swapped thunderstorm out
@@ -152,7 +142,7 @@ export const getSelectedSkin = (topPartId: TopPartId, slotIndex = 0): SpinnerMod
   const slotKey = `${topPartId}:${slotIndex}`
   const sel = (selectedSkins.value[slotKey] ?? selectedSkins.value[topPartId]) as SpinnerModelId | undefined
   if (sel && isSkinOwned(topPartId, sel)) return sel
-  return SPINNER_MODEL_MAP[topPartId].player
+  return SKINS_PER_TOP[topPartId][0] as SpinnerModelId
 }
 
 /** Get the resolved image path for a spinner given its top part, owner, and optional override */

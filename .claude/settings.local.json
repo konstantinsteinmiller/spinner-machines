@@ -30,7 +30,9 @@
       "Bash(sed -i \"s/s\\(9, 'stage_9's Trial'/s\\(9, 'stage_9'/\" src/use/useSpinnerCampaign.ts)",
       "Bash(sed -i \"s/s\\(24, 'stage_24's Gauntlet'/s\\(24, 'stage_24'/\" src/use/useSpinnerCampaign.ts)",
       "Bash(find \"/c/Users/konst/chaos-arena/src/components\" -name \"*.vue\" -exec grep -l \"label\\\\|:title\\\\|:placeholder\" {} \\\\;)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(VITE_ENABLE_OBFUSCATION=false npx vite:*)",
+      "Bash(echo \"EXIT: $?\")"
     ]
   }
 }

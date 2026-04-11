@@ -1,16 +1,14 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
-import MainMenu from '@/views/MainMenu.vue'
-import SpinnerArena from '@/views/SpinnerArena.vue'
-import CritTestScene from '@/views/CritTestScene.vue'
-import PowerupTestScene from '@/views/PowerupTestScene.vue'
 import useUser, { isWeb } from '@/use/useUser'
 import { isDebug } from '@/use/useMatch.ts'
 
 const routes: RouteRecordRaw[] = [
-  { path: '/', name: 'main-menu', component: MainMenu, redirect: 'battle', children: [] },
-  { path: '/battle', name: 'battle', component: SpinnerArena },
-  ...isDebug.value ? [{ path: '/crit-test', name: 'crit-test', component: CritTestScene },
-    { path: '/power-up', name: 'power-up', component: PowerupTestScene }] : []
+  { path: '/', name: 'main-menu', component: () => import('@/views/MainMenu.vue'), redirect: 'battle', children: [] },
+  { path: '/battle', name: 'battle', component: () => import('@/views/SpinnerArena.vue') },
+  ...isDebug.value ? [
+    { path: '/crit-test', name: 'crit-test', component: () => import('@/views/CritTestScene.vue') },
+    { path: '/power-up', name: 'power-up', component: () => import('@/views/PowerupTestScene.vue') }
+  ] : []
 ]
 
 const router = createRouter({

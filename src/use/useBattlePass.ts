@@ -50,12 +50,15 @@ interface BattlePassState {
   unlockedStages: number
   /** 1-based stage indices the player has already collected. */
   claimedStages: number[]
+  /** Maps stage number → skin model id for skin stages that were claimed. */
+  claimedSkins: Record<number, SpinnerModelId>
 }
 
 const defaultState = (): BattlePassState => ({
   xp: 0,
   unlockedStages: 0,
-  claimedStages: []
+  claimedStages: [],
+  claimedSkins: {}
 })
 
 const loadState = (): BattlePassState => {
@@ -73,7 +76,8 @@ const loadState = (): BattlePassState => {
           unlockedStages: Math.max(0, Math.min(BP_TOTAL_STAGES, parsed.unlockedStages)),
           claimedStages: parsed.claimedStages.filter(
             (n: unknown) => typeof n === 'number' && n >= 1 && n <= BP_TOTAL_STAGES
-          )
+          ),
+          claimedSkins: parsed.claimedSkins ?? {}
         }
       }
     }
@@ -172,6 +176,7 @@ const claimStage = (stage: number): ClaimResult | null => {
     if (pool.length > 0) {
       skin = pool[Math.floor(Math.random() * pool.length)]!
       unlockSkinEverywhere(skin)
+      state.value.claimedSkins = { ...state.value.claimedSkins, [stage]: skin }
     } else {
       // Fallback: no unowned skins left — pay out the linear coin value
       // so the stage slot never feels empty.
@@ -225,6 +230,7 @@ export default function useBattlePass() {
     isMaxed,
     hasUnclaimedReward,
     pendingClaimCount,
+    claimedSkins: computed(() => state.value.claimedSkins),
     // queries
     isStageClaimed,
     isStageUnlocked,

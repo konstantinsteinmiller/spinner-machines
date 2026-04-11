@@ -7,13 +7,12 @@ import { mobileCheck } from '@/utils/function'
 import { useMusic } from '@/use/useSound'
 import { useExtensionGuard } from '@/use/useExtensionGuard'
 import { windowWidth, windowHeight } from '@/use/useUser'
-import useCheats from '@/use/useCheats'
 import useAssets from '@/use/useAssets'
+import FLogoProgress from '@/components/atoms/FLogoProgress.vue'
 
 const { t } = useI18n()
 const { initMusic, pauseMusic, continueMusic } = useMusic()
 useExtensionGuard()
-useCheats()
 const { resourceCache } = useAssets()
 
 
@@ -108,6 +107,7 @@ const allowedToShow = computed(() => (isCrazyWeb && isCrazyGamesUrl()) || !isCra
 
 <template lang="pug">
   div(v-if="allowedToShow" id="app-root" class="h-screen h-dvh w-screen app-container root-protection game-ui-immune")
+    FLogoProgress
     RouterView
 
   div.relative.w-full.h-full(v-else-if="isCrazyWeb")

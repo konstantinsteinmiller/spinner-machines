@@ -28,15 +28,21 @@ export default defineConfig(({ mode, command }) => {
     console.log('--- 🛡️  Obfuscating Production Build ---')
     plugins.push(
       javascriptObfuscator({
-        compact: true,
-        controlFlowFlattening: true,
-        controlFlowFlatteningThreshold: 0.75,
-        numbersToExpressions: true,
-        simplify: true,
-        stringArray: true,
-        stringArrayThreshold: 0.75,
-        splitStrings: true,
-        unicodeEscapeSequence: true
+        // Exclude files with dynamic imports — the obfuscator's stringArray
+        // rewrites import paths into array lookups that Vite can no longer
+        // resolve, which breaks code splitting.
+        exclude: [/router\/index\.ts$/, /main\.ts$/],
+        options: {
+          compact: true,
+          controlFlowFlattening: true,
+          controlFlowFlatteningThreshold: 0.75,
+          numbersToExpressions: true,
+          simplify: true,
+          stringArray: true,
+          stringArrayThreshold: 0.75,
+          splitStrings: true,
+          unicodeEscapeSequence: true
+        }
       } as any)
     )
   }
