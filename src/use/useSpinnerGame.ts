@@ -41,7 +41,7 @@ const STOP_THRESHOLD = 0.25
 // damage to one roll per contact entry (Option C). Clean head-on slams
 // read very close to the old numbers; sliding/chase "grind" that used
 // to rack up damage now deals near-zero, which is the intended fix.
-const DAMAGE_SCALE = isDebug.value ? 4 : 1.4
+const DAMAGE_SCALE = isDebug.value ? 1.4 : 1.4
 const HIT_FLASH_FRAMES = 50
 const NPC_THINK_MS = 500
 const BOUNCE_DAMPENING = 0.75
@@ -410,6 +410,35 @@ export const useSpinnerGame = () => {
   const sparkImage = preloadImage(prependBaseUrl('images/vfx/big-spark_1280x256.webp'))
   const activeSparks: SpritesheetAnimation[] = []
 
+  // ── Shock-wall lightning bolt VFX ──────────────────────────────────────
+  interface ShockBolt {
+    x0: number;
+    y0: number
+    x1: number;
+    y1: number
+    life: number
+    maxLife: number
+  }
+
+  const SHOCK_BOLT_LIFE = 675
+  const activeShockBolts: ShockBolt[] = []
+
+  const spawnShockBolt = (wallX: number, wallY: number, bladeX: number, bladeY: number) => {
+    // Extend endpoint slightly past the blade center along the incoming
+    // direction so the bolt visually pierces into the core rather than
+    // clipping at the rim.
+    const dx = bladeX - wallX
+    const dy = bladeY - wallY
+    const len = Math.sqrt(dx * dx + dy * dy) || 1
+    const overshoot = 14
+    activeShockBolts.push({
+      x0: wallX, y0: wallY,
+      x1: bladeX + (dx / len) * overshoot,
+      y1: bladeY + (dy / len) * overshoot,
+      life: SHOCK_BOLT_LIFE, maxLife: SHOCK_BOLT_LIFE
+    })
+  }
+
   // Pinball-style bouncers placed on the arena floor for certain stages.
   // Populated by initGame from the stage's `bouncers` count and consumed
   // by the physics loop (ricochet) + renderArena (visual disc).
@@ -545,6 +574,20 @@ export const useSpinnerGame = () => {
   const groundDecals: GroundDecal[] = []
   const GROUND_DECAL_DURATION = 800 // follows trail duration loosely
 
+  // Sandstorm sand trail particles
+  interface SandGrain {
+    x: number;
+    y: number
+    vx: number;
+    vy: number
+    life: number;
+    maxLife: number
+    size: number
+    color: string
+  }
+
+  const sandGrains: SandGrain[] = []
+
   // Stat-switch phase indicator particles (floating icon over boss)
   // Rendered in renderAura so it layers correctly.
 
@@ -606,6 +649,40 @@ export const useSpinnerGame = () => {
     while (groundDecals.length > 0 && now - groundDecals[0]!.time > GROUND_DECAL_DURATION) {
       groundDecals.shift()
     }
+
+    // Sandstorm trail particles — small grains scattered behind the blade
+    for (const blade of blades) {
+      if (blade.hp <= 0 || blade.config.modelId !== 'sandstorm') continue
+      const spd = speed(blade)
+      if (spd < 0.5) continue
+      const count = spd > 3 ? 3 : spd > 1.5 ? 2 : 1
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2
+        const drift = 0.15 + Math.random() * 0.25
+        const maxLife = 350 + Math.random() * 250
+        const colors = ['#e8c870', '#d4a855', '#c49040', '#bf8f3a', '#a87530']
+        sandGrains.push({
+          x: blade.x + (Math.random() - 0.5) * blade.radius * 1.2,
+          y: blade.y + (Math.random() - 0.5) * blade.radius * 1.2,
+          vx: Math.cos(angle) * drift,
+          vy: Math.sin(angle) * drift,
+          life: maxLife,
+          maxLife,
+          size: 1 + Math.random() * 2,
+          color: colors[Math.floor(Math.random() * colors.length)]!
+        })
+      }
+    }
+    // Update sand grains
+    for (let i = sandGrains.length - 1; i >= 0; i--) {
+      const g = sandGrains[i]!
+      g.x += g.vx
+      g.y += g.vy
+      g.vy += 0.003 // slight downward gravity
+      g.life -= 16
+      g.size *= 0.998 // shrink slowly
+      if (g.life <= 0) sandGrains.splice(i, 1)
+    }
   }
 
   const renderCloudParticles = (ctx: CanvasRenderingContext2D) => {
@@ -620,6 +697,18 @@ export const useSpinnerGame = () => {
         p.x - drawSize / 2, p.y - (drawSize * SMOKE_FH / SMOKE_FW) / 2,
         drawSize, drawSize * SMOKE_FH / SMOKE_FW   // dest rect (preserve aspect)
       )
+    }
+    ctx.globalAlpha = 1
+  }
+
+  const renderSandGrains = (ctx: CanvasRenderingContext2D) => {
+    for (const g of sandGrains) {
+      const fade = Math.max(0, g.life / g.maxLife)
+      ctx.globalAlpha = 0.6 * fade
+      ctx.fillStyle = g.color
+      ctx.beginPath()
+      ctx.arc(g.x, g.y, g.size, 0, Math.PI * 2)
+      ctx.fill()
     }
     ctx.globalAlpha = 1
   }
@@ -1264,6 +1353,7 @@ export const useSpinnerGame = () => {
     trails.clear()
     cloudParticles.length = 0
     groundDecals.length = 0
+    sandGrains.length = 0
     comboState.clear()
     lastCritAt.clear()
     spikyChipCooldowns.clear()
@@ -1945,6 +2035,12 @@ export const useSpinnerGame = () => {
       }
     }
 
+    // Update shock-wall lightning bolts
+    for (let i = activeShockBolts.length - 1; i >= 0; i--) {
+      activeShockBolts[i]!.life -= 16
+      if (activeShockBolts[i]!.life <= 0) activeShockBolts.splice(i, 1)
+    }
+
     // Update floating damage numbers + powerup pickup indicators
     updateDamageNumbers(16)
     updatePowerupFloats(16)
@@ -2099,7 +2195,7 @@ export const useSpinnerGame = () => {
     // Arena-specific wall effects
     if (arenaType.value === 'lava') {
       const lavaDmg = Math.ceil(blade.maxHp * 0.025)
-      blade.hp = Math.max(1, blade.hp - lavaDmg)
+      blade.hp = Math.max(0, blade.hp - lavaDmg)
       blade.hitFlash = HIT_FLASH_FRAMES
       const lavaAngle = -Math.PI / 2 + (Math.random() - 0.5) * (Math.PI / 3)
       const lavaSpd = 0.06 + Math.random() * 0.03
@@ -2128,6 +2224,7 @@ export const useSpinnerGame = () => {
       blade.vx *= 0.1
       blade.vy *= 0.1
       blade.hitFlash = HIT_FLASH_FRAMES
+      spawnShockBolt(nx * ARENA_RADIUS, ny * ARENA_RADIUS, blade.x, blade.y)
     }
   }
 
@@ -2179,6 +2276,7 @@ export const useSpinnerGame = () => {
         blade.vx *= 0.1
         blade.vy *= 0.1
         blade.hitFlash = HIT_FLASH_FRAMES
+        spawnShockBolt(bouncer.x + nx * bouncer.radius, bouncer.y + ny * bouncer.radius, blade.x, blade.y)
       }
     }
   }
@@ -2429,11 +2527,16 @@ export const useSpinnerGame = () => {
       // a attacks b
       if (aSpeed > STOP_THRESHOLD && !aHitInBack) {
         const bLastCrit = lastCritAt.get(b.id) ?? -Infinity
+        const bCritReady = nowCrit - bLastCrit >= CRIT_COOLDOWN_MS
         aCrit = bHitInBack
           && aSpeed >= bSpeed * 2
-          && (nowCrit - bLastCrit >= CRIT_COOLDOWN_MS)
+          && bCritReady
+        // Hidden star-top lucky crit: 8% chance when a is the faster attacker.
+        if (!aCrit && a.config.topPartId === 'star' && aSpeed > bSpeed && bCritReady && Math.random() < 0.08) {
+          aCrit = true
+        }
         let defMul = aCrit ? 1 : bStats.defenseMultiplier
-        if (a.config.topPartId === 'piercer') defMul = 1 + (defMul - 1) * 0.5
+        if (a.config.topPartId === 'piercer') defMul = 1 + (defMul - 1) * 0.25
         const atkMul = aCrit ? 1.25 : 1
         dmgAtoB = (closingSpeed * aStats.damageMultiplier * atkMul * aStats.totalWeight)
           / (bStats.totalWeight * defMul)
@@ -2443,11 +2546,16 @@ export const useSpinnerGame = () => {
       // b attacks a
       if (bSpeed > STOP_THRESHOLD && !bHitInBack) {
         const aLastCrit = lastCritAt.get(a.id) ?? -Infinity
+        const aCritReady = nowCrit - aLastCrit >= CRIT_COOLDOWN_MS
         bCrit = aHitInBack
           && bSpeed >= aSpeed * 2
-          && (nowCrit - aLastCrit >= CRIT_COOLDOWN_MS)
+          && aCritReady
+        // Hidden star-top lucky crit: 8% chance when b is the faster attacker.
+        if (!bCrit && b.config.topPartId === 'star' && bSpeed > aSpeed && aCritReady && Math.random() < 0.08) {
+          bCrit = true
+        }
         let defMul = bCrit ? 1 : aStats.defenseMultiplier
-        if (b.config.topPartId === 'piercer') defMul = 1 + (defMul - 1) * 0.5
+        if (b.config.topPartId === 'piercer') defMul = 1 + (defMul - 1) * 0.25
         const atkMul = bCrit ? 1.25 : 1
         dmgBtoA = (closingSpeed * bStats.damageMultiplier * atkMul * bStats.totalWeight)
           / (aStats.totalWeight * defMul)
@@ -2696,6 +2804,7 @@ export const useSpinnerGame = () => {
     renderGroundDecals(ctx, performance.now())
     renderTrails(ctx)
     renderCloudParticles(ctx)
+    renderSandGrains(ctx)
 
     // Auras (rendered under blades)
     for (const blade of allBlades.value) {
@@ -2712,6 +2821,23 @@ export const useSpinnerGame = () => {
     // Spark VFX
     for (const spark of activeSparks) {
       renderSpritesheetAnim(ctx, spark)
+    }
+
+    // Shock-wall lightning bolts
+    for (const bolt of activeShockBolts) {
+      const t = bolt.life / bolt.maxLife
+      drawLightningBolt(ctx, bolt.x0, bolt.y0, bolt.x1, bolt.y1, {
+        jitter: 11,
+        segments: 8,
+        branchChance: 0.55,
+        branchLength: 0.5,
+        maxDepth: 3,
+        color: '#ffaaff',
+        glowColor: '#cc44ff',
+        lineWidth: 2.6,
+        glowWidth: 9,
+        alpha: t * 0.95
+      })
     }
 
     // Floating damage numbers
@@ -2804,46 +2930,98 @@ export const useSpinnerGame = () => {
       if (pts.length < 2) continue
 
       const isRainbow = modelId === 'rainbow'
+      const isForestDragon = modelId === 'forest-dragon'
       const oldestTime = pts[0]!.time
       const newestTime = pts[pts.length - 1]!.time
       const timeSpan = newestTime - oldestTime
       const [tr, tg, tb] = TEAM_COLOR[owner]
 
-      for (const layer of TRAIL_LAYERS) {
-        ctx.lineCap = 'round'
-        ctx.lineJoin = 'round'
-        ctx.lineWidth = isRainbow
-          ? (layer.widthBase + layer.widthSpeed) * 1.3
-          : layer.widthBase + layer.widthSpeed
+      // Forest-dragon: 4 parallel colored trails (red, green, blue, brown) → white
+      if (isForestDragon) {
+        const FD_COLORS: [number, number, number][] = [
+          [220, 40, 40],    // red
+          [40, 180, 60],    // green
+          [50, 100, 220],   // blue
+          [140, 90, 40]     // brown
+        ]
+        const stripWidth = 1.8
+        const totalWidth = FD_COLORS.length * stripWidth
+        for (let c = 0; c < FD_COLORS.length; c++) {
+          const [cr, cg, cb] = FD_COLORS[c]!
+          const laneOffset = (c - (FD_COLORS.length - 1) / 2) * stripWidth
 
-        for (let i = 1; i < pts.length; i++) {
-          const p0 = pts[i - 1]!
-          const p1 = pts[i]!
+          for (const layer of TRAIL_LAYERS) {
+            ctx.lineCap = 'round'
+            ctx.lineJoin = 'round'
+            ctx.lineWidth = layer.widthBase * 0.6 + layer.widthSpeed * 0.4
 
-          // t: 0 = oldest point, 1 = newest (closest to blade)
-          const t = timeSpan > 0 ? (p1.time - oldestTime) / timeSpan : 1
-          // Fade out old points by age
-          const age = now - p1.time
-          const ageFade = Math.max(0, 1 - age / TRAIL_DURATION)
+            for (let i = 1; i < pts.length; i++) {
+              const p0 = pts[i - 1]!
+              const p1 = pts[i]!
 
-          const alpha = ageFade * layer.alphaScale
-          if (alpha <= 0.01) continue
+              const t = timeSpan > 0 ? (p1.time - oldestTime) / timeSpan : 1
+              const age = now - p1.time
+              const ageFade = Math.max(0, 1 - age / TRAIL_DURATION)
+              const alpha = ageFade * layer.alphaScale
+              if (alpha <= 0.01) continue
 
-          if (isRainbow) {
-            // Rainbow trail: hue cycles along the trail length + time
-            const hue = ((1 - t) * 360 + now * 0.15) % 360
-            ctx.strokeStyle = `hsla(${hue}, 90%, 65%, ${alpha * 1.2})`
-          } else {
-            // Interpolate white(t=0) → team color(t=1)
-            const r = Math.round(255 + (tr - 255) * t)
-            const g = Math.round(255 + (tg - 255) * t)
-            const b = Math.round(255 + (tb - 255) * t)
-            ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`
+              // Fade from color (t=1, near blade) to white (t=0, tail)
+              const r = Math.round(255 + (cr - 255) * t)
+              const g = Math.round(255 + (cg - 255) * t)
+              const b = Math.round(255 + (cb - 255) * t)
+              ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`
+
+              // Offset perpendicular to segment direction
+              const dx = p1.x - p0.x
+              const dy = p1.y - p0.y
+              const len = Math.sqrt(dx * dx + dy * dy) || 1
+              const nx = -dy / len * laneOffset
+              const ny = dx / len * laneOffset
+
+              ctx.beginPath()
+              ctx.moveTo(p0.x + nx, p0.y + ny)
+              ctx.lineTo(p1.x + nx, p1.y + ny)
+              ctx.stroke()
+            }
           }
-          ctx.beginPath()
-          ctx.moveTo(p0.x, p0.y)
-          ctx.lineTo(p1.x, p1.y)
-          ctx.stroke()
+        }
+      } else {
+        for (const layer of TRAIL_LAYERS) {
+          ctx.lineCap = 'round'
+          ctx.lineJoin = 'round'
+          ctx.lineWidth = isRainbow
+            ? (layer.widthBase + layer.widthSpeed) * 1.3
+            : layer.widthBase + layer.widthSpeed
+
+          for (let i = 1; i < pts.length; i++) {
+            const p0 = pts[i - 1]!
+            const p1 = pts[i]!
+
+            // t: 0 = oldest point, 1 = newest (closest to blade)
+            const t = timeSpan > 0 ? (p1.time - oldestTime) / timeSpan : 1
+            // Fade out old points by age
+            const age = now - p1.time
+            const ageFade = Math.max(0, 1 - age / TRAIL_DURATION)
+
+            const alpha = ageFade * layer.alphaScale
+            if (alpha <= 0.01) continue
+
+            if (isRainbow) {
+              // Rainbow trail: hue cycles along the trail length + time
+              const hue = ((1 - t) * 360 + now * 0.15) % 360
+              ctx.strokeStyle = `hsla(${hue}, 90%, 65%, ${alpha * 1.2})`
+            } else {
+              // Interpolate white(t=0) → team color(t=1)
+              const r = Math.round(255 + (tr - 255) * t)
+              const g = Math.round(255 + (tg - 255) * t)
+              const b = Math.round(255 + (tb - 255) * t)
+              ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`
+            }
+            ctx.beginPath()
+            ctx.moveTo(p0.x, p0.y)
+            ctx.lineTo(p1.x, p1.y)
+            ctx.stroke()
+          }
         }
       }
     }
@@ -3603,6 +3781,90 @@ export const useSpinnerGame = () => {
       ctx.restore()
     }
 
+    // ── Sandstorm skin aura ───────────────────────────────────────────
+    if (mid === 'sandstorm') {
+      const now = performance.now()
+      const R = blade.radius
+      ctx.save()
+      ctx.translate(blade.x, blade.y)
+
+      // 1. Warm radial haze — dusty golden glow
+      const hazeAngle = now * 0.0015
+      ctx.save()
+      ctx.globalAlpha = 0.10 + 0.04 * Math.sin(now * 0.004)
+      const haze = ctx.createRadialGradient(0, 0, R * 0.3, 0, 0, R * 2.0)
+      haze.addColorStop(0, 'rgba(220,180,100,0.45)')
+      haze.addColorStop(0.5, 'rgba(190,150,80,0.18)')
+      haze.addColorStop(1, 'rgba(160,120,60,0)')
+      ctx.fillStyle = haze
+      ctx.beginPath()
+      ctx.arc(0, 0, R * 2.0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+
+      // 2. Spiral sand streams — 4 arms rotating with slight wobble
+      for (let arm = 0; arm < 4; arm++) {
+        const armPhase = hazeAngle * (1.5 + arm * 0.25) + arm * (Math.PI / 2)
+        ctx.save()
+        ctx.globalAlpha = 0.14 - arm * 0.02
+        ctx.strokeStyle = arm % 2 === 0 ? '#d4a855' : '#c49040'
+        ctx.lineWidth = 1.8 - arm * 0.2
+        ctx.lineCap = 'round'
+        ctx.beginPath()
+        const steps = 24
+        for (let s = 0; s <= steps; s++) {
+          const t = s / steps
+          const angle = armPhase + t * Math.PI * 2.2
+          const dist = R * (0.35 + t * 1.3)
+          const wobble = Math.sin(now * 0.005 + arm + t * 4) * 2
+          const px = Math.cos(angle) * dist + wobble
+          const py = Math.sin(angle) * dist * 0.5 + wobble * 0.5
+          if (s === 0) ctx.moveTo(px, py)
+          else ctx.lineTo(px, py)
+        }
+        ctx.stroke()
+        ctx.restore()
+      }
+
+      // 3. Orbiting sand grains — 16 small particles at varying speeds/radii
+      const grainCount = 16
+      for (let g = 0; g < grainCount; g++) {
+        const seed = g * 137.508
+        const orbitSpeed = 0.0025 + (g % 4) * 0.0012
+        const orbitR = R * (0.5 + (g % 6) * 0.25)
+        const angle = now * orbitSpeed + seed
+        const flatten = 0.35 + (g % 3) * 0.12
+        const px = Math.cos(angle) * orbitR
+        const py = Math.sin(angle) * orbitR * flatten
+        const size = 0.8 + (g % 3) * 0.6
+        ctx.save()
+        ctx.globalAlpha = 0.35 + 0.2 * Math.sin(now * 0.008 + g * 0.7)
+        ctx.fillStyle = g % 3 === 0 ? '#e8c870' : g % 3 === 1 ? '#d4a855' : '#bf8f3a'
+        ctx.beginPath()
+        ctx.arc(px, py, size, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.restore()
+      }
+
+      // 4. Dust puffs — 5 larger translucent circles drifting outward
+      for (let p = 0; p < 5; p++) {
+        const phase = now * 0.002 + p * 1.2566 // golden ratio spacing
+        const drift = R * (0.8 + 0.6 * Math.sin(phase * 0.7 + p))
+        const px = Math.cos(phase) * drift
+        const py = Math.sin(phase) * drift * 0.4
+        const puffSize = R * (0.15 + 0.08 * Math.sin(now * 0.003 + p))
+        ctx.save()
+        ctx.globalAlpha = 0.06 + 0.03 * Math.sin(now * 0.005 + p * 2)
+        ctx.fillStyle = '#d4a855'
+        ctx.beginPath()
+        ctx.arc(px, py, puffSize, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.restore()
+      }
+
+      ctx.restore()
+    }
+
     // ── Thunderstorm skin aura ─────────────────────────────────────────
     if (mid === 'thunderstorm') {
       const now = performance.now()
@@ -3629,11 +3891,11 @@ export const useSpinnerGame = () => {
         const ex = blade.x + Math.cos(angle) * len
         const ey = blade.y + Math.sin(angle) * len
         drawLightningBolt(ctx, blade.x, blade.y, ex, ey, {
-          jitter: 5,
-          segments: 6,
-          branchChance: 0.4,
-          branchLength: 0.45,
-          maxDepth: 2,
+          jitter: 8,
+          segments: 7,
+          branchChance: 0.55,
+          branchLength: 0.55,
+          maxDepth: 3,
           color: '#ffee66',
           glowColor: '#88bbff',
           lineWidth: 1.5,
@@ -3649,11 +3911,11 @@ export const useSpinnerGame = () => {
         const ex = blade.x + Math.cos(angle) * len
         const ey = blade.y + Math.sin(angle) * len
         drawLightningBolt(ctx, blade.x, blade.y, ex, ey, {
-          jitter: 3,
-          segments: 4,
-          branchChance: 0.25,
-          branchLength: 0.3,
-          maxDepth: 1,
+          jitter: 5,
+          segments: 5,
+          branchChance: 0.35,
+          branchLength: 0.4,
+          maxDepth: 2,
           color: '#ffee66',
           glowColor: '#88bbff',
           lineWidth: 0.8,

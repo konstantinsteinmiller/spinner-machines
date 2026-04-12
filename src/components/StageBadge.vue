@@ -95,6 +95,17 @@ const stageTheme = computed<StageTheme>(() => {
         accent: 'text-yellow-100',
         glow: 'shadow-yellow-400/60'
       }
+    case 'shock':
+      return {
+        from: 'from-fuchsia-500',
+        to: 'to-fuchsia-900',
+        border: 'border-fuchsia-300',
+        shadowBase: 'bg-fuchsia-950',
+        number: 'text-fuchsia-100',
+        numberShadow: 'bg-fuchsia-950/70',
+        accent: 'text-fuchsia-200',
+        glow: 'shadow-fuchsia-500/60'
+      }
     default:
       return {
         from: 'from-slate-500',

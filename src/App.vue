@@ -9,12 +9,13 @@ import { useExtensionGuard } from '@/use/useExtensionGuard'
 import { windowWidth, windowHeight } from '@/use/useUser'
 import useAssets from '@/use/useAssets'
 import FLogoProgress from '@/components/atoms/FLogoProgress.vue'
+import { useCrazyMuteSync } from '@/use/useCrazyMuteSync'
 
 const { t } = useI18n()
 const { initMusic, pauseMusic, continueMusic } = useMusic()
 useExtensionGuard()
 const { resourceCache } = useAssets()
-
+useCrazyMuteSync()
 
 initMusic()
 

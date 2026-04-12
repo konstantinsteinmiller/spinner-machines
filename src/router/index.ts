@@ -7,7 +7,8 @@ const routes: RouteRecordRaw[] = [
   { path: '/battle', name: 'battle', component: () => import('@/views/SpinnerArena.vue') },
   ...isDebug.value ? [
     { path: '/crit-test', name: 'crit-test', component: () => import('@/views/CritTestScene.vue') },
-    { path: '/power-up', name: 'power-up', component: () => import('@/views/PowerupTestScene.vue') }
+    { path: '/power-up', name: 'power-up', component: () => import('@/views/PowerupTestScene.vue') },
+    { path: '/trailer', name: 'trailer', component: () => import('@/views/TrailerScene.vue') }
   ] : []
 ]
 

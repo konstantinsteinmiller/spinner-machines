@@ -165,6 +165,7 @@ div[style*="conic-gradient"]
 // Fade-out transition for the backdrop
 .splash-fade-leave-active
   transition: opacity 0.4s ease-out
+  pointer-events: none
 
 .splash-fade-leave-to
   opacity: 0

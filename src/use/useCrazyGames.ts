@@ -86,6 +86,54 @@ let rawSetItem: (key: string, value: string) => void = window.localStorage.setIt
 let rawRemoveItem: (key: string) => void = window.localStorage.removeItem.bind(window.localStorage)
 let lsPatched = false
 
+// Re-entrancy guard: when true, localStorage writes come from the SDK
+// itself (caching cloud data) and must not be mirrored back.
+let mirroring = false
+
+// Keys the SDK writes internally — never mirror these back to sdk.data.
+const isInternalKey = (key: string): boolean =>
+  key === KEYS_MANIFEST ||
+  key.startsWith('__SafeLocalStorage__') ||
+  key.startsWith('SDK_DATA_')
+
+// Debounce: collect dirty keys and flush them to sdk.data in one batch
+// so rapid game-state writes don't each trigger a separate cloud round-trip.
+let dirtyKeys = new Map<string, string | null>()
+let flushTimer: ReturnType<typeof setTimeout> | null = null
+const FLUSH_DELAY_MS = 500
+
+const scheduleFlush = () => {
+  if (flushTimer !== null) return
+  flushTimer = setTimeout(flushToSdk, FLUSH_DELAY_MS)
+}
+
+const flushToSdk = () => {
+  flushTimer = null
+  if (!sdk) return
+  const batch = dirtyKeys
+  dirtyKeys = new Map()
+  mirroring = true
+  for (const [key, value] of batch) {
+    try {
+      if (value !== null) {
+        sdk.data?.setItem?.(key, value)
+      } else {
+        sdk.data?.removeItem?.(key)
+      }
+    } catch (e) {
+      console.warn(`[crazygames] sdk.data sync ("${key}") failed`, e)
+    }
+  }
+  // Sync the manifest so the next session can hydrate all keys
+  try {
+    const manifest = readManifest()
+    sdk.data?.setItem?.(KEYS_MANIFEST, JSON.stringify(manifest))
+  } catch (e) {
+    console.warn('[crazygames] manifest sync failed', e)
+  }
+  mirroring = false
+}
+
 const getSdk = (): any => (typeof window !== 'undefined' ? window.CrazyGames?.SDK ?? null : null)
 
 const isActiveEnv = (s: any): boolean => {
@@ -191,6 +239,7 @@ const captureSdkProfile = async (): Promise<void> => {
 
 const hydrateFromSdk = async (): Promise<void> => {
   if (!sdk?.data) return
+  mirroring = true
   try {
     const manifestRaw = await sdk.data.getItem(KEYS_MANIFEST)
     const keys: string[] = manifestRaw ? safeParseArray(manifestRaw) : []
@@ -198,7 +247,6 @@ const hydrateFromSdk = async (): Promise<void> => {
       try {
         const value = await sdk.data.getItem(key)
         if (value !== null && value !== undefined) {
-          // Use the raw setter so we don't loop the write back into the SDK.
           rawSetItem(key, String(value))
         }
       } catch (e) {
@@ -208,6 +256,7 @@ const hydrateFromSdk = async (): Promise<void> => {
   } catch (e) {
     console.warn('[crazygames] hydrate manifest failed', e)
   }
+  mirroring = false
 }
 
 const safeParseArray = (raw: string): string[] => {
@@ -233,24 +282,18 @@ const patchLocalStorage = (): void => {
 
   ls.setItem = (key: string, value: string) => {
     rawSetItem(key, value)
-    if (key === KEYS_MANIFEST) return
-    try {
-      sdk?.data?.setItem?.(key, value)
-      trackKey(key)
-    } catch (e) {
-      console.warn(`[crazygames] mirror setItem("${key}") failed`, e)
-    }
+    if (mirroring || isInternalKey(key)) return
+    dirtyKeys.set(key, value)
+    trackKey(key)
+    scheduleFlush()
   }
 
   ls.removeItem = (key: string) => {
     rawRemoveItem(key)
-    if (key === KEYS_MANIFEST) return
-    try {
-      sdk?.data?.removeItem?.(key)
-      untrackKey(key)
-    } catch (e) {
-      console.warn(`[crazygames] mirror removeItem("${key}") failed`, e)
-    }
+    if (mirroring || isInternalKey(key)) return
+    dirtyKeys.set(key, null)
+    untrackKey(key)
+    scheduleFlush()
   }
 }
 
@@ -260,13 +303,7 @@ const readManifest = (): string[] => {
 }
 
 const writeManifest = (keys: string[]): void => {
-  const json = JSON.stringify(keys)
-  rawSetItem(KEYS_MANIFEST, json)
-  try {
-    sdk?.data?.setItem?.(KEYS_MANIFEST, json)
-  } catch (e) {
-    console.warn('[crazygames] manifest write failed', e)
-  }
+  rawSetItem(KEYS_MANIFEST, JSON.stringify(keys))
 }
 
 const trackKey = (key: string): void => {

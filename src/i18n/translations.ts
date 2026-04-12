@@ -154,7 +154,8 @@ export default {
       rhino: 'Rhino',
       'golden-eagle': 'Golden Eagle',
       diamond: 'Diamond',
-      tsunami: 'Tsunami'
+      tsunami: 'Tsunami',
+      sandstorm: 'Sandstorm'
     }
   },
   de: {
@@ -312,7 +313,8 @@ export default {
       rhino: 'Nashorn',
       'golden-eagle': 'Goldadler',
       diamond: 'Diamant',
-      tsunami: 'Tsunami'
+      tsunami: 'Tsunami',
+      sandstorm: 'Sandstorm'
     }
   },
   fr: {
@@ -470,7 +472,8 @@ export default {
       rhino: 'Rhinocéros',
       'golden-eagle': 'Aigle Doré',
       diamond: 'Diamant',
-      tsunami: 'Tsunami'
+      tsunami: 'Tsunami',
+      sandstorm: 'Sandstorm'
     }
   },
   es: {
@@ -628,7 +631,8 @@ export default {
       rhino: 'Rinoceronte',
       'golden-eagle': 'Águila Dorada',
       diamond: 'Diamante',
-      tsunami: 'Tsunami'
+      tsunami: 'Tsunami',
+      sandstorm: 'Sandstorm'
     },
     rule: {
       high: 'Alto',
@@ -798,7 +802,8 @@ export default {
       rhino: 'ライノ',
       'golden-eagle': 'ゴールデンイーグル',
       diamond: 'ダイヤモンド',
-      tsunami: '津波'
+      tsunami: '津波',
+      sandstorm: '砂嵐'
     }
   },
   kr: {
@@ -956,7 +961,8 @@ export default {
       rhino: '코뿔소',
       'golden-eagle': '황금 독수리',
       diamond: '다이아몬드',
-      tsunami: '쓰나미'
+      tsunami: '쓰나미',
+      sandstorm: '모래폭풍'
     }
   },
   zh: {
@@ -1114,7 +1120,8 @@ export default {
       rhino: '犀牛',
       'golden-eagle': '金鹰',
       diamond: '钻石',
-      tsunami: '海啸'
+      tsunami: '海啸',
+      sandstorm: '沙尘暴'
     }
   },
   ru: {
@@ -1272,7 +1279,8 @@ export default {
       rhino: 'Носорог',
       'golden-eagle': 'Золотой Орёл',
       diamond: 'Алмаз',
-      tsunami: 'Цунами'
+      tsunami: 'Цунами',
+      sandstorm: 'Песчаная буря'
     }
   }
 }

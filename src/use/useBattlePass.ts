@@ -3,7 +3,7 @@ import type { Ref } from 'vue'
 import useSpinnerConfig from '@/use/useSpinnerConfig'
 import {
   SKINS_PER_TOP, SPECIAL_SKINS,
-  isSkinOwned,
+  isModelFullyOwned,
   buySkin,
   type SpinnerModelId
 } from '@/use/useModels'
@@ -151,15 +151,9 @@ const unownedSkinModelIds = (): SpinnerModelId[] => {
   for (const topPartId of Object.keys(SKINS_PER_TOP) as TopPartId[]) {
     for (const modelId of SKINS_PER_TOP[topPartId]) {
       if (seen.has(modelId)) continue
-      // Special skins are excluded from battle pass rewards
-      if (SPECIAL_SKINS.has(modelId)) {
-        seen.add(modelId)
-        continue
-      }
-      if (!isSkinOwned(topPartId, modelId)) {
-        result.push(modelId)
-        seen.add(modelId)
-      }
+      seen.add(modelId)
+      if (SPECIAL_SKINS.has(modelId)) continue
+      if (!isModelFullyOwned(modelId)) result.push(modelId)
     }
   }
   return result

@@ -121,7 +121,7 @@ const BASE_STAGES: Stage[] = [
   s(6, 'stage_6', [
     e('star', 'speedy', 2, 1, 'blades'),
     e('round', 'tanky', 1, 2, 'galaxy')
-  ], 140, 45),
+  ], 140, 45, { arenaType: 'shock' }),
   s(7, 'stage_7', [
     e('star', 'speedy', 2, 2, 'tornado'),
     e('triangle', 'speedy', 2, 1, 'thunder'),
@@ -503,12 +503,12 @@ const BASE_STAGES: Stage[] = [
     e('cushioned', 'balanced', 23, 24, 'shell'),
     e('star', 'speedy', 23, 23, 'tornado')
   ], 950, 285, { arenaType: 'ice' }),
+  // 88 — PARTNERS boss (sandstorm trio)
   s(88, 'stage_88', [
-    e('cushioned', 'balanced', 24, 24, 'mountain'),
-    e('triangle', 'speedy', 24, 23, 'eagle'),
-    e('round', 'tanky', 23, 24, 'turtle'),
-    e('quadratic', 'tanky', 23, 23, 'mysticaleye')
-  ], 970, 290, { arenaType: 'forest' }),
+    e('cushioned', 'tanky', 27, 27, 'sandstorm', 'partners'),
+    e('cushioned', 'balanced', 26, 26, 'sandstorm', 'partners'),
+    e('cushioned', 'balanced', 25, 26, 'sandstorm', 'partners')
+  ], 2200, 410, { isBoss: true }),
   s(89, 'stage_89', [
     e('star', 'speedy', 25, 24, 'ice'),
     e('triangle', 'speedy', 24, 25, 'salamaner'),

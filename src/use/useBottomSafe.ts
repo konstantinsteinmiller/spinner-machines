@@ -1,4 +1,5 @@
 import { ref, type Ref } from 'vue'
+import { isSdkActive } from '@/use/useCrazyGames'
 
 /**
  * Runtime "safe area" guard for the bottom of the screen.
@@ -57,6 +58,11 @@ const isIOSStandalonePWA = (): boolean => {
 // indicator (~34px) plus a bit of breathing room. Used as a floor only.
 const IOS_BOTTOM_FLOOR_PX = 36
 
+// CrazyGames injects a bottom footer bar (~50px) inside the iframe that
+// overlaps fixed-positioned content. Neither visualViewport nor
+// env(safe-area-inset-bottom) can detect it, so we add a static offset.
+const CRAZYGAMES_FOOTER_PX = 0
+
 const measureBottomGap = () => {
   if (typeof window === 'undefined') return
   const vv = window.visualViewport
@@ -72,7 +78,9 @@ const measureBottomGap = () => {
     ? Math.max(0, IOS_BOTTOM_FLOOR_PX - envSafeBottom)
     : 0
 
-  bottomGapPx.value = dynamicGap + floorTopUp
+  const crazyGamesGap = isSdkActive.value ? CRAZYGAMES_FOOTER_PX : 0
+
+  bottomGapPx.value = dynamicGap + floorTopUp + crazyGamesGap
 }
 
 const scheduleBottomMeasure = () => {

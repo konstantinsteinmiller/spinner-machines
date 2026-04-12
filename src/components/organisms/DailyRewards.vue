@@ -8,6 +8,7 @@ import useSpinnerConfig from '@/use/useSpinnerConfig'
 import {
   SKINS_PER_TOP, SPECIAL_SKINS,
   isSkinOwned,
+  isModelFullyOwned,
   buySkin,
   modelImgPath,
   type SpinnerModelId
@@ -46,22 +47,16 @@ interface DailyState {
 
 // ─── Skin Pool Helpers ──────────────────────────────────────────────────────
 
-/** Distinct model ids that still have at least one unowned top-part mapping. */
+/** Distinct model ids that are not yet fully owned (can still be rewarded). */
 const unownedSkinModelIds = (): SpinnerModelId[] => {
   const result: SpinnerModelId[] = []
   const seen = new Set<string>()
   for (const topPartId of Object.keys(SKINS_PER_TOP) as TopPartId[]) {
     for (const modelId of SKINS_PER_TOP[topPartId]) {
       if (seen.has(modelId)) continue
-      // Special skins are excluded from daily rewards
-      if (SPECIAL_SKINS.has(modelId)) {
-        seen.add(modelId)
-        continue
-      }
-      if (!isSkinOwned(topPartId, modelId)) {
-        result.push(modelId)
-        seen.add(modelId)
-      }
+      seen.add(modelId)
+      if (SPECIAL_SKINS.has(modelId)) continue
+      if (!isModelFullyOwned(modelId)) result.push(modelId)
     }
   }
   return result
@@ -139,16 +134,11 @@ const refreshOfferedSkins = () => {
   for (const d of days) {
     // Claimed days never change
     if (state.value.claimedSkins[d]) continue
-    // Keep existing offer if the skin is still unowned somewhere
+    // Keep existing offer if the skin is still unowned
     const prev = persisted[d]
-    if (prev) {
-      const stillUnowned = (Object.keys(SKINS_PER_TOP) as TopPartId[]).some(
-        top => SKINS_PER_TOP[top].includes(prev) && !isSkinOwned(top, prev)
-      )
-      if (stillUnowned) {
-        result[d] = prev
-        taken.add(prev)
-      }
+    if (prev && !isModelFullyOwned(prev)) {
+      result[d] = prev
+      taken.add(prev)
     }
   }
 

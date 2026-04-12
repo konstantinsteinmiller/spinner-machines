@@ -22,7 +22,7 @@ export const SPINNER_MODEL_IDS = [
   'piranha', 'thunderstorm',
   'rainbow', 'dark', 'boulder', 'teleporter', 'life-leech',
   'wasp', 'spiky-eagle', 'forest-dragon', 'chain', 'wolf-demon',
-  'rhino', 'golden-eagle', 'diamond', 'tsunami'
+  'rhino', 'golden-eagle', 'diamond', 'tsunami', 'sandstorm'
 ] as const
 
 export type SpinnerModelId = (typeof SPINNER_MODEL_IDS)[number]
@@ -37,7 +37,7 @@ export const SKINS_PER_TOP: Record<TopPartId, SpinnerModelId[]> = {
   triangle: ['thunder', 'snake', 'phoenix', 'eagle', 'spiky-eagle', 'salamaner', 'thunderstorm'],
   round: ['nature', 'turtle', 'piranha', 'bear', 'galaxy', 'golden-eagle', 'wolf-demon', 'dark'],
   quadratic: ['chip', 'mysticaleye', 'bluedragon', 'angelic', 'tsunami', 'prisma', 'forest-dragon', 'rainbow'],
-  cushioned: ['shell', 'shield', 'castle', 'mountain', 'gear', 'diamond', 'boulder'],
+  cushioned: ['shell', 'shield', 'castle', 'mountain', 'gear', 'sandstorm', 'diamond', 'boulder'],
   piercer: ['scorpion', 'wulf', 'demon', 'hawk', 'rhino', 'ape', 'teleporter']
 }
 
@@ -47,7 +47,7 @@ export const SPECIAL_SKIN_COST = 1500
 /** Special skins with unique VFX — cost 1500 coins and are excluded from
  *  daily rewards and battle pass skin draws. */
 export const SPECIAL_SKINS: ReadonlySet<SpinnerModelId> = new Set([
-  'rainbow', 'dark', 'tornado', 'diamond', 'thunderstorm', 'boulder', 'teleporter'
+  'rainbow', 'dark', 'tornado', 'diamond', 'thunderstorm', 'boulder', 'teleporter', 'sandstorm', 'forest-dragon'
 ])
 
 /** Returns the coin cost for a given skin. */
@@ -131,6 +131,24 @@ export const hasUnownedSkinsForTop = (topPartId: TopPartId): boolean =>
 export const isSkinOwned = (topPartId: TopPartId, modelId: SpinnerModelId): boolean => {
   if (SKINS_PER_TOP[topPartId][0] === modelId) return true
   return ownedSkins.value.has(`${topPartId}:${modelId}`)
+}
+
+/** True if a model id is owned in every top part that lists it — meaning it
+ *  cannot be meaningfully rewarded again. Use this to guard reward pools.
+ *  Also catches stale localStorage entries (e.g. "round:ice" when ice is
+ *  only cataloged under "star") so already-acquired skins are never re-offered. */
+export const isModelFullyOwned = (modelId: SpinnerModelId): boolean => {
+  // Fast path: check if any owned entry ends with this model id
+  for (const key of ownedSkins.value) {
+    if (key.endsWith(`:${modelId}`)) return true
+  }
+  // Check each catalog entry (covers default skins which aren't in ownedSkins)
+  for (const topPartId of Object.keys(SKINS_PER_TOP) as TopPartId[]) {
+    if (SKINS_PER_TOP[topPartId].includes(modelId) && !isSkinOwned(topPartId, modelId)) {
+      return false
+    }
+  }
+  return true
 }
 
 export const buySkin = (topPartId: TopPartId, modelId: SpinnerModelId): boolean => {

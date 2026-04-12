@@ -33,7 +33,8 @@
       "Bash(find:*)",
       "Bash(VITE_ENABLE_OBFUSCATION=false npx vite:*)",
       "Bash(echo \"EXIT: $?\")",
-      "Bash(echo \"EXIT:$?\")"
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(pnpm run:*)"
     ]
   }
 }

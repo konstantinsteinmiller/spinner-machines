@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { SKINS_PER_TOP, SPECIAL_SKINS, isSkinOwned, buySkin, modelImgPath } from '@/use/useModels'
+import { SKINS_PER_TOP, SPECIAL_SKINS, isModelFullyOwned, buySkin, modelImgPath } from '@/use/useModels'
 import type { SpinnerModelId } from '@/types/spinner'
 import type { TopPartId } from '@/types/spinner'
 import { resourceCache } from '@/use/useAssets'
@@ -41,9 +41,12 @@ const MULTIPLIER_DEFS: { label: string; multiplier: number; color: string; count
 
 const getUnownedSkins = (): { topPartId: TopPartId; modelId: SpinnerModelId; isSpecial: boolean }[] => {
   const result: { topPartId: TopPartId; modelId: SpinnerModelId; isSpecial: boolean }[] = []
+  const seen = new Set<string>()
   for (const [topPartId, skins] of Object.entries(SKINS_PER_TOP)) {
     for (const modelId of skins) {
-      if (!isSkinOwned(topPartId as TopPartId, modelId)) {
+      if (seen.has(modelId)) continue
+      seen.add(modelId)
+      if (!isModelFullyOwned(modelId)) {
         result.push({ topPartId: topPartId as TopPartId, modelId, isSpecial: SPECIAL_SKINS.has(modelId) })
       }
     }

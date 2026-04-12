@@ -109,7 +109,7 @@ onUnmounted(() => {
         circle(
           cx="20" cy="20" r="19"
           fill="none"
-          stroke="rgba(0,0,0,0.55)"
+          stroke="rgba(0,0,0,0.35)"
           stroke-width="40"
           :stroke-dasharray="119.38"
           :stroke-dashoffset="119.38 * (1 - chestCooldownPct)"

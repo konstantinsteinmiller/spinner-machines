@@ -11,16 +11,14 @@ import useBattlePass, {
 import {
   modelImgPath,
   SKINS_PER_TOP,
-  isSkinOwned,
+  isModelFullyOwned,
+  buySkin,
   type SpinnerModelId
 } from '@/use/useModels'
 import type { TopPartId } from '@/types/spinner'
 import useSounds from '@/use/useSound.ts'
 import usePvpStats, { HONOR_PER_STAGE, HONOR_TOTAL_STAGES } from '@/use/usePvpStats'
 import usePVP from '@/use/usePVP'
-import {
-  buySkin
-} from '@/use/useModels'
 
 const {
   currentXp,
@@ -103,10 +101,8 @@ const unownedSkinModelIds = (): SpinnerModelId[] => {
   for (const top of Object.keys(SKINS_PER_TOP) as TopPartId[]) {
     for (const m of SKINS_PER_TOP[top]) {
       if (seen.has(m)) continue
-      if (!isSkinOwned(top, m)) {
-        out.push(m)
-        seen.add(m)
-      }
+      seen.add(m)
+      if (!isModelFullyOwned(m)) out.push(m)
     }
   }
   return out
@@ -130,14 +126,9 @@ const refreshOfferedSkins = () => {
   // Keep existing offers that are still unowned
   for (const stage of skinStages) {
     const prev = persisted[stage]
-    if (prev) {
-      const stillUnowned = (Object.keys(SKINS_PER_TOP) as TopPartId[]).some(
-        top => SKINS_PER_TOP[top].includes(prev) && !isSkinOwned(top, prev)
-      )
-      if (stillUnowned) {
-        result[stage] = prev
-        taken.add(prev)
-      }
+    if (prev && !isModelFullyOwned(prev)) {
+      result[stage] = prev
+      taken.add(prev)
     }
   }
 
@@ -218,14 +209,9 @@ const refreshHonorOfferedSkins = () => {
   // Keep existing offers that are still unowned
   for (const stage of stages) {
     const prev = persisted[stage]
-    if (prev) {
-      const stillUnowned = (Object.keys(SKINS_PER_TOP) as TopPartId[]).some(
-        top => SKINS_PER_TOP[top].includes(prev) && !isSkinOwned(top, prev)
-      )
-      if (stillUnowned) {
-        result[stage] = prev
-        taken.add(prev)
-      }
+    if (prev && !isModelFullyOwned(prev)) {
+      result[stage] = prev
+      taken.add(prev)
     }
   }
 
@@ -299,35 +285,41 @@ const onClaimHonor = (stage: number) => {
     }
   }
   refreshHonorOfferedSkins()
+}
+
 // ─── Drag-to-scroll for the BP strip ────────────────────────────────────────
 
-  const isDragging = ref(false)
-  let dragStartX = 0
-  let dragScrollLeft = 0
-  let dragMoved = false
+const isDragging = ref(false)
+let dragStartX = 0
+let dragScrollLeft = 0
+let dragMoved = false
 
-  const onStripPointerDown = (e: PointerEvent) => {
-    const strip = stripRef.value
-    if (!strip) return
-    isDragging.value = true
-    dragMoved = false
-    dragStartX = e.clientX
-    dragScrollLeft = strip.scrollLeft
-    strip.setPointerCapture(e.pointerId)
-  }
+const onStripPointerDown = (e: PointerEvent) => {
+  const strip = stripRef.value
+  if (!strip) return
+  isDragging.value = true
+  dragMoved = false
+  dragStartX = e.clientX
+  dragScrollLeft = strip.scrollLeft
+}
 
-  const onStripPointerMove = (e: PointerEvent) => {
-    if (!isDragging.value || !stripRef.value) return
-    const dx = e.clientX - dragStartX
-    if (Math.abs(dx) > 3) dragMoved = true
-    stripRef.value.scrollLeft = dragScrollLeft - dx
+const onStripPointerMove = (e: PointerEvent) => {
+  if (!isDragging.value || !stripRef.value) return
+  const dx = e.clientX - dragStartX
+  if (Math.abs(dx) > 3) {
+    if (!dragMoved) {
+      // Start capture only once we know it's a real drag, not a tap
+      stripRef.value.setPointerCapture(e.pointerId)
+    }
+    dragMoved = true
   }
+  if (dragMoved) stripRef.value.scrollLeft = dragScrollLeft - dx
+}
 
-  const onStripPointerUp = (e: PointerEvent) => {
-    if (!isDragging.value) return
-    isDragging.value = false
-    stripRef.value?.releasePointerCapture(e.pointerId)
-  }
+const onStripPointerUp = (e: PointerEvent) => {
+  if (!isDragging.value) return
+  isDragging.value = false
+  if (dragMoved) stripRef.value?.releasePointerCapture(e.pointerId)
 }
 </script>
 
@@ -526,6 +518,8 @@ const onClaimHonor = (stage: number) => {
                   class="relative w-full h-full object-contain"
                   :class="{ 'opacity-60': !card.unlocked && !card.claimed }"
                 )
+            template(v-else-if="card.claimed")
+              div.flex.items-center.justify-center.text-green-400(class="w-8 h-8 sm:w-10 sm:h-10 my-0.5 text-lg") ✓
             template(v-else)
               div.flex.items-center.justify-center.text-purple-500(class="w-8 h-8 sm:w-10 sm:h-10 my-0.5 text-[10px]") ?
 

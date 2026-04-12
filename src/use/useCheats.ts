@@ -144,6 +144,10 @@ const useCheats = () => {
     'ctrl+shift+alt+x': () => spawnCheatBoss('stat-switch'),
     'ctrl+shift+alt+v': () => spawnCheatBoss('life-leech'),
     'ctrl+shift+alt+n': () => spawnCheatBoss('thunder'),
+    'ctrl+shift+alt+m': () => {
+      setSpinnerStage(88)
+      console.warn('[CHEAT] Jumped to stage 88 (sandstorm boss).')
+    },
     'ctrl+shift+alt+k': () => addCoins(3000),
     'ctrl+shift+alt+c': clearCheatStage,
     'ctrl+shift+alt+p': () => {
@@ -154,28 +158,36 @@ const useCheats = () => {
 
   /**
    * EVENT HANDLER
+   * Supports arbitrary multi-key combos (e.g. alt+1+2).
+   * Tracks all currently-held non-modifier keys and matches against cheatsMap
+   * on every keydown. Keys are released on keyup / blur.
    */
-  const handleKeyDown = (e: KeyboardEvent) => {
-    const keys = []
+  const heldKeys = new Set<string>()
+  const MODIFIER_KEYS = new Set(['control', 'shift', 'alt', 'meta'])
 
-    // 1. Build the modifier prefix
-    if (e.ctrlKey || e.metaKey) keys.push('ctrl')
-    if (e.shiftKey) keys.push('shift')
-    if (e.altKey) keys.push('alt')
-
-    // 2. Add the actual key (normalized to lowercase)
-    // Use e.code for digits (Shift+1 produces '!' in e.key on US keyboards)
-    let mainKey = e.key.toLowerCase()
+  const normalizeKey = (e: KeyboardEvent): string | null => {
     const codeMatch = e.code.match(/^Digit(\d)$/)
-    if (codeMatch) mainKey = codeMatch[1]!
+    if (codeMatch) return codeMatch[1]!
+    const k = e.key.toLowerCase()
+    return MODIFIER_KEYS.has(k) ? null : k
+  }
 
-    // Avoid adding 'control', 'shift', etc., as the main key if they are modifiers
-    if (!['control', 'shift', 'alt', 'meta'].includes(mainKey)) {
-      keys.push(mainKey)
-    }
+  const buildShortcut = (e: KeyboardEvent): string => {
+    const parts: string[] = []
+    if (e.ctrlKey || e.metaKey) parts.push('ctrl')
+    if (e.shiftKey) parts.push('shift')
+    if (e.altKey) parts.push('alt')
+    // Sort held keys for deterministic order
+    const sorted = [...heldKeys].sort()
+    parts.push(...sorted)
+    return parts.join('+')
+  }
 
-    // 3. Join and match
-    const shortcut = keys.join('+')
+  const handleKeyDown = (e: KeyboardEvent) => {
+    const key = normalizeKey(e)
+    if (key) heldKeys.add(key)
+
+    const shortcut = buildShortcut(e)
 
     if (cheatsMap[shortcut]) {
       e.preventDefault()
@@ -183,12 +195,25 @@ const useCheats = () => {
     }
   }
 
+  const handleKeyUp = (e: KeyboardEvent) => {
+    const key = normalizeKey(e)
+    if (key) heldKeys.delete(key)
+  }
+
+  const handleBlur = () => {
+    heldKeys.clear()
+  }
+
   onMounted(() => {
     window.addEventListener('keydown', handleKeyDown, { passive: false })
+    window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('blur', handleBlur)
   })
 
   onUnmounted(() => {
     window.removeEventListener('keydown', handleKeyDown)
+    window.removeEventListener('keyup', handleKeyUp)
+    window.removeEventListener('blur', handleBlur)
   })
 
   return {
