@@ -1,12 +1,13 @@
-# Chaos Arena
+# Spinner Machines
 
-Chaos Arena is a launchable blade spinner game in a 2d arena, with emphasis on action based gameplay.
+Spinner Machines is a launchable blade spinner game on stage levels with obstacles, with emphasis on action based
+gameplay.
 
-It features a github pages deployed CI cd pipeline and a windows build + demo build.
+It features a Github Pages deployed CI cd pipeline and a windows build + demo build.
 
-WIP: [playable demo](https://konstantinsteinmiller.github.io/chaos-arena/)
+WIP: [playable demo](https://konstantinsteinmiller.github.io/spinner-machines/)
 
-![Chaos Arena Gameplay](https://github.com/konstantinsteinmiller/chaos-arena/blob/main/src/assets/documentation/gameplay.webp)
+![Spinner Machines Gameplay](https://github.com/konstantinsteinmiller/spinner-machines/blob/main/src/assets/documentation/gameplay.webp)
 
 # Todo
 
@@ -18,24 +19,11 @@ WIP: [playable demo](https://konstantinsteinmiller.github.io/chaos-arena/)
     - [x] mute music and sound
     -
 - [ ] basic gameplay
-    - [x] basic attack on collision
-    - [x] show sparks on collision
-    - [x] life bar and counter
-    - [x] bounce off arena boundaries
-    - [x] add icons for team composition modal
-    - [x] fix bounce bug after kill
-    - [x] start hint timer with placeholder arrow for pull back cta.
+    - [ ] 
 
 - [ ] Reward system
-    - [ ] wheel spinner for 2x, 3x, 4x and 5x rewards after rewarded videos
 
 - [x] OptionsModal
-    - [x] music
-    - [x] do not ask rules again
-    - [x] language options
-    - [x] Volume slider for music and sound effects
-    - [x] remove sound options on mobile
-  - [x] reset progress button
 
 - [x] Sound and bg music
 
@@ -55,9 +43,7 @@ WIP: [playable demo](https://konstantinsteinmiller.github.io/chaos-arena/)
         - [ ] ads
         - [ ] performance tracking
 
-- [x] complete Translations
-- [x] full-version protection for web
-- [x] asset loader step for web build to avoid poping images FLogoProgress
+- [ ] asset loader step for web build to avoid poping images FLogoProgress
 - [ ] search for marketing person
 
 ## Refactorings
@@ -161,41 +147,6 @@ Features rated on impact to three KPIs (1–5 scale each, 5 = highest impact):
 | Tournament mode (bracket of 8 NPCs, winner-takes-all prize)    |     1      |     4     |     4     | **3.0** | Event-style content, high engagement per session |
 | Practice/sandbox mode (test builds, no stakes)                 |     2      |     3     |     2     | **2.3** | Helps players learn without frustration          |
 | Time attack (clear stage under X seconds for bonus)            |     1      |     3     |     3     | **2.4** | Skill-based replayability                        |
-
----
-
-### Suggested Implementation Priority
-
-**Phase 1 — Conversion & Core (Week 1-2):**
-
-1. Guided tutorial (3.6)
-2. Asset preloader (1.9 but blocks everything else)
-3. First-win celebration (3.0)
-4. Quick-restart button (3.0)
-
-**Phase 2 — Depth & Stickiness (Week 3-5):**
-
-5. Special abilities per part (4.1)
-6. Boss stages (3.7)
-7. Star rating per stage (3.4)
-8. Achievement system (3.5)
-9. Sound & music system (2.3)
-
-**Phase 3 — Retention Loops (Week 6-8):**
-
-10. Daily login rewards (2.9)
-11. Prestige system (3.8)
-12. Weekly challenge stages (3.5)
-13. Blade collection book (3.5)
-14. Endless/survival mode (3.4)
-
-**Phase 4 — Social & Monetization (Week 9-12):**
-
-15. Async PvP (3.8)
-16. Battle pass (3.5)
-17. Rewarded video ads (1.7 but primary revenue)
-18. Global leaderboard (2.8)
-19. Real-time PvP (4.1 but high engineering cost)
 
 ---
 

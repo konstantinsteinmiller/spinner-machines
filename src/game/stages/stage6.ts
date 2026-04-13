@@ -1,0 +1,72 @@
+import type { Stage, Machine } from '@/types/stage'
+
+let nextId = 1
+const id = () => nextId++
+const wall = (x: number, y: number, w: number, h: number, rot = 0): Machine => ({
+  id: id(), type: 'wall', x, y, w, h, rot
+})
+const m = (type: Machine['type'], x: number, y: number, w: number, h: number, rot = 0): Machine => ({
+  id: id(), type, x, y, w, h, rot
+})
+
+// Compact square arena — pure boss fight.
+const width = 1600
+const height = 1600
+
+const machines: Machine[] = [
+  wall(width / 2, 20, width, 40),
+  wall(width / 2, height - 20, width, 40),
+  wall(20, height / 2, 40, height),
+  wall(width - 20, height / 2, 40, height),
+
+  // Diamond of diagonal walls forming an inner chamber
+  wall(width / 2, 300, 600, 24, Math.PI / 4),
+  wall(width / 2, 300, 600, 24, -Math.PI / 4),
+  wall(width / 2, 1300, 600, 24, Math.PI / 4),
+  wall(width / 2, 1300, 600, 24, -Math.PI / 4),
+
+  // Launchers at cardinal positions to keep blade bouncing
+  { id: id(), type: 'pneumaticLauncher', x: 120, y: 800, w: 100, h: 80, rot: 0 },
+  { id: id(), type: 'pneumaticLauncher', x: 1480, y: 800, w: 100, h: 80, rot: Math.PI },
+  { id: id(), type: 'pneumaticLauncher', x: 800, y: 120, w: 100, h: 80, rot: Math.PI / 2 },
+  { id: id(), type: 'pneumaticLauncher', x: 800, y: 1480, w: 100, h: 80, rot: -Math.PI / 2 },
+
+  // Gravity wells in the corners
+  m('gravityWell', 400, 400, 80, 80),
+  m('gravityWell', 1200, 400, 80, 80),
+  m('gravityWell', 400, 1200, 80, 80),
+  m('gravityWell', 1200, 1200, 80, 80),
+
+  // Generators ringed around the boss
+  m('overloadedGenerator', 600, 800, 80, 80),
+  m('overloadedGenerator', 1000, 800, 80, 80),
+  m('overloadedGenerator', 800, 600, 80, 80),
+  m('overloadedGenerator', 800, 1000, 80, 80),
+
+  // The boss at the center
+  {
+    id: id(), type: 'boss',
+    x: 800, y: 800, w: 220, h: 220, rot: 0,
+    hp: 100, maxHp: 100, modelId: 'boulder'
+  },
+
+  // Goal tucked behind a small wall
+  wall(1400, 1450, 200, 20),
+  m('goal', 1400, 1380, 90, 90)
+]
+
+const stage6: Stage = {
+  id: 'stage-6',
+  name: 'Pinball Chamber',
+  width,
+  height,
+  spawn: { x: 200, y: 800 },
+  goal: { x: 1400, y: 1380 },
+  machines,
+  starThresholds: [0, 550, 1100],
+  launchPenalty: 90,
+  bossKillBonus: 350,
+  bossModelId: 'boulder'
+}
+
+export default stage6

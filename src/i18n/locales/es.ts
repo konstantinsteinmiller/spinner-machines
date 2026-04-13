@@ -108,7 +108,7 @@ export default {
     'cheat_partners': 'Hermandad de Hierro',
     'cheat_healers': 'Coro Sanador'
   },
-  'gameName': 'Chaos Arena',
+  'gameName': 'Spinner Machines',
   'cancel': 'Cancelar',
   'close': 'Cerrar',
   'understood': 'Entendido',
@@ -189,8 +189,8 @@ export default {
     'okay': 'Vale',
     'inviteCode': 'Código de invitación',
     'copy': 'Copiar',
-    'shareTitle': 'Chaos Arena PvP',
-    'shareText': '¡Únete a mi batalla PvP de Chaos Arena!'
+    'shareTitle': 'Spinner Machines PvP',
+    'shareText': '¡Únete a mi batalla PvP de Spinner Machines!'
   },
   'arenas': {
     'default': 'Predeterminado',

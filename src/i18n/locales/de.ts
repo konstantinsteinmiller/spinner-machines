@@ -116,7 +116,7 @@ export default {
     'name': 'Dünenläufer',
     'desc': 'Sandbewohner testen deine Entschlossenheit. Sie bevorzugen schnelle Schläge.'
   },
-  'gameName': 'Chaos Arena',
+  'gameName': 'Spinner Machines',
   'cancel': 'Abbrechen',
   'close': 'Schließen',
   'understood': 'Verstanden',
@@ -197,8 +197,8 @@ export default {
     'okay': 'Okay',
     'inviteCode': 'Einladungscode',
     'copy': 'Kopieren',
-    'shareTitle': 'Chaos Arena PvP',
-    'shareText': 'Tritt meinem Chaos Arena PvP-Kampf bei!'
+    'shareTitle': 'Spinner Machines PvP',
+    'shareText': 'Tritt meinem Spinner Machines PvP-Kampf bei!'
   },
   'arenas': {
     'default': 'Standard',

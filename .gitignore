@@ -35,6 +35,10 @@ coverage
 
 *.tsbuildinfo
 
+# Safety net — vue-tsc emit output must never be committed
+/src/**/*.vue.js
+/src/**/*.vue.d.ts
+
 .eslintcache
 
 # Cypress

@@ -3,13 +3,11 @@ import useUser, { isWeb } from '@/use/useUser'
 import { isDebug } from '@/use/useMatch.ts'
 
 const routes: RouteRecordRaw[] = [
-  {
-    path: '/',
-    name: 'main-menu',
-    component: () => import('@/views/SpinnerArena.vue')/*, redirect: 'battle'*/,
-    children: []
-  },
+  { path: '/', redirect: '/stage' },
+  { path: '/stage', name: 'stage', component: () => import('@/views/StageView.vue') },
+  { path: '/editor', name: 'editor', component: () => import('@/views/StageEditor.vue') },
   { path: '/battle', name: 'battle', component: () => import('@/views/SpinnerArena.vue') },
+  { path: '/arena', name: 'arena', component: () => import('@/views/SpinnerArena.vue') }
   // ...isDebug.value ? [
   //   { path: '/crit-test', name: 'crit-test', component: () => import('@/views/CritTestScene.vue') },
   //   { path: '/power-up', name: 'power-up', component: () => import('@/views/PowerupTestScene.vue') },
@@ -34,8 +32,8 @@ router.beforeEach((to, from) => {
 
   // Only apply restrictions if it's the Web version
   if (isWeb) {
-    const isFullVersion = url.includes(remoteURL + '/chaos-arena/') && !url.includes('/chaos-arena/demo/') && !url.includes('/chaos-arena/develop/')
-    const isDevelopVersion = url.includes(remoteURL + '/chaos-arena/develop/')
+    const isFullVersion = url.includes(remoteURL + '/spinner-machines/') && !url.includes('/spinner-machines/demo/') && !url.includes('/spinner-machines/develop/')
+    const isDevelopVersion = url.includes(remoteURL + '/spinner-machines/develop/')
     const isDev = url.includes('localhost:5173/')
 
     if (isDev) {
@@ -44,7 +42,7 @@ router.beforeEach((to, from) => {
 
     // If user is on Full or Develop without the unlock param, boot them to Demo
     if ((isFullVersion || isDevelopVersion) && !isUnlocked) {
-      window.location.href = remoteURL + '/chaos-arena/demo/'
+      window.location.href = remoteURL + '/spinner-machines/demo/'
       return false// Stop execution
     } else if (isUnlocked && (isFullVersion || isDevelopVersion)) {
       localStorage.setItem('full_unlocked', 'true')

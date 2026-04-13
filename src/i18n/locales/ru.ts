@@ -108,7 +108,7 @@ export default {
     'cheat_partners': 'Железное Братство',
     'cheat_healers': 'Хор Исцеления'
   },
-  'gameName': 'Chaos Arena',
+  'gameName': 'Spinner Machines',
   'cancel': 'Отмена',
   'close': 'Закрыть',
   'understood': 'Понятно',
@@ -189,8 +189,8 @@ export default {
     'okay': 'Ок',
     'inviteCode': 'Код приглашения',
     'copy': 'Копировать',
-    'shareTitle': 'Chaos Arena PvP',
-    'shareText': 'Присоединяйся к моему PvP-бою в Chaos Arena!'
+    'shareTitle': 'Spinner Machines PvP',
+    'shareText': 'Присоединяйся к моему PvP-бою в Spinner Machines!'
   },
   'arenas': {
     'default': 'Обычная',

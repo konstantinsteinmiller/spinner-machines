@@ -1,7 +1,8 @@
 import { fileURLToPath, URL } from 'node:url'
 import { resolve, dirname } from 'node:path'
+import { writeFileSync } from 'node:fs'
 
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import tailwindcss from '@tailwindcss/vite'
@@ -22,6 +23,54 @@ export default defineConfig(({ mode, command }) => {
 
   // Initialize plugins array
   const plugins = []
+
+  // Dev-only: POST /__save-stage writes a Stage JSON payload into
+  // src/game/stages/<name>.ts so the editor can persist to core files
+  // while running `pnpm dev`. Skipped for production builds.
+  const stageWriter: Plugin = {
+    name: 'bm-stage-writer',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__save-stage', (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end('POST only')
+          return
+        }
+        let body = ''
+        req.on('data', (chunk) => {
+          body += chunk
+        })
+        req.on('end', () => {
+          try {
+            const payload = JSON.parse(body) as { name: string; stage: unknown }
+            const safe = String(payload.name ?? '').replace(/[^a-zA-Z0-9_-]/g, '')
+            if (!safe) {
+              res.statusCode = 400
+              res.end('bad name')
+              return
+            }
+            const filePath = resolve(
+              dirname(fileURLToPath(import.meta.url)),
+              'src/game/stages',
+              `${safe}.ts`
+            )
+            const code = `import type { Stage } from '@/types/stage'\n\n`
+              + `const stage: Stage = ${JSON.stringify(payload.stage, null, 2)}\n\n`
+              + `export default stage\n`
+            writeFileSync(filePath, code, 'utf8')
+            res.statusCode = 200
+            res.setHeader('content-type', 'application/json')
+            res.end(JSON.stringify({ ok: true, path: filePath }))
+          } catch (err) {
+            res.statusCode = 500
+            res.end(String(err))
+          }
+        })
+      })
+    }
+  }
+  plugins.push(stageWriter)
 
   // Only push the obfuscator if both conditions are met
   if (isProduction && shouldObfuscate) {

@@ -1,4 +1,4 @@
-# Chaos Arena
+# Spinner Machines
 
 **Pull. Launch. CHAOS.**
 

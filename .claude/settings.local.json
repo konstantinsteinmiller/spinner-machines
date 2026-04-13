@@ -4,15 +4,15 @@
       "Read(//mnt/c/Users/konst/**)",
       "Bash(npx vue-tsc:*)",
       "Bash(npx vite:*)",
-      "Bash(identify \"C:/Users/konst/chaos-arena/public/images/vfx/big-spark_256x1080.webp\")",
+      "Bash(identify \"C:/Users/konst/spinner-machines/public/images/vfx/big-spark_256x1080.webp\")",
       "Bash(xargs wc:*)",
       "Bash(npx sharp-cli:*)",
       "Bash(python3 -c \"from PIL import Image; img=Image.open\\('public/images/vfx/big-spark_256x1080.webp'\\); print\\(img.size\\)\")",
-      "Bash(grep -n \"computeStats\" \"/c/Users/konst/chaos-arena/src/use/\"*.ts)",
+      "Bash(grep -n \"computeStats\" \"/c/Users/konst/spinner-machines/src/use/\"*.ts)",
       "mcp__ide__getDiagnostics",
       "Bash(ls:*)",
       "Bash(echo \"EXIT=$?\")",
-      "Bash(grep -l '<i18n' /c/Users/konst/chaos-arena/src/components/organisms/*.vue /c/Users/konst/chaos-arena/src/views/*.vue)",
+      "Bash(grep -l '<i18n' /c/Users/konst/spinner-machines/src/components/organisms/*.vue /c/Users/konst/spinner-machines/src/views/*.vue)",
       "Bash(node:*)",
       "Bash(pnpm type-check:*)",
       "Bash(git mv:*)",
@@ -29,7 +29,7 @@
       "Bash(sed -i \"s/s\\(8, 'stage_8's Gate'/s\\(8, 'stage_8'/\" src/use/useSpinnerCampaign.ts)",
       "Bash(sed -i \"s/s\\(9, 'stage_9's Trial'/s\\(9, 'stage_9'/\" src/use/useSpinnerCampaign.ts)",
       "Bash(sed -i \"s/s\\(24, 'stage_24's Gauntlet'/s\\(24, 'stage_24'/\" src/use/useSpinnerCampaign.ts)",
-      "Bash(find \"/c/Users/konst/chaos-arena/src/components\" -name \"*.vue\" -exec grep -l \"label\\\\|:title\\\\|:placeholder\" {} \\\\;)",
+      "Bash(find \"/c/Users/konst/spinner-machines/src/components\" -name \"*.vue\" -exec grep -l \"label\\\\|:title\\\\|:placeholder\" {} \\\\;)",
       "Bash(find:*)",
       "Bash(VITE_ENABLE_OBFUSCATION=false npx vite:*)",
       "Bash(echo \"EXIT: $?\")",
@@ -40,7 +40,10 @@
       "Bash(wc -l src/i18n/*.ts)",
       "Bash(npx tsx:*)",
       "Bash(du -b src/i18n/locales/*.ts src/i18n/translations.ts src/i18n/stageTranslations.ts src/i18n/campaign.ts)",
-      "Bash(npx cross-env:*)"
+      "Bash(npx cross-env:*)",
+      "Bash(xargs -I{} ls -la \"{}\")",
+      "Bash(git check-ignore:*)",
+      "Bash(xargs -I{} sh -c 'head -2 \"{}\" | head -1')"
     ]
   }
 }

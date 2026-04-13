@@ -9,6 +9,10 @@
     "src/**/__tests__/*"
   ],
   "compilerOptions": {
+    // Disable emit during `vue-tsc --build` — this config is type-check only.
+    // Without this, project references force `composite: true`, which emits
+    // .js files next to each .ts/.vue source.
+    "noEmit": true,
     // Extra safety for array and object lookups, but may have false positives.
     "noUncheckedIndexedAccess": true,
     // Path mapping for cleaner imports.

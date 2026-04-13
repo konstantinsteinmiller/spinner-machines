@@ -1,6 +1,7 @@
 # Casual Game Feature Playbook
 
-> A reusable reference for recreating the proven features of Chaos Arena in a new casual game project using **Vue 3 +
+> A reusable reference for recreating the proven features of Spinner Machines in a new casual game project using **Vue
+3 +
 Pug + Tailwind CSS v4 + TypeScript + Vite**.
 
 ---
@@ -703,7 +704,7 @@ canvas(:style="shakeStyle")
 **usePVP.ts composable:**
 
 - Feature-gated: `VITE_APP_PVP_ENABLED=true`.
-- Peer ID format: `chaos-arena-{random8chars}`.
+- Peer ID format: `spinner-machines-{random8chars}`.
 - Invite link: `{baseUrl}#/battle?pvp={encodedPeerId}`.
 - Invite expiry: 2 minutes with countdown timer.
 - Message protocol (typed union):

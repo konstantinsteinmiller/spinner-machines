@@ -116,7 +116,7 @@ export default {
     'name': 'Dune Drifter',
     'desc': 'Sand-dwellers test your resolve. They favor quick, agile strikes.'
   },
-  'gameName': 'Chaos Arena',
+  'gameName': 'Spinner Machines',
   'cancel': 'Cancel',
   'close': 'Close',
   'understood': 'Understood',
@@ -197,8 +197,8 @@ export default {
     'okay': 'Okay',
     'inviteCode': 'Invite Code',
     'copy': 'Copy',
-    'shareTitle': 'Chaos Arena PvP',
-    'shareText': 'Join my Chaos Arena PvP battle!'
+    'shareTitle': 'Spinner Machines PvP',
+    'shareText': 'Join my Spinner Machines PvP battle!'
   },
   'arenas': {
     'default': 'Default',
