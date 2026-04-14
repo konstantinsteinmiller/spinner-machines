@@ -11,10 +11,21 @@ import IconCoin from '@/components/icons/IconCoin.vue'
 import SkinShopModal from '@/components/organisms/SkinShopModal.vue'
 import { spawnCoinExplosion } from '@/use/useCoinExplosion'
 import useMeteorShower from '@/use/useMeteorShower'
+import { useHint } from '@/use/useHint'
+import FIconButton from '@/components/atoms/FIconButton.vue'
+import FMuteButton from '@/components/atoms/FMuteButton.vue'
+import StageBadge from '@/components/StageBadge.vue'
+import { prependBaseUrl } from '@/utils/function'
+import { STAGES } from '@/game/stages'
+import { useMusic } from '@/use/useSound'
+
+const { initMusic, startBattleMusic, stopBattleMusic } = useMusic()
+initMusic()
 
 const {
   currentStage, phase, score, launches, stars, countdownValue,
-  spinner, loadStage, beginStage, launch, startLoop, stopLoop
+  spinner, loadStage, beginStage, launch, startLoop, stopLoop,
+  getBestStars, bestStars, lastCoinsAwarded
 } = useStageGame()
 const { coins } = useSpinnerConfig()
 
@@ -23,8 +34,18 @@ const coinBadgeRef = ref<{ rootEl: HTMLElement | null } | null>(null)
 const rewardCoinRef = ref<HTMLElement | null>(null)
 const showReward = ref(false)
 const showSkinShop = ref(false)
+const showStagePicker = ref(false)
+
+function pickStage(s: typeof STAGES[number]) {
+  loadStage(s)
+  fitInitialCamera()
+  showStagePicker.value = false
+}
 
 const meteor = useMeteorShower()
+const { showHint, startHintTimer, clearHint } = useHint(2500)
+
+const MAX_PULL = 220
 
 // Camera
 const cam = ref({ x: 0, y: 0, zoom: 1 })
@@ -70,6 +91,162 @@ function resizeCanvas() {
   const rect = c.getBoundingClientRect()
   c.width = Math.floor(rect.width * dpr)
   c.height = Math.floor(rect.height * dpr)
+}
+
+// ─── Aim indicator (chaos-arena style) ────────────────────────────────
+
+function renderDragIndicator(ctx: CanvasRenderingContext2D) {
+  const sp = spinner.value
+  const wp = screenToWorld(ptr.value.curX, ptr.value.curY)
+  const pullDx = wp.x - sp.x
+  const pullDy = wp.y - sp.y
+  const pullMag = Math.hypot(pullDx, pullDy)
+  const inCancelZone = pullMag < sp.r
+
+  ctx.save()
+  // Cancel zone circle
+  const cancelAlpha = inCancelZone ? 0.6 : 0.2
+  ctx.strokeStyle = `rgba(255, 80, 80, ${cancelAlpha})`
+  ctx.lineWidth = inCancelZone ? 2.5 : 1.5
+  ctx.setLineDash([3, 3])
+  ctx.beginPath()
+  ctx.arc(sp.x, sp.y, sp.r, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.setLineDash([])
+
+  if (inCancelZone) {
+    const s = sp.r * 0.35
+    ctx.strokeStyle = 'rgba(255, 80, 80, 0.8)'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(sp.x - s, sp.y - s)
+    ctx.lineTo(sp.x + s, sp.y + s)
+    ctx.moveTo(sp.x + s, sp.y - s)
+    ctx.lineTo(sp.x - s, sp.y + s)
+    ctx.stroke()
+  }
+  ctx.restore()
+
+  if (pullMag < 3) return
+
+  const ratio = Math.min(1, pullMag / MAX_PULL)
+
+  ctx.save()
+  // Pull line (dashed) — blade center to pointer
+  ctx.strokeStyle = 'rgba(255,170,0,0.5)'
+  ctx.lineWidth = 2
+  ctx.setLineDash([6, 4])
+  ctx.beginPath()
+  ctx.moveTo(sp.x, sp.y)
+  ctx.lineTo(wp.x, wp.y)
+  ctx.stroke()
+  ctx.setLineDash([])
+
+  // Launch arrow (opposite of pull)
+  const nx = -pullDx / pullMag
+  const ny = -pullDy / pullMag
+  const arrowLen = 30 + 50 * ratio
+  const endX = sp.x + nx * arrowLen
+  const endY = sp.y + ny * arrowLen
+
+  const r = Math.floor(255 * ratio)
+  const g = Math.floor(255 * (1 - ratio * 0.6))
+  ctx.strokeStyle = `rgb(${r}, ${g}, 0)`
+  ctx.fillStyle = `rgb(${r}, ${g}, 0)`
+  ctx.lineWidth = 3
+  ctx.beginPath()
+  ctx.moveTo(sp.x, sp.y)
+  ctx.lineTo(endX, endY)
+  ctx.stroke()
+
+  const headSize = 8
+  const angle = Math.atan2(ny, nx)
+  const tipX = endX + nx * headSize
+  const tipY = endY + ny * headSize
+  ctx.beginPath()
+  ctx.moveTo(tipX, tipY)
+  ctx.lineTo(tipX - Math.cos(angle - 0.4) * headSize, tipY - Math.sin(angle - 0.4) * headSize)
+  ctx.lineTo(tipX - Math.cos(angle + 0.4) * headSize, tipY - Math.sin(angle + 0.4) * headSize)
+  ctx.closePath()
+  ctx.fill()
+
+  ctx.restore()
+}
+
+function renderHintAnimation(ctx: CanvasRenderingContext2D) {
+  const sp = spinner.value
+  const cycleDuration = 2000
+  const t = (Date.now() % cycleDuration) / cycleDuration
+
+  const pullDir = Math.PI * 0.75 // down-left
+  const maxPull = 60
+  let pullDist: number
+  let alpha: number
+  let showArrow = true
+
+  if (t < 0.5) {
+    pullDist = (t / 0.5) * maxPull
+    alpha = 0.5
+  } else if (t < 0.8) {
+    pullDist = maxPull
+    alpha = 0.5 + 0.2 * Math.sin((t - 0.5) / 0.3 * Math.PI)
+  } else {
+    pullDist = maxPull * (1 - (t - 0.8) / 0.2)
+    alpha = 0.5 * (1 - (t - 0.8) / 0.2)
+    if (alpha < 0.05) showArrow = false
+  }
+  if (!showArrow) return
+
+  const pullX = sp.x + Math.cos(pullDir) * pullDist
+  const pullY = sp.y + Math.sin(pullDir) * pullDist
+  const launchNx = -Math.cos(pullDir)
+  const launchNy = -Math.sin(pullDir)
+  const ratio = pullDist / maxPull
+  const arrowLen = 30 + 50 * ratio
+
+  ctx.save()
+  ctx.globalAlpha = alpha
+
+  ctx.strokeStyle = 'rgba(255,170,0,0.7)'
+  ctx.lineWidth = 2
+  ctx.setLineDash([6, 4])
+  ctx.beginPath()
+  ctx.moveTo(sp.x, sp.y)
+  ctx.lineTo(pullX, pullY)
+  ctx.stroke()
+  ctx.setLineDash([])
+
+  // Phantom finger circle at pull point
+  ctx.fillStyle = 'rgba(255,255,255,0.25)'
+  ctx.beginPath()
+  ctx.arc(pullX, pullY, 8, 0, Math.PI * 2)
+  ctx.fill()
+
+  // Launch arrow
+  const endX = sp.x + launchNx * arrowLen
+  const endY = sp.y + launchNy * arrowLen
+  const r = Math.floor(255 * ratio)
+  const g = Math.floor(255 * (1 - ratio * 0.6))
+  ctx.strokeStyle = `rgb(${r}, ${g}, 0)`
+  ctx.fillStyle = `rgb(${r}, ${g}, 0)`
+  ctx.lineWidth = 3
+  ctx.beginPath()
+  ctx.moveTo(sp.x, sp.y)
+  ctx.lineTo(endX, endY)
+  ctx.stroke()
+
+  const headSize = 8
+  const angle = Math.atan2(launchNy, launchNx)
+  const tipX = endX + launchNx * headSize
+  const tipY = endY + launchNy * headSize
+  ctx.beginPath()
+  ctx.moveTo(tipX, tipY)
+  ctx.lineTo(tipX - Math.cos(angle - 0.4) * headSize, tipY - Math.sin(angle - 0.4) * headSize)
+  ctx.lineTo(tipX - Math.cos(angle + 0.4) * headSize, tipY - Math.sin(angle + 0.4) * headSize)
+  ctx.closePath()
+  ctx.fill()
+
+  ctx.restore()
 }
 
 // ─── Rendering ─────────────────────────────────────────────────────────
@@ -141,32 +318,15 @@ function render(now: number) {
   }
   ctx.restore()
 
-  // Aim arrow
+  // Aim indicator (chaos-arena style): dashed pull line to pointer +
+  // launch arrow opposite, color-coded by spring compression.
   if (phase.value === 'aiming' && ptr.value.mode === 'aim') {
-    const wp = screenToWorld(ptr.value.curX, ptr.value.curY)
-    const dx = sp.x - wp.x
-    const dy = sp.y - wp.y
-    const len = Math.hypot(dx, dy)
-    const maxLen = 220
-    const clamped = Math.min(len, maxLen)
-    const nx = dx / (len || 1)
-    const ny = dy / (len || 1)
-    ctx.save()
-    ctx.strokeStyle = 'rgba(250,204,21,0.9)'
-    ctx.lineWidth = 6
-    ctx.setLineDash([12, 8])
-    ctx.beginPath()
-    ctx.moveTo(sp.x, sp.y)
-    ctx.lineTo(sp.x + nx * clamped * 1.2, sp.y + ny * clamped * 1.2)
-    ctx.stroke()
-    ctx.setLineDash([])
-    // Spring compression indicator
-    const t = clamped / maxLen
-    ctx.fillStyle = `hsl(${60 - t * 60}, 95%, 55%)`
-    ctx.beginPath()
-    ctx.arc(sp.x + nx * clamped * 1.2, sp.y + ny * clamped * 1.2, 10, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.restore()
+    renderDragIndicator(ctx)
+  }
+
+  // Idle hint: loops pull-hold-release after 2.5s of inactivity in aim mode.
+  if (phase.value === 'aiming' && ptr.value.mode !== 'aim' && showHint.value) {
+    renderHintAnimation(ctx)
   }
 
   // End world transform.
@@ -206,6 +366,7 @@ function screenToWorld(sx: number, sy: number) {
 function onPointerDown(e: PointerEvent) {
   const c = canvasEl.value
   if (!c) return
+  clearHint()
   c.setPointerCapture(e.pointerId)
   const wp = screenToWorld(e.clientX, e.clientY)
   const sp = spinner.value
@@ -251,6 +412,7 @@ function onPointerUp(_e: PointerEvent) {
     launch(dx, dy, len)
   }
   ptr.value.mode = 'none'
+  if (phase.value === 'aiming') startHintTimer()
 }
 
 function onWheel(e: WheelEvent) {
@@ -312,6 +474,14 @@ function onTapToStart() {
 }
 
 watch(phase, (p) => {
+  if (p === 'aiming') startHintTimer()
+  else clearHint()
+  if (p === 'countdown' || p === 'aiming' || p === 'launched') {
+    startBattleMusic()
+  }
+  if (p === 'complete' || p === 'tap_to_start') {
+    stopBattleMusic()
+  }
   if (p === 'complete') {
     showReward.value = true
     nextTick(() => {
@@ -346,9 +516,10 @@ onMounted(() => {
 onUnmounted(() => {
   stopLoop()
   if (raf !== null) cancelAnimationFrame(raf)
+  stopBattleMusic()
 })
 
-const rewardCoins = computed(() => stars.value === 3 ? 200 : stars.value === 2 ? 100 : 50)
+const rewardCoins = computed(() => lastCoinsAwarded.value)
 </script>
 
 <template lang="pug">
@@ -364,19 +535,39 @@ const rewardCoins = computed(() => stars.value === 3 ? 200 : stars.value === 2 ?
       @wheel.passive.prevent="onWheel"
     )
 
-    //- Top-left: skin shop
-    div.absolute.flex.gap-2(
-      class="top-2 left-2 z-20"
+    //- Top-left corner: stage badge
+    div.absolute.z-20(
+      class="top-2 left-2"
       :style="{ top: 'calc(0.5rem + env(safe-area-inset-top, 0px))', left: 'calc(0.5rem + env(safe-area-inset-left, 0px))' }"
     )
-      button.rounded-full.bg-black.px-3.py-2.font-black.text-white.game-text.border-2.border-yellow-400(
-        class="text-xs sm:text-sm"
+      StageBadge(
+        :stage-id="currentStage.id"
+        :name="currentStage.name"
+      )
+
+    //- Below the badge: skins / stages / editor buttons
+    div.absolute.flex.items-start.gap-2(
+      class="left-2 z-20"
+      :style="{ top: 'calc(4rem + env(safe-area-inset-top, 0px))', left: 'calc(0.5rem + env(safe-area-inset-left, 0px))' }"
+    )
+      FIconButton(
+        type="secondary"
+        size="md"
+        :img-src="prependBaseUrl('images/icons/team_128x128.webp')"
         @click="showSkinShop = true"
-      ) SKINS
-      button.rounded-full.bg-black.px-3.py-2.font-black.text-white.game-text.border-2.border-sky-400(
-        class="text-xs sm:text-sm"
+      )
+      FIconButton(
+        type="primary"
+        size="md"
+        :img-src="prependBaseUrl('images/icons/trophy_128x128.webp')"
+        @click="showStagePicker = true"
+      )
+      FIconButton(
+        type="secondary"
+        size="md"
+        :img-src="prependBaseUrl('images/icons/gears_128x128.webp')"
         @click="$router.push('/editor')"
-      ) EDITOR
+      )
 
     //- Top-right: score + coin badge
     div.absolute.flex.flex-col.items-end.gap-2(
@@ -437,15 +628,55 @@ const rewardCoins = computed(() => stars.value === 3 ? 200 : stars.value === 2 ?
           span.text-5xl(v-for="n in 3" :key="n" :class="n <= stars ? 'text-yellow-300' : 'text-slate-700'") ★
         div.font-black.uppercase.game-text.text-green-400(class="text-2xl sm:text-4xl")
           | Score {{ score }}
-        div.flex.items-center.gap-3(ref="rewardCoinRef")
+        div.flex.items-center.gap-3(ref="rewardCoinRef" v-if="rewardCoins > 0")
           IconCoin(class="w-8 h-8 text-yellow-300")
           span.text-yellow-400.font-black.game-text(class="text-2xl sm:text-4xl") +{{ rewardCoins }}
+        div.text-slate-300.italic.game-text.text-sm(v-else)
+          | No new reward — beat your best rating to earn more coins.
+
+    //- Bottom-left: mute button
+    div.absolute.z-20(
+      class="bottom-2 left-2"
+      :style="{ bottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))', left: 'calc(0.5rem + env(safe-area-inset-left, 0px))' }"
+    )
+      FMuteButton
 
     //- Skin shop
     SkinShopModal(
       :is-open="showSkinShop"
       @close="showSkinShop = false"
     )
+
+    //- Stage picker
+    div.absolute.inset-0.z-40.flex.items-center.justify-center(
+      v-if="showStagePicker"
+      class="bg-black/70"
+      @click.self="showStagePicker = false"
+    )
+      div.bg-slate-900.border-4.border-yellow-400.rounded-2xl.p-4.max-w-xl.w-full.mx-4(
+        class="max-h-[80vh] overflow-y-auto"
+      )
+        div.flex.items-center.justify-between.mb-3
+          div.text-yellow-300.font-black.game-text.uppercase.text-2xl Stages
+          FIconButton(icon="close" type="danger" size="sm" @click="showStagePicker = false")
+        div.text-slate-400.game-text.text-xs.mb-2
+          | Replay any stage to improve your rating — you only earn the difference in coins.
+        div.grid.grid-cols-2.gap-2(class="sm:grid-cols-3")
+          button.rounded-lg.border-2.border-yellow-400.bg-slate-800.p-3.text-left(
+            v-for="s in STAGES"
+            :key="s.id"
+            class="hover:bg-slate-700"
+            @click="pickStage(s)"
+          )
+            div.text-yellow-300.game-text.font-black.text-xs.uppercase {{ s.id }}
+            div.text-white.game-text.font-black.text-sm {{ s.name }}
+            div.flex.my-1(class="gap-0.5")
+              span.text-lg(
+                v-for="n in 3"
+                :key="n"
+                :class="n <= getBestStars(s.id) ? 'text-yellow-300' : 'text-slate-600'"
+              ) ★
+            div.text-slate-400.game-text.text-xs {{ s.width }}×{{ s.height }}
 </template>
 
 <style scoped lang="sass">

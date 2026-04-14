@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, reactive } from 'vue'
 import { PLACEABLE_MACHINES, MACHINE_REGISTRY, type MachineModule } from '@/game/machines'
-import { WALL_PRESETS, type WallPreset } from '@/game/walls/presets'
+import { WALL_PRESETS, WALL_MATERIALS, type WallPreset, type WallMaterial } from '@/game/walls/presets'
 import type { Machine, Stage } from '@/types/stage'
 import { STAGES } from '@/game/stages'
 
@@ -188,8 +188,9 @@ function onPaletteDragStart(ev: DragEvent, mod: MachineModule) {
   selectedType.value = mod
 }
 
-function onPresetDragStart(ev: DragEvent, preset: WallPreset) {
-  ev.dataTransfer?.setData('text/plain', `preset:${preset.id}`)
+function onPresetDragStart(ev: DragEvent, preset: WallPreset, material: WallMaterial = 'wood') {
+  ev.stopPropagation()
+  ev.dataTransfer?.setData('text/plain', `preset:${preset.id}:${material}`)
 }
 
 function onCanvasDragOver(ev: DragEvent) {
@@ -206,11 +207,13 @@ function onCanvasDrop(ev: DragEvent) {
   const mkId = () => nextId++
 
   if (raw.startsWith('preset:')) {
-    const presetId = raw.slice('preset:'.length)
+    const rest = raw.slice('preset:'.length)
+    const [presetId, matRaw] = rest.split(':')
+    const material = (matRaw === 'stone' || matRaw === 'metal' ? matRaw : 'wood') as WallMaterial
     const preset = WALL_PRESETS.find((p) => p.id === presetId)
     if (!preset) return
     snapshot()
-    const segs = preset.build(snapX, snapY, mkId)
+    const segs = preset.build(snapX, snapY, mkId, material)
     editorStage.machines.push(...segs)
     return
   }
@@ -460,15 +463,26 @@ onUnmounted(() => {
         div.opacity-60 {{ mod.defaultSize.w }}×{{ mod.defaultSize.h }}
 
       div.text-white.font-black.game-text.uppercase.text-sm.mt-3.mb-1 Wall Pieces
-      button.palette-btn.rounded-lg.px-2.py-2.text-white.game-text.text-xs.cursor-grab(
+      div.text-white.game-text.opacity-60(class="text-[10px] mb-1")
+        | Drag the outer box for wood · drag a colored chip for stone / metal
+      div.palette-btn.rounded-lg.px-2.py-2.text-white.game-text.text-xs.cursor-grab.relative(
         v-for="preset in WALL_PRESETS"
         :key="preset.id"
         draggable="true"
         :style="{ borderColor: preset.color }"
-        @dragstart="onPresetDragStart($event, preset)"
+        @dragstart="onPresetDragStart($event, preset, 'wood')"
       )
         div.font-black.uppercase {{ preset.label }}
         div.opacity-60 {{ preset.hint.w }}×{{ preset.hint.h }}
+        div.flex.gap-1.mt-1
+          div.material-chip(
+            v-for="mat in WALL_MATERIALS"
+            :key="mat.id"
+            draggable="true"
+            :title="mat.label + ' ' + preset.label"
+            :style="{ background: mat.color }"
+            @dragstart="onPresetDragStart($event, preset, mat.id)"
+          )
       div.mt-4.flex.flex-col.gap-2
         label.text-white.text-xs.game-text.uppercase.opacity-70 Stage Name
         input.px-2.py-1.rounded.bg-slate-800.text-white.border-2.border-slate-600.text-xs(
@@ -547,6 +561,19 @@ onUnmounted(() => {
 
   &:hover
     background: #334155
+
+
+.material-chip
+  width: 36px
+  height: 36px
+  margin: 4px
+  border-radius: 6px
+  border: 2px solid #0f172a
+  cursor: grab
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.5)
+
+  &:hover
+    transform: scale(1.1)
 
 .rotate-btn
   background: #1e293b

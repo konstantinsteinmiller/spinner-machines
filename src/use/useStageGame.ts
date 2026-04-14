@@ -36,6 +36,37 @@ const launches = ref(0)
 const stars = ref(0)
 const countdownValue = ref<string | null>(null)
 const bossKilled = ref(false)
+const lastCoinsAwarded = ref(0)
+
+// ─── Per-stage best stars (persisted) ─────────────────────────────────
+const STAGE_STARS_KEY = 'bm_stage_stars'
+const bestStars = ref<Record<string, number>>(loadBestStars())
+
+function loadBestStars(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(STAGE_STARS_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
+
+function saveBestStars() {
+  try {
+    localStorage.setItem(STAGE_STARS_KEY, JSON.stringify(bestStars.value))
+  } catch { /* ignore */
+  }
+}
+
+function getBestStars(stageId: string): number {
+  return bestStars.value[stageId] ?? 0
+}
+
+const COINS_FOR_STARS = [0, 50, 100, 200] as const
+
+function coinsForStars(n: number): number {
+  return COINS_FOR_STARS[n] ?? 0
+}
 
 const spinner = ref<Spinner>({
   x: currentStage.value.spawn.x,
@@ -105,25 +136,65 @@ function beginCountdown(onDone: () => void) {
 const currentSpeed = () => Math.hypot(spinner.value.vx, spinner.value.vy)
 const isMoving = computed(() => currentSpeed() > STOP_SPEED)
 
-function bounceAabb(sp: Spinner, m: Machine) {
+// Damage a wall absorbs before it shatters. Scales with area so thick /
+// long walls are noticeably tougher to break than a tiny segment, and with
+// material: wood = base, stone = 3×, metal = 9×.
+export function wallMaterialMultiplier(material?: string): number {
+  if (material === 'metal') return 9
+  if (material === 'stone') return 3
+  return 1
+}
+
+export function wallMaxHp(m: Machine): number {
+  const base = Math.max(1, Math.round((m.w * m.h * 3) / 400))
+  return base * wallMaterialMultiplier(m.meta?.material)
+}
+
+function bounceAabb(sp: Spinner, m: Machine): number {
   // Rotation-aware: transform the circle into the wall's local frame,
   // resolve there, then rotate the correction back into world space.
+  // Returns the impact speed (0 if no collision) so the caller can apply
+  // damage to destroyable walls.
   const cos = Math.cos(-m.rot)
   const sin = Math.sin(-m.rot)
   const lx = (sp.x - m.x) * cos - (sp.y - m.y) * sin
   const ly = (sp.x - m.x) * sin + (sp.y - m.y) * cos
   const hw = m.w / 2
   const hh = m.h / 2
-  const cxL = Math.max(-hw, Math.min(hw, lx))
-  const cyL = Math.max(-hh, Math.min(hh, ly))
-  const ddxL = lx - cxL
-  const ddyL = ly - cyL
-  const distSq = ddxL * ddxL + ddyL * ddyL
-  if (distSq > sp.r * sp.r) return false
-  const dist = Math.sqrt(distSq) || 0.0001
-  const nxL = ddxL / dist
-  const nyL = ddyL / dist
-  const overlap = sp.r - dist
+
+  let nxL: number
+  let nyL: number
+  let overlap: number
+
+  const inside = Math.abs(lx) <= hw && Math.abs(ly) <= hh
+  if (inside) {
+    // Circle center penetrated the box — push out along the shallowest
+    // axis. Without this branch a fast blade can land inside a wall,
+    // register zero correction and slip straight through on the next step.
+    const dxL = hw - Math.abs(lx)
+    const dyL = hh - Math.abs(ly)
+    if (dxL < dyL) {
+      nxL = lx >= 0 ? 1 : -1
+      nyL = 0
+      overlap = dxL + sp.r
+    } else {
+      nxL = 0
+      nyL = ly >= 0 ? 1 : -1
+      overlap = dyL + sp.r
+    }
+  } else {
+    const cxL = Math.max(-hw, Math.min(hw, lx))
+    const cyL = Math.max(-hh, Math.min(hh, ly))
+    const ddxL = lx - cxL
+    const ddyL = ly - cyL
+    const distSq = ddxL * ddxL + ddyL * ddyL
+    if (distSq > sp.r * sp.r) return 0
+    const dist = Math.sqrt(distSq) || 0.0001
+    nxL = ddxL / dist
+    nyL = ddyL / dist
+    overlap = sp.r - dist
+  }
+
   // Rotate local normal back to world frame.
   const c2 = Math.cos(m.rot)
   const s2 = Math.sin(m.rot)
@@ -132,20 +203,26 @@ function bounceAabb(sp: Spinner, m: Machine) {
   sp.x += nx * overlap
   sp.y += ny * overlap
   const vn = sp.vx * nx + sp.vy * ny
+  let impact = 0
   if (vn < 0) {
+    impact = -vn
     sp.vx -= 2 * vn * nx
     sp.vy -= 2 * vn * ny
     // Walls don't accelerate — slight damp so walls aren't a free speed source.
     sp.vx *= 0.92
     sp.vy *= 0.92
   }
-  return true
+  return impact
 }
 
-// Maximum world-unit displacement per substep. Must be smaller than half
-// the thinnest wall / machine to prevent tunneling at high speed. Walls in
-// stage 1 are ~20 units thick, so 8 is safe.
-const MAX_SUBSTEP_DIST = 8
+// Maximum world-unit displacement per substep. Must stay well below
+// (sp.r + wall_half_thickness) so fast blades can't slip through a wall
+// between substeps. Thinnest walls are ~20 thick (half = 10); with a
+// 22-unit radius the safe ceiling is ~32. We use 4 for a big margin.
+const MAX_SUBSTEP_DIST = 4
+// Damage per unit of impact speed applied to destroyable walls.
+const WALL_DAMAGE_PER_SPEED = 1.2
+const WALL_HIT_SCORE = 2
 
 function step(dt: number) {
   const sp = spinner.value
@@ -208,7 +285,17 @@ function step(dt: number) {
     // Walls resolve each substep so fast-moving blades can't skip them.
     for (const m of stage.machines) {
       if (m.destroyed) continue
-      if (m.type === 'wall') bounceAabb(sp, m)
+      if (m.type !== 'wall') continue
+      const impact = bounceAabb(sp, m)
+      if (impact <= 0) continue
+      if (m.maxHp === undefined) m.maxHp = wallMaxHp(m)
+      if (m.hp === undefined) m.hp = m.maxHp
+      m.hp -= impact * WALL_DAMAGE_PER_SPEED
+      score.value += WALL_HIT_SCORE
+      if (m.hp <= 0) {
+        m.destroyed = true
+        score.value += Math.max(5, Math.round(m.maxHp / 2))
+      }
     }
     // Interactive machines tick each substep so rails / boosters / goal
     // triggers at high speed still register.
@@ -309,10 +396,19 @@ function finishStage() {
   if (final >= th[2]) s = 3
   stars.value = s
   phase.value = 'complete'
-  // Award coins based on stars.
-  const coins = s === 3 ? 200 : s === 2 ? 100 : 50
-  const { addCoins } = useSpinnerConfig()
-  addCoins(coins)
+  // Coins are granted as the DELTA vs the stage's previous best, so replays
+  // only pay the difference when the player improves their rating.
+  const prevBest = getBestStars(stage.id)
+  const earned = Math.max(0, coinsForStars(s) - coinsForStars(prevBest))
+  lastCoinsAwarded.value = earned
+  if (s > prevBest) {
+    bestStars.value[stage.id] = s
+    saveBestStars()
+  }
+  if (earned > 0) {
+    const { addCoins } = useSpinnerConfig()
+    addCoins(earned)
+  }
 }
 
 function useStageGame() {
@@ -331,7 +427,10 @@ function useStageGame() {
     launch,
     startLoop,
     stopLoop,
-    resetSpinner
+    resetSpinner,
+    bestStars,
+    getBestStars,
+    lastCoinsAwarded
   }
 }
 
