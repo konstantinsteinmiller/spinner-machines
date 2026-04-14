@@ -1,4 +1,10 @@
 import type { MachineModule } from './base'
+import { machineArtEnabled, getMachineImage, MACHINE_ART } from '@/use/useMachineArt'
+
+// A single stone brick in the spritesheet is assumed to be 20×20 world
+// units, so a 140×20 wall is 7 bricks wide × 1 brick tall, a 120×40 wall
+// is 6 × 2, etc. Rows are offset by half a brick for a running bond.
+const BRICK_SIZE = 20
 
 // Walls are resolved by the physics loop in useStageGame (AABB bounce).
 // They are destroyable — hp is tracked on the Machine and the renderer
@@ -28,11 +34,88 @@ const mod: MachineModule = {
     const bodyR = Math.round(palette.base[0] * hpRatio + 180 * dmg)
     const bodyG = Math.round(palette.base[1] * hpRatio + 40 * dmg)
     const bodyB = Math.round(palette.base[2] * hpRatio + 40 * dmg)
-    ctx.fillStyle = `rgb(${bodyR},${bodyG},${bodyB})`
-    ctx.fillRect(-m.w / 2, -m.h / 2, m.w, m.h)
+
+    // ── Wood wall: tile the slap sprite as square panels along the
+    //     wall's long axis, axis-agnostic so vertical slabs work too. ──
+    let drewBricks = false
+    if (machineArtEnabled.value && material === 'wood') {
+      const slap = getMachineImage(MACHINE_ART.woodSlap)
+      if (slap) {
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(-m.w / 2, -m.h / 2, m.w, m.h)
+        ctx.clip()
+        // Tile size = short axis. Count along long axis. This means a
+        // 140×20 (horizontal slab) gets 7 panels stacked left→right and
+        // a 20×140 (vertical slab) gets 7 panels stacked top→bottom,
+        // instead of a single stretched panel.
+        const horizontal = m.w >= m.h
+        const tile = horizontal ? m.h : m.w
+        const long = horizontal ? m.w : m.h
+        const cols = Math.ceil(long / tile) + 1
+        const startLong = -long / 2
+        for (let c = 0; c < cols; c++) {
+          if (horizontal) {
+            ctx.drawImage(slap, startLong + c * tile, -m.h / 2, tile, tile)
+          } else {
+            ctx.drawImage(slap, -m.w / 2, startLong + c * tile, tile, tile)
+          }
+        }
+        ctx.restore()
+        drewBricks = true
+      }
+    }
+
+    // ── Stone / metal wall: tile the brick sprite in a running-bond. ──
+    if (!drewBricks && machineArtEnabled.value && (material === 'stone' || material === 'metal')) {
+      const brick = getMachineImage(
+        material === 'metal' ? MACHINE_ART.metalBrick : MACHINE_ART.stoneBrick
+      )
+      if (brick) {
+        ctx.beginPath()
+        ctx.rect(-m.w / 2, -m.h / 2, m.w, m.h)
+        ctx.save()
+        ctx.clip()
+        const rows = Math.max(1, Math.round(m.h / BRICK_SIZE))
+        // Center the row stack vertically inside the wall hitbox so the
+        // pattern doesn't drift for walls whose height isn't a clean
+        // multiple of BRICK_SIZE.
+        const yStart = -m.h / 2 + (m.h - rows * BRICK_SIZE) / 2
+        for (let r = 0; r < rows; r++) {
+          const rowOffset = (r % 2 === 1) ? BRICK_SIZE / 2 : 0
+          // Extra column on either side so the running-bond offset
+          // never leaves a gap at the wall's left edge.
+          const firstX = -m.w / 2 - rowOffset - BRICK_SIZE
+          const cols = Math.ceil((m.w + rowOffset + BRICK_SIZE * 2) / BRICK_SIZE)
+          for (let c = 0; c < cols; c++) {
+            ctx.drawImage(
+              brick,
+              firstX + c * BRICK_SIZE,
+              yStart + r * BRICK_SIZE,
+              BRICK_SIZE,
+              BRICK_SIZE
+            )
+          }
+        }
+        ctx.restore()
+        drewBricks = true
+      }
+    }
+
+    if (!drewBricks) {
+      ctx.fillStyle = `rgb(${bodyR},${bodyG},${bodyB})`
+      ctx.fillRect(-m.w / 2, -m.h / 2, m.w, m.h)
+    }
     ctx.strokeStyle = palette.stroke
     ctx.lineWidth = 2
     ctx.strokeRect(-m.w / 2, -m.h / 2, m.w, m.h)
+
+    // Damaged stone walls get a red overlay painted over the bricks so
+    // the "bleeding" tint still reads through the tile pattern.
+    if (drewBricks && dmg > 0) {
+      ctx.fillStyle = `rgba(200,40,40,${dmg * 0.35})`
+      ctx.fillRect(-m.w / 2, -m.h / 2, m.w, m.h)
+    }
 
     // Crack lines appear once hp drops below 75%.
     if (hpRatio < 0.75) {

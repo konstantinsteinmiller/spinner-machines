@@ -1,6 +1,7 @@
 import type { MachineModule, StageCtx } from './base'
 import { circleAabbOverlap, drawRotRect } from './base'
 import type { Machine } from '@/types/stage'
+import { machineArtEnabled, getMachineImage, MACHINE_ART } from '@/use/useMachineArt'
 
 const SCORE = 100
 const CHAIN_SCORE = 50
@@ -42,6 +43,37 @@ const explode = (m: Machine, ctx: StageCtx, score: number) => {
 
 const render = (ctx: CanvasRenderingContext2D, m: Machine, now: number) => {
   const pulse = 0.6 + 0.4 * Math.sin(now * 0.008)
+
+  // ── Art mode: base sprite + pulsing orange glow halo ──
+  if (machineArtEnabled.value) {
+    const img = getMachineImage(MACHINE_ART.overloadedGenerator)
+    if (img) {
+      ctx.save()
+      ctx.translate(m.x, m.y)
+      ctx.rotate(m.rot)
+
+      // Pulsing orange bloom around the core window so the generator
+      // visibly breathes like a primed explosive.
+      const r = Math.max(m.w, m.h) * 0.75
+      const haloGrad = ctx.createRadialGradient(0, 0, Math.min(m.w, m.h) * 0.2, 0, 0, r)
+      haloGrad.addColorStop(0, `rgba(251,146,60,${pulse * 0.85})`)
+      haloGrad.addColorStop(0.55, `rgba(249,115,22,${pulse * 0.4})`)
+      haloGrad.addColorStop(1, 'rgba(249,115,22,0)')
+      ctx.fillStyle = haloGrad
+      ctx.beginPath()
+      ctx.arc(0, 0, r, 0, Math.PI * 2)
+      ctx.fill()
+
+      // Base sprite with a matching shadowBlur so the silhouette itself
+      // glows in time with the halo.
+      ctx.shadowColor = `rgba(251,146,60,${pulse * 0.8})`
+      ctx.shadowBlur = 16 + pulse * 10
+      ctx.drawImage(img, -m.w / 2, -m.h / 2, m.w, m.h)
+      ctx.restore()
+      return
+    }
+  }
+
   drawRotRect(ctx, m, '#450a0a', '#f97316')
   ctx.save()
   ctx.translate(m.x, m.y)

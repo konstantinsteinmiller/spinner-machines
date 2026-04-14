@@ -27,6 +27,8 @@ export interface Machine {
   destroyed?: boolean
   triggered?: boolean
   cooldownUntil?: number
+  /** Timestamp at which the machine was destroyed — drives destruction VFX. */
+  destroyedAt?: number
   // boss-only
   hp?: number
   maxHp?: number

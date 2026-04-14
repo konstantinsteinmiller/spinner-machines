@@ -1,5 +1,6 @@
 import type { MachineModule, StageCtx } from './base'
 import type { Machine } from '@/types/stage'
+import { machineArtEnabled, getMachineImage, MACHINE_ART } from '@/use/useMachineArt'
 
 // Speed under which the spinner counts as "at rest" on the exit gate.
 // Matches STOP_SPEED in useStageGame so the transition feels consistent.
@@ -17,6 +18,50 @@ const tick = (m: Machine, ctx: StageCtx) => {
 
 const render = (ctx: CanvasRenderingContext2D, m: Machine, now: number) => {
   const r = m.w / 2
+
+  // ── Art mode: draw the composed exit-gate sprite with a pulsing halo ──
+  if (machineArtEnabled.value) {
+    const img = getMachineImage(MACHINE_ART.exitGate)
+    if (img) {
+      ctx.save()
+      ctx.translate(m.x, m.y)
+
+      // Wide outer bloom — pulsing, far beyond the gate silhouette so the
+      // exit point visibly pops off the stage background.
+      const pulse = 0.65 + 0.35 * Math.sin(now * 0.005)
+      const outerR = r * 2.1
+      const outerGrad = ctx.createRadialGradient(0, 0, r * 0.6, 0, 0, outerR)
+      outerGrad.addColorStop(0, `rgba(74,222,128,${0.6 * pulse})`)
+      outerGrad.addColorStop(0.55, `rgba(34,197,94,${0.28 * pulse})`)
+      outerGrad.addColorStop(1, 'rgba(34,197,94,0)')
+      ctx.fillStyle = outerGrad
+      ctx.beginPath()
+      ctx.arc(0, 0, outerR, 0, Math.PI * 2)
+      ctx.fill()
+
+      // Tight inner halo hugging the gate's circumference.
+      const innerGrad = ctx.createRadialGradient(0, 0, r * 0.45, 0, 0, r * 1.15)
+      innerGrad.addColorStop(0, `rgba(187,247,208,${0.85 * pulse})`)
+      innerGrad.addColorStop(0.6, `rgba(34,197,94,${0.6 * pulse})`)
+      innerGrad.addColorStop(1, 'rgba(34,197,94,0)')
+      ctx.fillStyle = innerGrad
+      ctx.beginPath()
+      ctx.arc(0, 0, r * 1.15, 0, Math.PI * 2)
+      ctx.fill()
+
+      // Draw the gate sprite with a matching canvas shadowBlur so the
+      // whole silhouette itself glows (not just the backdrop).
+      ctx.shadowColor = `rgba(74,222,128,${0.85 * pulse})`
+      ctx.shadowBlur = 26 + Math.sin(now * 0.005) * 6
+      ctx.shadowOffsetX = 0
+      ctx.shadowOffsetY = 0
+      const size = m.w
+      ctx.drawImage(img, -size / 2, -size / 2, size, size)
+      ctx.restore()
+      return
+    }
+  }
+
   ctx.save()
   ctx.translate(m.x, m.y)
 

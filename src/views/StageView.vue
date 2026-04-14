@@ -25,6 +25,7 @@ import { STAGES } from '@/game/stages'
 import { useMusic } from '@/use/useSound'
 import useCheats, { cheatStageRewardSignal } from '@/use/useCheats'
 import useStageLeaderboard from '@/use/useStageLeaderboard'
+import { machineArtEnabled, toggleMachineArt } from '@/use/useMachineArt'
 
 const { initMusic, startBattleMusic, stopBattleMusic } = useMusic()
 initMusic()
@@ -350,9 +351,15 @@ function render(now: number) {
 
   // Machines
   for (const m of stage.machines) {
-    if (m.destroyed) continue
     const mod = MACHINE_REGISTRY[m.type]
-    if (mod) mod.render(ctx, m, now)
+    if (!mod) continue
+    if (m.destroyed) {
+      // A few machines opt into a post-destruction VFX window by
+      // stamping destroyedAt; keep rendering them until 600 ms elapse.
+      if (m.type !== 'destroyableGlassTube' || !m.destroyedAt) continue
+      if (now - m.destroyedAt > 600) continue
+    }
+    mod.render(ctx, m, now)
   }
 
   // Spinner
@@ -839,6 +846,12 @@ const launchesTierClass = computed(() => {
         :img-src="prependBaseUrl('images/icons/level-editor_128x128.svg')"
         @click="$router.push('/editor')"
       )
+      //- Debug: toggle between new machine art and the drawn-line fallback
+      button.machine-art-toggle.game-text(
+        @click="toggleMachineArt"
+        :class="{ 'machine-art-toggle--off': !machineArtEnabled }"
+        :title="machineArtEnabled ? 'Machine art: ON (click for lines)' : 'Machine art: OFF (click for art)'"
+      ) {{ machineArtEnabled ? 'ART' : 'LINES' }}
 
     //- Skin shop
     SkinShopModal(
@@ -1063,6 +1076,32 @@ const launchesTierClass = computed(() => {
     @media (min-width: 640px)
       width: 5rem
       height: 5rem
+
+// ─── Debug: machine art / lines toggle ────────────────────────────────
+.machine-art-toggle
+  margin-top: 0.25rem
+  padding: 0.2rem 0.5rem
+  border-radius: 0.4rem
+  border: 2px solid #0f1a30
+  background: linear-gradient(180deg, #10b981 0%, #047857 100%)
+  color: #ecfdf5
+  font-weight: 900
+  font-size: 0.62rem
+  letter-spacing: 0.05em
+  cursor: pointer
+  text-shadow: 1px 1px 0 #000
+  box-shadow: 0 2px 0 #022c22, inset 0 1px 0 rgba(255, 255, 255, 0.35)
+
+  &:hover
+    filter: brightness(1.1)
+
+  &:active
+    transform: translateY(1px)
+
+  &--off
+    background: linear-gradient(180deg, #64748b 0%, #1e293b 100%)
+    color: #cbd5e1
+    box-shadow: 0 2px 0 #0b1220, inset 0 1px 0 rgba(255, 255, 255, 0.2)
 
 // ─── Achievements button (aquamarine crest) ────────────────────────────
 // Sized to match FIconButton size="md": scale-80 on mobile, scale-100 on sm+.
