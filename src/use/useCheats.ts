@@ -14,6 +14,17 @@ const isCheat = ref<boolean>(JSON.parse(storedCheat))
 /** Incremented by cheat shortcut — SpinnerArena watches this to open roulette. */
 export const cheatRouletteSignal = ref(0)
 
+/**
+ * Bumped by cheat shortcut — StageView watches this to open the
+ * level-cleared reward screen with a forced star count (1, 2, or 3).
+ * The nonce increments on every trigger so repeated presses with the
+ * same star count still fire the watcher.
+ */
+export const cheatStageRewardSignal = ref<{ stars: number; nonce: number }>({
+  stars: 0,
+  nonce: 0
+})
+
 
 const useCheats = () => {
   if (!isCheat.value) return {}
@@ -153,6 +164,19 @@ const useCheats = () => {
     'ctrl+shift+alt+p': () => {
       cheatRouletteSignal.value++
       console.warn('[CHEAT] Roulette triggered.')
+    },
+    // Force-open the Level-Cleared reward screen with 1 / 2 / 3 stars.
+    'ctrl+alt+1': () => {
+      cheatStageRewardSignal.value = { stars: 1, nonce: cheatStageRewardSignal.value.nonce + 1 }
+      console.warn('[CHEAT] Reward screen — 1 star.')
+    },
+    'ctrl+alt+2': () => {
+      cheatStageRewardSignal.value = { stars: 2, nonce: cheatStageRewardSignal.value.nonce + 1 }
+      console.warn('[CHEAT] Reward screen — 2 stars.')
+    },
+    'ctrl+alt+3': () => {
+      cheatStageRewardSignal.value = { stars: 3, nonce: cheatStageRewardSignal.value.nonce + 1 }
+      console.warn('[CHEAT] Reward screen — 3 stars.')
     }
   }
 

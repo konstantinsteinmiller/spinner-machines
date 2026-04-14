@@ -2,7 +2,6 @@ import type { MachineModule, StageCtx } from './base'
 import { circleAabbOverlap, drawRotRect } from './base'
 import type { Machine } from '@/types/stage'
 
-const SCORE = 15
 const RAIL_SPEED = 16
 
 const tick = (m: Machine, ctx: StageCtx) => {
@@ -28,7 +27,6 @@ const tick = (m: Machine, ctx: StageCtx) => {
   if (!m.triggered) {
     m.triggered = true
     sp.railId = m.id
-    ctx.addScore(SCORE)
   }
 }
 

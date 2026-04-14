@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="pencilBody" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffe066"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Stage/level grid (bottom-left) -->
+  <g stroke="#ffffff" stroke-width="6" stroke-linecap="round" fill="none" opacity="0.95">
+    <!-- Frame -->
+    <rect x="14" y="40" width="72" height="72" rx="6" ry="6"/>
+    <!-- Grid lines -->
+    <line x1="38" y1="40" x2="38" y2="112"/>
+    <line x1="62" y1="40" x2="62" y2="112"/>
+    <line x1="14" y1="64" x2="86" y2="64"/>
+    <line x1="14" y1="88" x2="86" y2="88"/>
+  </g>
+
+  <!-- A couple of "placed blocks" inside the grid to hint at a level layout -->
+  <g fill="#ffffff" opacity="0.85">
+    <rect x="18" y="68" width="16" height="16" rx="2"/>
+    <rect x="66" y="92" width="16" height="16" rx="2"/>
+  </g>
+
+  <!-- Pencil, diagonally from top-right toward grid -->
+  <g transform="rotate(-45 84 44)">
+    <!-- Pencil body -->
+    <rect x="40" y="36" width="60" height="16" rx="3" fill="url(#pencilBody)" stroke="#1a1a1a" stroke-width="4"/>
+    <!-- Metal ferrule -->
+    <rect x="96" y="36" width="10" height="16" fill="#d1d5db" stroke="#1a1a1a" stroke-width="4"/>
+    <!-- Eraser -->
+    <rect x="104" y="36" width="14" height="16" rx="2" fill="#ef4444" stroke="#1a1a1a" stroke-width="4"/>
+    <!-- Wood cone -->
+    <polygon points="40,36 40,52 26,44" fill="#fde68a" stroke="#1a1a1a" stroke-width="4" stroke-linejoin="round"/>
+    <!-- Tip -->
+    <polygon points="26,44 34,41 34,47" fill="#1a1a1a"/>
+  </g>
+</svg>

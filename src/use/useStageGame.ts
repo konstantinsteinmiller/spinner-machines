@@ -73,7 +73,7 @@ const spinner = ref<Spinner>({
   y: currentStage.value.spawn.y,
   vx: 0,
   vy: 0,
-  r: 22,
+  r: 35,
   rotation: 0,
   rotationSpeed: 0,
   frozenUntil: 0,
@@ -93,7 +93,7 @@ function resetSpinner() {
     y: s.spawn.y,
     vx: 0,
     vy: 0,
-    r: 22,
+    r: 35,
     rotation: 0,
     rotationSpeed: 0,
     frozenUntil: 0,
@@ -222,7 +222,6 @@ function bounceAabb(sp: Spinner, m: Machine): number {
 const MAX_SUBSTEP_DIST = 4
 // Damage per unit of impact speed applied to destroyable walls.
 const WALL_DAMAGE_PER_SPEED = 1.2
-const WALL_HIT_SCORE = 2
 
 function step(dt: number) {
   const sp = spinner.value
@@ -291,7 +290,6 @@ function step(dt: number) {
       if (m.maxHp === undefined) m.maxHp = wallMaxHp(m)
       if (m.hp === undefined) m.hp = m.maxHp
       m.hp -= impact * WALL_DAMAGE_PER_SPEED
-      score.value += WALL_HIT_SCORE
       if (m.hp <= 0) {
         m.destroyed = true
         score.value += Math.max(5, Math.round(m.maxHp / 2))

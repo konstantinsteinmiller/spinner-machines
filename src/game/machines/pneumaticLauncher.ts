@@ -2,7 +2,6 @@ import type { MachineModule, StageCtx } from './base'
 import { circleAabbOverlap, drawRotRect } from './base'
 import type { Machine } from '@/types/stage'
 
-const SCORE = 25
 const LAUNCH_SPEED = 22
 
 const tick = (m: Machine, ctx: StageCtx) => {
@@ -18,7 +17,6 @@ const tick = (m: Machine, ctx: StageCtx) => {
   const dirY = Math.sin(m.rot)
   sp.vx = dirX * LAUNCH_SPEED
   sp.vy = dirY * LAUNCH_SPEED
-  ctx.addScore(SCORE)
 }
 
 const render = (ctx: CanvasRenderingContext2D, m: Machine, now: number) => {

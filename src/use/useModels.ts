@@ -13,11 +13,11 @@ export const modelImgPath = (id: string) => {
 // ─── Spinner Model Image Mapping ───────────────────────────────────────────
 
 export const SPINNER_MODEL_IDS = [
-  'fire', 'phoenix', 'thunder', 'bluedragon', 'turtle',
+  'blades', 'fire', 'phoenix', 'thunder', 'bluedragon', 'turtle',
   'ice', 'chip', 'mysticaleye', 'nature', 'wulf',
   'castle', 'eagle', 'prisma', 'scorpion', 'shell',
   'snake', 'axe', 'demon', 'angelic', 'mountain',
-  'tornado', 'reddragon', 'bear', 'hawk', 'blades',
+  'tornado', 'reddragon', 'bear', 'hawk',
   'gear', 'ape', 'shield', 'salamaner', 'galaxy',
   'piranha', 'thunderstorm',
   'rainbow', 'dark', 'boulder', 'teleporter', 'life-leech',

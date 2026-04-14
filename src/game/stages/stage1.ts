@@ -2,7 +2,7 @@ import type { Stage } from '@/types/stage'
 
 const stage: Stage = {
   'id': 'stage1',
-  'name': 'stage1',
+  'name': 'Entry Grounds',
   'width': 2200,
   'height': 1400,
   'spawn': {
@@ -269,7 +269,7 @@ const stage: Stage = {
     {
       'id': 29,
       'type': 'wall',
-      'x': 2050,
+      'x': 2020,
       'y': 200,
       'w': 20,
       'h': 720,
@@ -286,6 +286,81 @@ const stage: Stage = {
       'hp': 60,
       'maxHp': 60,
       'modelId': 'rainbow'
+    },
+    {
+      'id': 31,
+      'type': 'goal',
+      'x': 2100,
+      'y': 260,
+      'w': 120,
+      'h': 120,
+      'rot': 0
+    },
+    {
+      'id': 32,
+      'type': 'wall',
+      'x': 840,
+      'y': 1020,
+      'w': 600,
+      'h': 20,
+      'rot': 0
+    },
+    {
+      'id': 33,
+      'type': 'wall',
+      'x': 780,
+      'y': 120,
+      'w': 600,
+      'h': 20,
+      'rot': 0
+    },
+    {
+      'id': 34,
+      'type': 'wall',
+      'x': 360,
+      'y': 1100,
+      'w': 640,
+      'h': 24,
+      'rot': 0.7853981633974483,
+      'meta': {
+        'material': 'metal'
+      }
+    },
+    {
+      'id': 35,
+      'type': 'wall',
+      'x': 2000,
+      'y': 1160,
+      'w': 320,
+      'h': 56,
+      'rot': -0.7853981633974483,
+      'meta': {
+        'material': 'metal'
+      }
+    },
+    {
+      'id': 36,
+      'type': 'wall',
+      'x': 2020,
+      'y': 640,
+      'w': 260,
+      'h': 24,
+      'rot': 0,
+      'meta': {
+        'material': 'stone'
+      }
+    },
+    {
+      'id': 37,
+      'type': 'wall',
+      'x': 1900,
+      'y': 760,
+      'w': 24,
+      'h': 260,
+      'rot': 0,
+      'meta': {
+        'material': 'stone'
+      }
     }
   ],
   'starThresholds': [

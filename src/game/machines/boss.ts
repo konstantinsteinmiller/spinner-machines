@@ -38,10 +38,9 @@ const tick = (m: Machine, ctx: StageCtx) => {
         const dmg = Math.max(1, Math.round(impact * 0.6))
         m.hp = (m.hp ?? m.maxHp ?? 10) - dmg
         m.cooldownUntil = ctx.now + HIT_COOLDOWN
-        ctx.addScore(20)
         if (m.hp <= 0) {
           m.destroyed = true
-          ctx.addScore(0) // kill bonus handled in onBossDead
+          // Kill bonus is handled in onBossDead — no per-hit score.
           ctx.onBossDead()
         }
       }

@@ -4,12 +4,14 @@ import { PLACEABLE_MACHINES, MACHINE_REGISTRY, type MachineModule } from '@/game
 import { WALL_PRESETS, WALL_MATERIALS, type WallPreset, type WallMaterial } from '@/game/walls/presets'
 import type { Machine, Stage } from '@/types/stage'
 import { STAGES } from '@/game/stages'
+import { SPINNER_MODEL_IDS, modelImgPath, type SpinnerModelId } from '@/use/useModels'
 
 const stage1 = STAGES[0]!
 
 const canvasEl = ref<HTMLCanvasElement | null>(null)
 const editorStage = reactive<Stage>(JSON.parse(JSON.stringify(stage1)))
 const stageName = ref<string>(editorStage.id || 'stage1')
+const stageLabel = ref<string>(editorStage.name || 'Stage 1')
 const saveStatus = ref<string>('')
 const selectedType = ref<MachineModule | null>(null)
 const draggedId = ref<number | null>(null)
@@ -57,6 +59,18 @@ function resetRotationSelected() {
   if (!m) return
   snapshot()
   m.rot = 0
+}
+
+function cycleBossModel(delta: number) {
+  const m = selectedMachine()
+  if (!m || m.type !== 'boss') return
+  const current = (m.modelId as SpinnerModelId) || 'rainbow'
+  const idx = SPINNER_MODEL_IDS.indexOf(current)
+  const next = SPINNER_MODEL_IDS[
+  ((idx < 0 ? 0 : idx) + delta + SPINNER_MODEL_IDS.length) % SPINNER_MODEL_IDS.length
+    ]!
+  snapshot()
+  m.modelId = next
 }
 
 function deleteSelected() {
@@ -252,6 +266,20 @@ function onPointerDown(e: PointerEvent) {
     return
   }
   if (hit) {
+    // Alt+click duplicates: clone the hit machine with a fresh id and
+    // grab the clone so the user can drag it into place.
+    if (e.altKey) {
+      snapshot()
+      const clone: Machine = JSON.parse(JSON.stringify(hit))
+      clone.id = nextId++
+      clone.x += 20
+      clone.y += 20
+      editorStage.machines.push(clone)
+      selectedId.value = clone.id
+      draggedId.value = clone.id
+      dragOffset.value = { x: wp.x - clone.x, y: wp.y - clone.y }
+      return
+    }
     selectedId.value = hit.id
     // Shift rotates instead of drags — handy for mouse-only workflows.
     if (e.shiftKey) {
@@ -322,7 +350,15 @@ function onWheel(e: WheelEvent) {
 const STORAGE = 'bm_editor_stage'
 
 function save() {
+  const id = stageName.value.trim()
+  const label = stageLabel.value.trim()
+  if (id) editorStage.id = id
+  if (label) editorStage.name = label
   localStorage.setItem(STORAGE, JSON.stringify(editorStage))
+  saveStatus.value = `saved ${editorStage.name || editorStage.id || ''}`.trim()
+  setTimeout(() => {
+    saveStatus.value = ''
+  }, 2000)
 }
 
 function load() {
@@ -330,6 +366,8 @@ function load() {
   if (!raw) return
   const parsed = JSON.parse(raw)
   Object.assign(editorStage, parsed)
+  if (editorStage.id) stageName.value = editorStage.id
+  if (editorStage.name) stageLabel.value = editorStage.name
 }
 
 function exportJson() {
@@ -366,7 +404,8 @@ function loadIntoEditor(s: Stage) {
   Object.assign(editorStage, cloned)
   editorStage.machines = cloned.machines
   nextId = Math.max(...editorStage.machines.map((m) => m.id), 0) + 1
-  stageName.value = cloned.id || cloned.name || 'stage'
+  stageName.value = cloned.id || 'stage'
+  stageLabel.value = cloned.name || cloned.id || 'Stage'
   selectedId.value = null
   openMenuVisible.value = false
 }
@@ -409,7 +448,7 @@ async function saveAsStage() {
     return
   }
   editorStage.id = safe
-  editorStage.name = safe
+  editorStage.name = stageLabel.value.trim() || safe
   if (import.meta.env.DEV) {
     try {
       const res = await fetch('/__save-stage', {
@@ -484,11 +523,18 @@ onUnmounted(() => {
             @dragstart="onPresetDragStart($event, preset, mat.id)"
           )
       div.mt-4.flex.flex-col.gap-2
-        label.text-white.text-xs.game-text.uppercase.opacity-70 Stage Name
+        label.text-white.text-xs.game-text.uppercase.opacity-70 Filename / ID
         input.px-2.py-1.rounded.bg-slate-800.text-white.border-2.border-slate-600.text-xs(
           v-model="stageName"
           placeholder="stage1"
         )
+        label.text-white.text-xs.game-text.uppercase.opacity-70.mt-1 Display Label
+        input.px-2.py-1.rounded.bg-slate-800.text-white.border-2.border-yellow-500.text-xs(
+          v-model="stageLabel"
+          placeholder="The Forge"
+        )
+        div.text-white.game-text.opacity-50(class="text-[10px] -mt-1")
+          | Shown by the StageBadge in-game.
         button.bg-fuchsia-600.text-white.py-2.rounded-lg.game-text.font-black(@click="saveAsStage") SAVE AS STAGE
         div.text-xs.game-text.text-yellow-300(v-if="saveStatus") {{ saveStatus }}
         button.bg-indigo-600.text-white.py-2.rounded-lg.game-text.font-black(
@@ -547,6 +593,16 @@ onUnmounted(() => {
         @pointerdown.stop
       )
         span.text-yellow-200.game-text.text-xs.font-black.uppercase {{ selectedMachine()?.type }}
+        //- Boss model switcher — only visible when a boss tile is selected
+        template(v-if="selectedMachine()?.type === 'boss'")
+          button.rotate-btn(@click="cycleBossModel(-1)" title="Previous boss") ◄
+          div.flex.items-center.gap-1.px-2
+            img.w-6.h-6.object-contain(
+              :src="modelImgPath(selectedMachine()?.modelId || 'rainbow')"
+              draggable="false"
+            )
+            span.text-white.game-text.text-xs.font-black.uppercase {{ selectedMachine()?.modelId || 'rainbow' }}
+          button.rotate-btn(@click="cycleBossModel(1)" title="Next boss") ►
         button.rotate-btn(@click="rotateSelected(-ROT_STEP)" title="Rotate -15°") ↺
         button.rotate-btn(@click="rotateSelected(ROT_STEP)" title="Rotate +15°") ↻
         button.rotate-btn(@click="resetRotationSelected()" title="Reset rotation") 0°
