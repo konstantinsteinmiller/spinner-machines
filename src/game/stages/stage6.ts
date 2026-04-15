@@ -52,7 +52,17 @@ const machines: Machine[] = [
 
   // Goal tucked behind a small wall
   wall(1400, 1450, 200, 20),
-  m('goal', 1400, 1380, 90, 90)
+  m('goal', 1400, 1380, 90, 90),
+
+  // ── Pressure plate cage (retrofit) ────────────────────────────────
+  { id: id(), type: 'wall', x: 1300, y: 90, w: 220, h: 20, rot: 0, meta: { material: 'metal' } },
+  { id: id(), type: 'wall', x: 1300, y: 310, w: 220, h: 20, rot: 0, meta: { material: 'metal' } },
+  { id: id(), type: 'wall', x: 1190, y: 200, w: 20, h: 220, rot: 0, meta: { material: 'metal' } },
+  { id: id(), type: 'wall', x: 1410, y: 200, w: 20, h: 220, rot: 0, meta: { material: 'metal' } },
+  { id: id(), type: 'overloadedGenerator', x: 1250, y: 200, w: 80, h: 80, rot: 0, meta: { link: 'plateS6' } },
+  { id: id(), type: 'overloadedGenerator', x: 1350, y: 200, w: 80, h: 80, rot: 0, meta: { link: 'plateS6' } },
+  { id: id(), type: 'destroyableGlassTube', x: 1300, y: 140, w: 60, h: 60, rot: 0, meta: { link: 'plateS6' } },
+  { id: id(), type: 'pressurePlate', x: 300, y: 1300, w: 90, h: 70, rot: 0, meta: { link: 'plateS6' } }
 ]
 
 const stage6: Stage = {
@@ -63,8 +73,8 @@ const stage6: Stage = {
   spawn: { x: 200, y: 800 },
   goal: { x: 1400, y: 1380 },
   machines,
-  starThresholds: [0, 550, 1100],
-  launchPenalty: 90,
+  starThresholds: [0, 650, 1300],
+  launchPenalty: 55,
   bossKillBonus: 350,
   bossModelId: 'boulder'
 }

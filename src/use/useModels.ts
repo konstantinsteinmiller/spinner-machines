@@ -93,7 +93,7 @@ const loadPickerOpened = (): Set<string> => {
   return new Set()
 }
 
-const ownedSkins: Ref<Set<string>> = ref(loadOwnedSkins())
+export const ownedSkins: Ref<Set<string>> = ref(loadOwnedSkins())
 const selectedSkins: Ref<Record<string, string>> = ref(loadSelectedSkins())
 const pickerOpenedParts: Ref<Set<string>> = ref(loadPickerOpened())
 

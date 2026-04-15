@@ -1,5 +1,7 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { STAGES } from '@/game/stages'
+import { SKINS_PER_TOP, isSkinOwned, ownedSkins } from '@/use/useModels'
+import type { TopPartId } from '@/types/spinner'
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -11,6 +13,9 @@ export interface AchievementState {
   bestScorePerStage: Record<string, number>
   summedBestScore: number
   stagesWithBoss: string[]
+  maxLaunchesEver: number
+  triggeredPlates: string[]
+  topRankStages: string[]
 }
 
 export interface AchievementDef {
@@ -34,10 +39,21 @@ interface Persisted {
   killedBosses: string[]
   minLaunchesPerStage: Record<string, number>
   bestScorePerStage: Record<string, number>
+  maxLaunchesEver: number
+  triggeredPlates: string[]
+  topRankStages: string[]
 }
 
 function loadPersisted(): Persisted {
-  const empty: Persisted = { totalScore: 0, killedBosses: [], minLaunchesPerStage: {}, bestScorePerStage: {} }
+  const empty: Persisted = {
+    totalScore: 0,
+    killedBosses: [],
+    minLaunchesPerStage: {},
+    bestScorePerStage: {},
+    maxLaunchesEver: 0,
+    triggeredPlates: [],
+    topRankStages: []
+  }
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return empty
@@ -50,7 +66,10 @@ function loadPersisted(): Persisted {
         : {},
       bestScorePerStage: parsed.bestScorePerStage && typeof parsed.bestScorePerStage === 'object'
         ? parsed.bestScorePerStage
-        : {}
+        : {},
+      maxLaunchesEver: Number(parsed.maxLaunchesEver) || 0,
+      triggeredPlates: Array.isArray(parsed.triggeredPlates) ? parsed.triggeredPlates : [],
+      topRankStages: Array.isArray(parsed.topRankStages) ? parsed.topRankStages : []
     }
   } catch {
     return empty
@@ -116,6 +135,27 @@ function allThreeStars(state: AchievementState, ids: string[]): boolean {
 
 function stagesWithBoss(): string[] {
   return STAGES.filter((s) => s.machines.some((m) => m.type === 'boss')).map((s) => s.id)
+}
+
+/** True when every (topPartId, modelId) pair in the catalog is owned. */
+function allSkinsOwned(): boolean {
+  for (const top of Object.keys(SKINS_PER_TOP) as TopPartId[]) {
+    for (const m of SKINS_PER_TOP[top]) {
+      if (!isSkinOwned(top, m)) return false
+    }
+  }
+  return true
+}
+
+/** Every pressure plate across every stage, encoded as "stageId:machineId". */
+function allPlateKeys(): string[] {
+  const out: string[] = []
+  for (const s of STAGES) {
+    for (const machine of s.machines) {
+      if (machine.type === 'pressurePlate') out.push(`${s.id}:${machine.id}`)
+    }
+  }
+  return out
 }
 
 // ─── Achievement definitions ──────────────────────────────────────────
@@ -198,6 +238,42 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     check: (s) => s.stagesWithBoss.length >= 0 // placeholder, real check below
   },
   {
+    id: 'tough_day',
+    title: 'Though Day',
+    description: 'Finish any level with 30 or more launches.',
+    glyph: '30+',
+    color: { from: '#fcd34d', to: '#b45309', accent: '#451a03' },
+    check: (s) => s.maxLaunchesEver >= 30
+  },
+  {
+    id: 'high_pressure',
+    title: 'High Pressure',
+    description: 'Activated every pressure plate in the game.',
+    glyph: 'PSI',
+    color: { from: '#fde68a', to: '#ca8a04', accent: '#422006' },
+    check: (s) => {
+      const all = allPlateKeys()
+      if (all.length === 0) return false
+      return all.every((k) => s.triggeredPlates.includes(k))
+    }
+  },
+  {
+    id: 'all_skins',
+    title: 'Wardrobe Hoarder',
+    description: 'Unlocked all skins.',
+    glyph: '★ALL',
+    color: { from: '#fbcfe8', to: '#a21caf', accent: '#3b0764' },
+    check: () => allSkinsOwned()
+  },
+  {
+    id: 'highest_rank',
+    title: 'Highest Rank',
+    description: 'Reach leaderboard rank 1 on any stage.',
+    glyph: '#1',
+    color: { from: '#fef08a', to: '#ea580c', accent: '#431407' },
+    check: (s) => s.topRankStages.length > 0
+  },
+  {
     id: 'all_bosses_killed',
     title: 'Boss Harvester',
     description: 'Kill at least one boss on every boss stage.',
@@ -233,7 +309,10 @@ function buildState(bestStars: Record<string, number>): AchievementState {
     minLaunchesPerStage: { ...persisted.value.minLaunchesPerStage },
     bestScorePerStage: best,
     summedBestScore: summed,
-    stagesWithBoss: stagesWithBoss()
+    stagesWithBoss: stagesWithBoss(),
+    maxLaunchesEver: persisted.value.maxLaunchesEver,
+    triggeredPlates: persisted.value.triggeredPlates.slice(),
+    topRankStages: persisted.value.topRankStages.slice()
   }
 }
 
@@ -273,6 +352,8 @@ export interface StageFinishRecord {
   launches: number
   bossKilled: boolean
   bestStars: Record<string, number>
+  /** Ids of pressure plate machines that were triggered during this run. */
+  triggeredPlateIds?: number[]
 }
 
 function recordStageFinish(r: StageFinishRecord): string[] {
@@ -282,6 +363,9 @@ function recordStageFinish(r: StageFinishRecord): string[] {
   if (r.launches > 0 && r.launches < prevMin) {
     persisted.value.minLaunchesPerStage[r.stageId] = r.launches
   }
+  if (r.launches > persisted.value.maxLaunchesEver) {
+    persisted.value.maxLaunchesEver = r.launches
+  }
   // Track the per-stage highest final score — feeds the "summed best" check.
   const prevBest = persisted.value.bestScorePerStage[r.stageId] ?? 0
   if (r.finalScore > prevBest) {
@@ -290,9 +374,44 @@ function recordStageFinish(r: StageFinishRecord): string[] {
   if (r.bossKilled && !persisted.value.killedBosses.includes(r.stageId)) {
     persisted.value.killedBosses.push(r.stageId)
   }
+  // Merge the plates triggered during this run into the persistent set.
+  if (r.triggeredPlateIds && r.triggeredPlateIds.length > 0) {
+    const set = new Set(persisted.value.triggeredPlates)
+    for (const pid of r.triggeredPlateIds) set.add(`${r.stageId}:${pid}`)
+    persisted.value.triggeredPlates = Array.from(set)
+  }
   savePersisted()
   return evaluateAll(r.bestStars)
 }
+
+/** Record that the player is currently rank 1 on a given stage's
+ *  leaderboard. Called from the stage-finish flow after the leaderboard
+ *  rank is re-evaluated. */
+function recordTopRank(stageId: string, bestStars: Record<string, number>): string[] {
+  if (!persisted.value.topRankStages.includes(stageId)) {
+    persisted.value.topRankStages.push(stageId)
+    savePersisted()
+  }
+  return evaluateAll(bestStars)
+}
+
+// Watch the catalog for new unlocks (skin shop / battle pass / daily
+// rewards all funnel through ownedSkins). Re-evaluate achievements
+// whenever the set grows so "Wardrobe Hoarder" can fire mid-session.
+function loadStageStars(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem('bm_stage_stars')
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+watch(ownedSkins, () => {
+  evaluateAll(loadStageStars())
+}, { deep: true })
 
 // ─── Public API ───────────────────────────────────────────────────────
 
@@ -304,6 +423,7 @@ const useAchievements = () => ({
   unseenCount: computed(() => unseen.value.length),
   totalCount: ACHIEVEMENTS.length,
   recordStageFinish,
+  recordTopRank,
   markAllSeen
 })
 

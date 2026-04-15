@@ -46,7 +46,8 @@
       "Bash(xargs -I{} sh -c 'head -2 \"{}\" | head -1')",
       "Read(//c/Users/konst/**)",
       "Read(//c/Users/konst//**)",
-      "Bash(cat src/router/*.ts)"
+      "Bash(cat src/router/*.ts)",
+      "Bash(wc *)"
     ]
   }
 }

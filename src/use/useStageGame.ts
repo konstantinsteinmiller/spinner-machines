@@ -257,7 +257,9 @@ function step(dt: number) {
   const friction = speedNow < SLOW_THRESHOLD ? FRICTION_LOW : FRICTION
   sp.vx *= friction
   sp.vy *= friction
-  sp.rotation += currentSpeed() * 0.04
+  // Constant idle spin + speed-scaled boost so the blade keeps rotating
+  // while parked on the exit gate / between launches, like the boss.
+  sp.rotation += 0.05 + currentSpeed() * 0.04
 
   const ctx: StageCtx = {
     now,
@@ -427,6 +429,11 @@ function loop(ts: number) {
   if (phase.value === 'launched' || phase.value === 'aiming') {
     step(dt)
     if (phase.value === 'launched') tickThunderstormDamage(ts)
+  } else {
+    // Idle spin in every other phase (tap_to_start, countdown, complete)
+    // so the blade keeps rotating on the tutorial tap-overlay and while
+    // parked on the exit gate.
+    spinner.value.rotation += 0.05
   }
   rafId = requestAnimationFrame(loop)
 }

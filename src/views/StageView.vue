@@ -97,6 +97,7 @@ const showAchievements = ref(false)
 
 const {
   recordStageFinish: recordAchievementsFinish,
+  recordTopRank: recordAchievementsTopRank,
   unseenCount: achUnseenCount,
   markAllSeen: markAchievementsSeen
 } = useAchievements()
@@ -177,9 +178,16 @@ const ptr = ref<{
   mode: 'none', startX: 0, startY: 0, curX: 0, curY: 0, camStartX: 0, camStartY: 0
 })
 
-// Spinner image cache
+// Spinner image cache — reactively follows the selected "star" skin so
+// picking a new skin in the shop updates both the texture and the VFX
+// modelId on the live spinner without having to restart the stage.
+const selectedStarSkin = computed(() => getSelectedSkin('star'))
 const spinnerImg = new Image()
-spinnerImg.src = modelImgPath(getSelectedSkin('star'))
+spinnerImg.src = modelImgPath(selectedStarSkin.value)
+watch(selectedStarSkin, (skin) => {
+  spinnerImg.src = modelImgPath(skin)
+  spinner.value.modelId = skin
+})
 
 // ─── Init ──────────────────────────────────────────────────────────────
 
@@ -845,14 +853,23 @@ watch(phase, (p) => {
     if (isNewHighscore.value) bpAwardHighscore()
     refreshLbRows()
     // Achievements — pass bestStars so range-based checks have full state.
+    const triggeredPlateIds = currentStage.value.machines
+      .filter((mch) => mch.type === 'pressurePlate' && mch.triggered)
+      .map((mch) => mch.id)
     recordAchievementsFinish({
       stageId: currentStage.value.id,
       finalScore: score.value,
       stars: stars.value,
       launches: launches.value,
       bossKilled: bossKilled.value,
-      bestStars: bestStars.value
+      bestStars: bestStars.value,
+      triggeredPlateIds
     })
+    // Highest-rank achievement — check the refreshed rank and record it.
+    const rankInfo = lbMyRankForStage(currentStage.value.id)
+    if (rankInfo && rankInfo.rank === 1) {
+      recordAchievementsTopRank(currentStage.value.id, bestStars.value)
+    }
     showReward.value = true
     nextTick(() => {
       if (rewardCoinRef.value && coinBadgeRef.value?.rootEl) {
@@ -923,7 +940,6 @@ function loadInitialStage() {
 
 onMounted(() => {
   loadInitialStage()
-  spinnerImg.src = modelImgPath(getSelectedSkin('star'))
   resizeCanvas()
   fitInitialCamera()
   refreshCanvasRect()

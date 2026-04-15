@@ -53,7 +53,17 @@ const machines: Machine[] = [
     hp: 85, maxHp: 85, modelId: 'sandstorm'
   },
 
-  m('goal', 2300, 1200, 90, 90)
+  m('goal', 2300, 1200, 90, 90),
+
+  // ── Pressure plate cage (retrofit) ────────────────────────────────
+  { id: id(), type: 'wall', x: 1200, y: 90, w: 220, h: 20, rot: 0, meta: { material: 'metal' } },
+  { id: id(), type: 'wall', x: 1200, y: 310, w: 220, h: 20, rot: 0, meta: { material: 'metal' } },
+  { id: id(), type: 'wall', x: 1090, y: 200, w: 20, h: 220, rot: 0, meta: { material: 'metal' } },
+  { id: id(), type: 'wall', x: 1310, y: 200, w: 20, h: 220, rot: 0, meta: { material: 'metal' } },
+  { id: id(), type: 'overloadedGenerator', x: 1150, y: 200, w: 80, h: 80, rot: 0, meta: { link: 'plateS8' } },
+  { id: id(), type: 'overloadedGenerator', x: 1250, y: 200, w: 80, h: 80, rot: 0, meta: { link: 'plateS8' } },
+  { id: id(), type: 'destroyableGlassTube', x: 1200, y: 140, w: 60, h: 60, rot: 0, meta: { link: 'plateS8' } },
+  { id: id(), type: 'pressurePlate', x: 1200, y: 1440, w: 90, h: 70, rot: 0, meta: { link: 'plateS8' } }
 ]
 
 const stage8: Stage = {
@@ -64,8 +74,8 @@ const stage8: Stage = {
   spawn: { x: 200, y: 800 },
   goal: { x: 2300, y: 1200 },
   machines,
-  starThresholds: [0, 600, 1200],
-  launchPenalty: 85,
+  starThresholds: [0, 700, 1400],
+  launchPenalty: 60,
   bossKillBonus: 340,
   bossModelId: 'sandstorm'
 }

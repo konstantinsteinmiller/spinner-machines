@@ -62,7 +62,17 @@ const machines: Machine[] = [
     hp: 120, maxHp: 120, modelId: 'dark'
   },
 
-  m('goal', 2900, 1500, 90, 90)
+  m('goal', 2900, 1500, 90, 90),
+
+  // ── Pressure plate cage (retrofit) ────────────────────────────────
+  { id: id(), type: 'wall', x: 1500, y: 90, w: 220, h: 20, rot: 0, meta: { material: 'metal' } },
+  { id: id(), type: 'wall', x: 1500, y: 310, w: 220, h: 20, rot: 0, meta: { material: 'metal' } },
+  { id: id(), type: 'wall', x: 1390, y: 200, w: 20, h: 220, rot: 0, meta: { material: 'metal' } },
+  { id: id(), type: 'wall', x: 1610, y: 200, w: 20, h: 220, rot: 0, meta: { material: 'metal' } },
+  { id: id(), type: 'overloadedGenerator', x: 1450, y: 200, w: 80, h: 80, rot: 0, meta: { link: 'plateS10' } },
+  { id: id(), type: 'overloadedGenerator', x: 1550, y: 200, w: 80, h: 80, rot: 0, meta: { link: 'plateS10' } },
+  { id: id(), type: 'destroyableGlassTube', x: 1500, y: 140, w: 60, h: 60, rot: 0, meta: { link: 'plateS10' } },
+  { id: id(), type: 'pressurePlate', x: 1500, y: 1650, w: 90, h: 70, rot: 0, meta: { link: 'plateS10' } }
 ]
 
 const stage10: Stage = {
@@ -74,7 +84,7 @@ const stage10: Stage = {
   goal: { x: 2900, y: 1500 },
   machines,
   starThresholds: [0, 800, 1600],
-  launchPenalty: 100,
+  launchPenalty: 70,
   bossKillBonus: 500,
   bossModelId: 'dark'
 }

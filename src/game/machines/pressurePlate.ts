@@ -28,7 +28,16 @@ const tick = (m: Machine, ctx: StageCtx) => {
       // Every linked kill triggered by the plate gets a fixed 100×100
       // blast VFX at the target's position.
       spawnExplosion(other.x, other.y, 100)
+      // Score the linked kill — plates used to award 0, which made
+      // pressure-plate chains strictly worse than direct hits. Now
+      // every target pops the standard per-type bounty.
+      if (other.type === 'overloadedGenerator') ctx.addScore(100)
+      else if (other.type === 'destroyableGlassTube') ctx.addScore(40)
+      else if (other.type === 'wall') ctx.addScore(30)
     }
+    // The plate itself is worth a small discovery bonus — rewards
+    // players who bother to find and route to them.
+    ctx.addScore(25)
   }
 }
 

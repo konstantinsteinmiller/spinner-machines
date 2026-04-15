@@ -510,10 +510,10 @@ const stage: Stage = {
   ],
   'starThresholds': [
     0,
-    350,
-    700
+    500,
+    1000
   ],
-  'launchPenalty': 60,
+  'launchPenalty': 50,
   'bossKillBonus': 250,
   'bossModelId': 'rainbow'
 }

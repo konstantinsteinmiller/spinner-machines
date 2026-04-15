@@ -44,7 +44,17 @@ const machines: Machine[] = [
     hp: 70, maxHp: 70, modelId: 'teleporter'
   },
 
-  m('goal', 2100, 1200, 90, 90)
+  m('goal', 2100, 1200, 90, 90),
+
+  // ── Pressure plate cage (retrofit) ────────────────────────────────
+  { id: id(), type: 'wall', x: 1100, y: 90, w: 220, h: 20, rot: 0, meta: { material: 'metal' } },
+  { id: id(), type: 'wall', x: 1100, y: 310, w: 220, h: 20, rot: 0, meta: { material: 'metal' } },
+  { id: id(), type: 'wall', x: 990, y: 200, w: 20, h: 220, rot: 0, meta: { material: 'metal' } },
+  { id: id(), type: 'wall', x: 1210, y: 200, w: 20, h: 220, rot: 0, meta: { material: 'metal' } },
+  { id: id(), type: 'overloadedGenerator', x: 1050, y: 200, w: 80, h: 80, rot: 0, meta: { link: 'plateS7' } },
+  { id: id(), type: 'overloadedGenerator', x: 1150, y: 200, w: 80, h: 80, rot: 0, meta: { link: 'plateS7' } },
+  { id: id(), type: 'destroyableGlassTube', x: 1100, y: 140, w: 60, h: 60, rot: 0, meta: { link: 'plateS7' } },
+  { id: id(), type: 'pressurePlate', x: 400, y: 1200, w: 90, h: 70, rot: 0, meta: { link: 'plateS7' } }
 ]
 
 const stage7: Stage = {
@@ -55,8 +65,8 @@ const stage7: Stage = {
   spawn: { x: 200, y: 700 },
   goal: { x: 2100, y: 1200 },
   machines,
-  starThresholds: [0, 600, 1200],
-  launchPenalty: 60,
+  starThresholds: [0, 650, 1300],
+  launchPenalty: 55,
   bossKillBonus: 300,
   bossModelId: 'teleporter'
 }
