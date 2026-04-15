@@ -2,6 +2,7 @@ import type { MachineModule, StageCtx } from './base'
 import { circleAabbOverlap, drawRotRect } from './base'
 import type { Machine } from '@/types/stage'
 import { machineArtEnabled, getMachineImage, MACHINE_ART } from '@/use/useMachineArt'
+import { spawnLauncherShot } from '@/game/vfx'
 
 const LAUNCH_SPEED = 22
 
@@ -18,6 +19,9 @@ const tick = (m: Machine, ctx: StageCtx) => {
   const dirY = Math.sin(m.rot)
   sp.vx = dirX * LAUNCH_SPEED
   sp.vy = dirY * LAUNCH_SPEED
+  const muzzleX = m.x + dirX * (m.w / 2 + 10)
+  const muzzleY = m.y + dirY * (m.w / 2 + 10)
+  spawnLauncherShot(muzzleX, muzzleY, m.rot, 100)
 }
 
 const render = (ctx: CanvasRenderingContext2D, m: Machine, now: number) => {

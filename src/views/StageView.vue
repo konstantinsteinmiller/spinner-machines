@@ -5,6 +5,7 @@ import useSpinnerConfig from '@/use/useSpinnerConfig'
 import { MACHINE_REGISTRY } from '@/game/machines'
 import { modelImgPath, getSelectedSkin } from '@/use/useModels'
 import stage1 from '@/game/stages/stage1'
+import tutorialStage from '@/game/stages/tutorial'
 import FReward from '@/components/atoms/FReward.vue'
 import FModal from '@/components/molecules/FModal.vue'
 import StarGem from '@/components/atoms/StarGem.vue'
@@ -14,6 +15,8 @@ import SkinShopModal from '@/components/organisms/SkinShopModal.vue'
 import OptionsModal from '@/components/organisms/OptionsModal.vue'
 import AchievementsModal from '@/components/organisms/AchievementsModal.vue'
 import useAchievements from '@/use/useAchievements'
+import useBattlePass from '@/use/useBattlePass'
+import BattlePass from '@/components/organisms/BattlePass.vue'
 import { spawnCoinExplosion } from '@/use/useCoinExplosion'
 import useMeteorShower from '@/use/useMeteorShower'
 import { useHint } from '@/use/useHint'
@@ -26,6 +29,15 @@ import { useMusic } from '@/use/useSound'
 import useCheats, { cheatStageRewardSignal } from '@/use/useCheats'
 import useStageLeaderboard from '@/use/useStageLeaderboard'
 import { machineArtEnabled, toggleMachineArt } from '@/use/useMachineArt'
+import { renderVfx } from '@/game/vfx'
+import {
+  recordTrail,
+  renderSpinnerTrail,
+  renderSpinnerDecals,
+  renderSpinnerAura,
+  renderSpinnerParticles,
+  updateSpinnerVfx
+} from '@/game/spinnerVfx'
 import { isEditorMode } from '@/use/useAppMode'
 import { useRoute } from 'vue-router'
 
@@ -89,6 +101,20 @@ const {
   markAllSeen: markAchievementsSeen
 } = useAchievements()
 
+const { awardHighscore: bpAwardHighscore } = useBattlePass()
+
+function fireCoinExplosion(sourceEl: HTMLElement | null) {
+  if (sourceEl && coinBadgeRef.value?.rootEl) {
+    spawnCoinExplosion({ sourceEl, targetEl: coinBadgeRef.value.rootEl })
+  }
+}
+
+function isStageUnlocked(idx: number): boolean {
+  if (idx <= 0) return true
+  const prev = STAGES[idx - 1]
+  return !!prev && getBestStars(prev.id) >= 1
+}
+
 function openAchievements() {
   showAchievements.value = true
   markAchievementsSeen()
@@ -100,6 +126,24 @@ function pickStage(s: typeof STAGES[number]) {
   showStagePicker.value = false
 }
 
+/** Closing the picker while the previous run is sitting on a finished
+ *  stage is a dead-end for the player — they see the spinner parked on
+ *  the exit gate and don't know to tap Next. Auto-advance to the first
+ *  still-unsolved unlocked stage so they can launch again immediately. */
+function onStagePickerClose() {
+  showStagePicker.value = false
+  if (phase.value !== 'complete') return
+  if (launches.value <= 0) return
+  const targetIdx = STAGES.findIndex(
+    (s, i) => isStageUnlocked(i) && getBestStars(s.id) === 0
+  )
+  if (targetIdx === -1) return
+  const target = STAGES[targetIdx]!
+  if (target.id === currentStage.value.id) return
+  loadStage(target)
+  fitInitialCamera()
+}
+
 const meteor = useMeteorShower()
 const { showHint, startHintTimer, clearHint } = useHint(2500)
 
@@ -107,6 +151,17 @@ const MAX_PULL = 220
 
 // Camera
 const cam = ref({ x: 0, y: 0, zoom: 1 })
+
+// Canvas rect cache for world↔screen math in templates — refreshed on
+// resize so tutorial hint labels track the canvas bounds correctly.
+const canvasRect = ref({ left: 0, top: 0, width: 0, height: 0 })
+
+function refreshCanvasRect() {
+  const c = canvasEl.value
+  if (!c) return
+  const r = c.getBoundingClientRect()
+  canvasRect.value = { left: r.left, top: r.top, width: r.width, height: r.height }
+}
 
 // Pointer state
 type PtrMode = 'none' | 'pan' | 'aim'
@@ -438,41 +493,6 @@ function drawArenaFloor(ctx: CanvasRenderingContext2D, sw: number, sh: number, _
   }
   ctx.restore()
 
-  // ── 4. Arena rings + cross-hair center pad ────────────────────────
-  const cx = sw / 2
-  const cy = sh / 2
-  const r = Math.min(sw, sh) * 0.42
-  const ringGrad = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r)
-  ringGrad.addColorStop(0, 'rgba(125, 211, 252, 0.22)')
-  ringGrad.addColorStop(0.85, 'rgba(125, 211, 252, 0.06)')
-  ringGrad.addColorStop(1, 'rgba(125, 211, 252, 0)')
-  ctx.fillStyle = ringGrad
-  ctx.beginPath()
-  ctx.arc(cx, cy, r, 0, Math.PI * 2)
-  ctx.fill()
-
-  ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)'
-  ctx.lineWidth = 5
-  for (let i = 0; i < 3; i++) {
-    const rr = r * (0.55 + i * 0.22)
-    ctx.beginPath()
-    ctx.arc(cx, cy, rr, 0, Math.PI * 2)
-    ctx.stroke()
-  }
-  ctx.strokeStyle = 'rgba(186, 230, 253, 0.85)'
-  ctx.lineWidth = 5
-  const ch = 26
-  ctx.beginPath()
-  ctx.moveTo(cx - ch, cy)
-  ctx.lineTo(cx - ch * 0.45, cy)
-  ctx.moveTo(cx + ch * 0.45, cy)
-  ctx.lineTo(cx + ch, cy)
-  ctx.moveTo(cx, cy - ch)
-  ctx.lineTo(cx, cy - ch * 0.45)
-  ctx.moveTo(cx, cy + ch * 0.45)
-  ctx.lineTo(cx, cy + ch)
-  ctx.stroke()
-
   // ── 5. High-fidelity cracks running in from corners / edges ───────
   // Seeded PRNG so the pattern is stable for any given stage size.
   const seed = Math.floor(sw * 37 + sh * 131)
@@ -540,7 +560,7 @@ function drawArenaFloor(ctx: CanvasRenderingContext2D, sw: number, sh: number, _
   drawCrack(sw, sh * 0.6, Math.PI - 0.1, edgeLen, 0)
 
   // ── 6. Corner vignette ────────────────────────────────────────────
-  const vg = ctx.createRadialGradient(cx, cy, Math.min(sw, sh) * 0.35, cx, cy, Math.hypot(sw, sh) * 0.55)
+  const vg = ctx.createRadialGradient(sw / 2, sh / 2, Math.min(sw, sh) * 0.35, sw / 2, sh / 2, Math.hypot(sw, sh) * 0.55)
   vg.addColorStop(0, 'rgba(0, 0, 0, 0)')
   vg.addColorStop(1, 'rgba(0, 0, 0, 0.55)')
   ctx.fillStyle = vg
@@ -594,6 +614,9 @@ function render(now: number) {
   ctx.lineWidth = 4
   ctx.strokeRect(0, 0, stage.width, stage.height)
 
+  // Ground decals (boulder / diamond) — drawn under everything else.
+  renderSpinnerDecals(ctx, now)
+
   // Machines
   for (const m of stage.machines) {
     const mod = MACHINE_REGISTRY[m.type]
@@ -607,8 +630,17 @@ function render(now: number) {
     mod.render(ctx, m, now)
   }
 
-  // Spinner
+  // World-space explosion VFX (generator / pressure-plate kills).
+  renderVfx(ctx, now)
+
+  // Spinner VFX — update particles + trail, render trail behind blade.
   const sp = spinner.value
+  const movingNow = Math.hypot(sp.vx, sp.vy) > 0.2
+  updateSpinnerVfx(sp, now, movingNow)
+  recordTrail(sp, now, movingNow)
+  renderSpinnerTrail(ctx, sp.modelId)
+
+  // Spinner
   ctx.save()
   ctx.translate(sp.x, sp.y)
   ctx.rotate(sp.rotation)
@@ -624,6 +656,10 @@ function render(now: number) {
     ctx.stroke()
   }
   ctx.restore()
+
+  // Special-skin aura + particle layer above the spinner.
+  renderSpinnerAura(ctx, sp)
+  renderSpinnerParticles(ctx)
 
   // Aim indicator (chaos-arena style): dashed pull line to pointer +
   // launch arrow opposite, color-coded by spring compression.
@@ -793,9 +829,20 @@ watch(phase, (p) => {
     // Editor-mode playtests skip all persistent progress & reward screen
     // — the finish event is purely a "you reached the goal" ack.
     if (isEditorMode) return
+    // Tutorial completion: mark it done and drop the player into stage 1
+    // immediately. No reward screen, no leaderboard, no achievements.
+    if (currentStage.value.id === 'tutorial') {
+      localStorage.setItem(TUTORIAL_DONE_KEY, '1')
+      setTimeout(() => {
+        loadStage(stage1)
+        fitInitialCamera()
+      }, 600)
+      return
+    }
     // Leaderboard: record the score for this stage (only applied if higher)
     // and refresh the top-5 rows shown on the reward screen.
     isNewHighscore.value = recordLbHighscore(currentStage.value.id, score.value)
+    if (isNewHighscore.value) bpAwardHighscore()
     refreshLbRows()
     // Achievements — pass bestStars so range-based checks have full state.
     recordAchievementsFinish({
@@ -845,6 +892,8 @@ function onOpenStagePicker() {
 
 const route = useRoute()
 
+const TUTORIAL_DONE_KEY = 'bm_tutorial_done'
+
 function loadInitialStage() {
   // Editor "Play" path: if we arrived with ?from=editor or the app is
   // in editor mode, try to load the currently-edited stage from
@@ -863,6 +912,12 @@ function loadInitialStage() {
       }
     }
   }
+  // Fresh-install path: boot into the tutorial until the player
+  // finishes it once.
+  if (!localStorage.getItem(TUTORIAL_DONE_KEY)) {
+    loadStage(tutorialStage)
+    return
+  }
   loadStage(stage1)
 }
 
@@ -871,11 +926,13 @@ onMounted(() => {
   spinnerImg.src = modelImgPath(getSelectedSkin('star'))
   resizeCanvas()
   fitInitialCamera()
+  refreshCanvasRect()
   startLoop()
   raf = requestAnimationFrame(frame)
   window.addEventListener('resize', () => {
     resizeCanvas()
     fitInitialCamera()
+    refreshCanvasRect()
   })
 })
 onUnmounted(() => {
@@ -885,6 +942,46 @@ onUnmounted(() => {
 })
 
 const rewardCoins = computed(() => lastCoinsAwarded.value)
+
+// ─── Tutorial hints ────────────────────────────────────────────────────
+// World-space hint labels anchored above each tagged machine. Only
+// rendered while the player is in an idle / aiming phase (no clutter
+// while the spinner is in-flight). A machine stops showing its hint
+// once it's destroyed or triggered so the stage visibly "ticks off"
+// progress as the player learns each mechanic.
+interface TutorialHint {
+  id: number
+  text: string
+  left: number
+  top: number
+}
+
+const showTutorialHints = computed(() =>
+  currentStage.value.id === 'tutorial' &&
+  (phase.value === 'tap_to_start' || phase.value === 'countdown' || phase.value === 'aiming')
+)
+
+const tutorialHints = computed<TutorialHint[]>(() => {
+  if (!showTutorialHints.value) return []
+  const rect = canvasRect.value
+  if (!rect.width) return []
+  const z = cam.value.zoom
+  const out: TutorialHint[] = []
+  for (const m of currentStage.value.machines) {
+    const hint = (m.meta && typeof m.meta.hint === 'string') ? m.meta.hint : null
+    if (!hint) continue
+    if (m.destroyed) continue
+    if (m.triggered && m.type === 'pressurePlate') continue
+    const worldX = m.x
+    const worldY = m.y - m.h / 2 - 18
+    const sx = (worldX - cam.value.x) * z
+    const sy = (worldY - cam.value.y) * z
+    if (sx < -200 || sx > rect.width + 200) continue
+    if (sy < -80 || sy > rect.height + 80) continue
+    out.push({ id: m.id, text: hint, left: sx, top: sy })
+  }
+  return out
+})
 
 const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || (navigator.maxTouchPoints ?? 0) > 0)
 
@@ -906,7 +1003,7 @@ const launchesTierClass = computed(() => {
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"
       @pointercancel="onPointerUp"
-      @wheel.passive.prevent="onWheel"
+      @wheel="onWheel"
     )
 
     //- Top-left corner: stage badge
@@ -920,13 +1017,12 @@ const launchesTierClass = computed(() => {
       )
 
     //- Top-center: camera control hint (click-drag / scroll)
-    div.camera-hint.absolute.z-20.pointer-events-none.flex.flex-col.items-center(
-      class="gap-0.5 left-1/2 -translate-x-1/2"
-      :style="{ top: 'calc(0.5rem + env(safe-area-inset-top, 0px))' }"
+    div.camera-hint.absolute.z-20.pointer-events-none.flex.flex-col(
+      class="gap-0.5 left-1/2 -translate-x-1/2 items-center"
     )
-      span.game-text(class="text-[10px] sm:text-xs")
+      span.game-text.camera-hint__line(class="text-[10px] sm:text-xs")
         | {{ isTouchDevice ? 'Tap and drag to move the screen' : 'Click and drag to move the screen' }}
-      span.game-text(v-if="!isTouchDevice" class="text-[10px] sm:text-xs")
+      span.game-text.camera-hint__line(v-if="!isTouchDevice" class="text-[10px] sm:text-xs")
         | Scroll to zoom in/out
 
     //- Bottom-right: skins + leaderboard (stages) buttons, safe-area aware.
@@ -961,19 +1057,21 @@ const launchesTierClass = computed(() => {
           :img-src="prependBaseUrl('images/icons/trophy_128x128.webp')"
           @click="showStagePicker = true"
         )
-        //- Achievements button — aquamarine crest with new-item counter badge
-        div.ach-btn-wrap
-          div.relative.inline-block
-            button.ach-btn(
-              @click="openAchievements"
-              aria-label="Achievements"
-            )
-              span.ach-btn__shadow
-              span.ach-btn__body
-                svg(viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round")
-                  path(d="M12 2 L18 5 V11 Q18 16 12 21 Q6 16 6 11 V5 Z")
-                  polyline(points="9 11 11 13 15 9")
-            span.ach-btn__badge(v-if="achUnseenCount > 0") {{ achUnseenCount }}
+        //- Row: Battle Pass (left) → Achievements (right)
+        div.flex.items-end.gap-2
+          BattlePass(@coins-awarded="fireCoinExplosion")
+          div.ach-btn-wrap
+            div.relative.inline-block
+              button.ach-btn(
+                @click="openAchievements"
+                aria-label="Achievements"
+              )
+                span.ach-btn__shadow
+                span.ach-btn__body
+                  svg(viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round")
+                    path(d="M12 2 L18 5 V11 Q18 16 12 21 Q6 16 6 11 V5 Z")
+                    polyline(points="9 11 11 13 15 9")
+              span.ach-btn__badge(v-if="achUnseenCount > 0") {{ achUnseenCount }}
 
     //- Top-right: score + coin badge — hidden in editor-mode playtests.
     div.absolute.flex.flex-col.items-end.gap-2(
@@ -1015,12 +1113,22 @@ const launchesTierClass = computed(() => {
         class="text-7xl sm:text-9xl"
       ) {{ countdownValue }}
 
+    //- Tutorial hint labels — anchored above each tagged machine via
+    //- worldToScreen, fade in while the player is idle.
+    template(v-if="tutorialHints.length > 0")
+      div.tutorial-hint.absolute.pointer-events-none.z-20(
+        v-for="h in tutorialHints"
+        :key="h.id"
+        :style="{ left: h.left + 'px', top: h.top + 'px' }"
+      )
+        div.tutorial-hint__bubble.game-text {{ h.text }}
+        div.tutorial-hint__stem
+
     //- Aim hint
-    div.absolute.left-0.right-0.text-center.pointer-events-none.z-10(
+    div.aim-hint-wrap.absolute.left-0.right-0.text-center.pointer-events-none.z-10(
       v-else-if="phase === 'aiming'"
-      :style="{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }"
     )
-      div.text-white.italic.game-text.opacity-60(class="text-xs sm:text-sm")
+      div.aim-hint.text-white.italic.game-text.opacity-60.mx-auto(class="text-xs sm:text-sm")
         | Drag from the spinner to compress the spring, release to launch
 
     //- Reward overlay — Level Cleared screen (hidden in editor mode).
@@ -1104,7 +1212,7 @@ const launchesTierClass = computed(() => {
             svg(viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round")
               path(d="M20 12a8 8 0 1 1-2.34-5.66")
               polyline(points="20 4 20 10 14 10")
-          button.fbtn(@click="onNextStage" aria-label="Next Level")
+          button.fbtn(v-if="stars >= 1" @click="onNextStage" aria-label="Next Level")
             svg(viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round")
               polyline(points="7 5 14 12 7 19")
               polyline(points="13 5 20 12 13 19")
@@ -1157,18 +1265,27 @@ const launchesTierClass = computed(() => {
     //- Stage picker
     FModal(
       :model-value="showStagePicker"
-      @update:model-value="showStagePicker = $event"
+      @update:model-value="$event ? (showStagePicker = true) : onStagePickerClose()"
       title="Stages"
     )
       div.text-slate-300.italic.game-text.text-xs.mb-3
         | Replay any stage to improve your rating — you only earn the difference in coins.
       div.grid.grid-cols-2.gap-2.overflow-y-auto(class="sm:grid-cols-3 max-h-[60vh] p-1")
-        button.relative.rounded-lg.border-2.border-yellow-400.bg-slate-800.p-3.text-left.cursor-pointer(
-          v-for="s in STAGES"
+        button.relative.rounded-lg.border-2.bg-slate-800.p-3.text-left(
+          v-for="(s, idx) in STAGES"
           :key="s.id"
-          class="hover:bg-slate-700 active:scale-95 transition-transform"
-          @click="pickStage(s)"
+          :disabled="!isStageUnlocked(idx)"
+          :class="[\
+            isStageUnlocked(idx)\
+              ? 'border-yellow-400 cursor-pointer hover:bg-slate-700 active:scale-95 transition-transform'\
+              : 'border-slate-600 opacity-50 cursor-not-allowed'\
+          ]"
+          @click="isStageUnlocked(idx) && pickStage(s)"
         )
+          //- Locked overlay indicator
+          template(v-if="!isStageUnlocked(idx)")
+            div.absolute.inset-0.flex.items-center.justify-center.pointer-events-none
+              span.text-4xl 🔒
           //- Per-stage rank badge (top-right of card)
           template(v-if="lbMyRankForStage(s.id)")
             div.stage-rank-badge.game-text(
@@ -1179,16 +1296,90 @@ const launchesTierClass = computed(() => {
               span.stage-rank-badge__total /{{ lbMyRankForStage(s.id).total }}
           div.text-yellow-300.game-text.font-black.text-xs.uppercase {{ s.id }}
           div.text-white.game-text.font-black.text-sm {{ s.name }}
-          div.flex.my-1(class="gap-0.5")
-            span.text-lg(
+          div.stage-card-stars.flex.items-center.my-1(class="gap-1")
+            div.stage-card-star(
               v-for="n in 3"
               :key="n"
-              :class="n <= getBestStars(s.id) ? 'text-yellow-300' : 'text-slate-600'"
-            ) ★
-          div.text-slate-400.game-text.text-xs {{ s.width }}×{{ s.height }}
+              :class="{ 'stage-card-star--lit': n <= getBestStars(s.id) }"
+            )
+              star-gem(:lit="n <= getBestStars(s.id)" :gid="`${s.id}-${n}`")
+          div.flex.items-center.justify-between.gap-2
+            div.text-slate-400.game-text.text-xs {{ s.width }}×{{ s.height }}
+            div.text-yellow-300.game-text.font-black.text-xs(
+              v-if="lbMyRankForStage(s.id)"
+            ) {{ lbMyRankForStage(s.id).score }}
 </template>
 
 <style scoped lang="sass">
+.camera-hint
+  top: calc(0.5rem + env(safe-area-inset-top, 0px))
+  text-align: center
+  @media (max-width: 639px)
+    top: calc(3.25rem + env(safe-area-inset-top, 0px))
+    max-width: calc(100vw - 9rem)
+    .camera-hint__line
+      display: inline-block
+      word-break: break-word
+      white-space: normal
+
+.tutorial-hint
+  transform: translate(-50%, -100%)
+  animation: tutorial-hint-pop 220ms ease-out both
+
+.tutorial-hint__bubble
+  background: linear-gradient(180deg, rgba(16, 24, 40, 0.95) 0%, rgba(10, 16, 28, 0.95) 100%)
+  color: #fde68a
+  border: 2px solid #fbbf24
+  border-radius: 10px
+  padding: 6px 10px
+  font-size: 11px
+  font-weight: 800
+  letter-spacing: 0.02em
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 0, 0, 0.5)
+  max-width: 260px
+  text-align: center
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9)
+
+.tutorial-hint__stem
+  width: 0
+  height: 0
+  margin: 0 auto
+  border-left: 6px solid transparent
+  border-right: 6px solid transparent
+  border-top: 8px solid #fbbf24
+
+@keyframes tutorial-hint-pop
+  0%
+    opacity: 0
+    transform: translate(-50%, -90%) scale(0.9)
+  100%
+    opacity: 1
+    transform: translate(-50%, -100%) scale(1)
+
+.aim-hint-wrap
+  bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px))
+  @media (max-width: 639px)
+    bottom: calc(6rem + env(safe-area-inset-bottom, 0px))
+
+.aim-hint
+  max-width: 100%
+  padding: 0 0.5rem
+  @media (max-width: 639px)
+    max-width: calc(100vw - 10rem)
+    word-break: break-word
+    white-space: normal
+
+.stage-card-star
+  width: 1.1rem
+  height: 1.1rem
+  flex: 0 0 auto
+  filter: grayscale(0.85) brightness(0.85)
+  opacity: 0.7
+
+  &--lit
+    filter: none
+    opacity: 1
+
 .score-badge
   border: 2px solid #fcd34d
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 4px 10px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.25), inset 0 -2px 4px rgba(0, 0, 0, 0.4)

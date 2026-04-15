@@ -100,6 +100,12 @@ const leaderboard = ref<LeaderboardData>(loadLocal())
 
 // ─── Server I/O ────────────────────────────────────────────────────────
 
+// Session-scoped kill switches. Once either trips, we stop hitting the
+// network for the rest of the tab so the console stays clean and we
+// don't spam jsonbin with doomed requests. A page reload resets them.
+let serverDisabled = false
+let createBinAttempted = false
+
 function headers(withKey: boolean): HeadersInit {
   const h: Record<string, string> = { 'Content-Type': 'application/json' }
   if (withKey && MASTER_KEY) h['X-Master-Key'] = MASTER_KEY
@@ -107,16 +113,41 @@ function headers(withKey: boolean): HeadersInit {
 }
 
 async function fetchFromServer(): Promise<LeaderboardData | null> {
-  const binId = getBinId()
-  if (!binId) return null
+  if (serverDisabled) return null
+  // Without a master key we can neither read private bins, auto-create
+  // a fresh one, nor write scores back. Skip the network round-trip.
+  if (!MASTER_KEY) {
+    serverDisabled = true
+    return null
+  }
+  let binId = getBinId()
+  // No bin configured at all — try to provision one on the fly.
+  if (!binId) {
+    const created = await createBin()
+    if (!created) {
+      serverDisabled = true
+      return null
+    }
+    binId = created
+    console.info(
+      '[leaderboard] Created new jsonbin record: ' + created +
+      '. Cache persisted in localStorage.'
+    )
+    return { players: [] }
+  }
   try {
     const res = await fetch(`${BASE}/b/${binId}/latest`, {
       method: 'GET',
-      headers: headers(!!MASTER_KEY)
+      headers: headers(true)
     })
     if (res.status === 404) {
-      // Configured bin doesn't exist yet — try to auto-create one so the
-      // leaderboard bootstraps cleanly on first run. Requires master key.
+      // Stale id — drop the localStorage override so we don't keep
+      // hammering a non-existent bin on every refresh. We can't clear
+      // the env value, so we also trip the session kill switch below
+      // if bin creation fails.
+      if (localStorage.getItem(BIN_ID_OVERRIDE_KEY)) {
+        localStorage.removeItem(BIN_ID_OVERRIDE_KEY)
+      }
       const created = await createBin()
       if (created) {
         console.info(
@@ -125,6 +156,14 @@ async function fetchFromServer(): Promise<LeaderboardData | null> {
         )
         return { players: [] }
       }
+      // No bin and no way to make one — stop trying for this session.
+      serverDisabled = true
+      return null
+    }
+    if (res.status === 401 || res.status === 403) {
+      // Unauthorized — the key is wrong / missing permissions. Give up
+      // for the session instead of hammering the endpoint.
+      serverDisabled = true
       return null
     }
     if (!res.ok) return null
@@ -139,6 +178,8 @@ async function fetchFromServer(): Promise<LeaderboardData | null> {
 
 async function createBin(): Promise<string | null> {
   if (!MASTER_KEY) return null
+  if (createBinAttempted) return null
+  createBinAttempted = true
   try {
     const res = await fetch(`${BASE}/b`, {
       method: 'POST',
@@ -162,6 +203,7 @@ async function createBin(): Promise<string | null> {
 }
 
 async function writeToServer(data: LeaderboardData, opts: { keepalive?: boolean } = {}): Promise<boolean> {
+  if (serverDisabled) return false
   const binId = getBinId()
   if (!binId || !MASTER_KEY) return false
   try {
@@ -171,6 +213,9 @@ async function writeToServer(data: LeaderboardData, opts: { keepalive?: boolean 
       body: JSON.stringify(data),
       keepalive: opts.keepalive === true
     })
+    if (res.status === 404 || res.status === 401 || res.status === 403) {
+      serverDisabled = true
+    }
     return res.ok
   } catch {
     return false
@@ -229,7 +274,9 @@ function myEntry(): LeaderboardEntry {
   return fresh
 }
 
-/** Called whenever the player finishes a stage — updates only the local cache. */
+/** Called whenever the player finishes a stage — updates the local cache
+ *  and fires a best-effort flush to the remote bin so new highscores land
+ *  on the server right away instead of waiting for tab close. */
 function recordHighscore(stageId: string, score: number): boolean {
   const me = myEntry()
   const prev = me.scores[stageId] ?? 0
@@ -239,6 +286,7 @@ function recordHighscore(stageId: string, score: number): boolean {
   me.updatedAt = Date.now()
   saveLocal(leaderboard.value)
   markDirty()
+  void flushIfDirty()
   return true
 }
 

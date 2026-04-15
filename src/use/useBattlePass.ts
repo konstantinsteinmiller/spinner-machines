@@ -8,7 +8,6 @@ import {
   type SpinnerModelId
 } from '@/use/useModels'
 import type { TopPartId } from '@/types/spinner'
-import { resetHonorTrack } from '@/use/usePvpStats'
 
 /**
  * Battle Pass progression. 50 stages, 100 xp per stage. Win/loss events
@@ -37,6 +36,7 @@ export const BP_SEASON_DAYS = 30
 export const BP_XP_CAMPAIGN_WIN = 50        // 1/2 of a stage
 export const BP_XP_LEADERBOARD_WIN = 25     // 1/4 of a stage
 export const BP_XP_LOSS = 12.5              // 1/8 of a stage
+export const BP_XP_HIGHSCORE = 50           // spinner-machines new highscore
 
 /** 1-based stage indices that grant a skin instead of coins. Spaced every
  *  10 levels across the extended 100-stage track so the season still has
@@ -110,7 +110,6 @@ const loadState = (): BattlePassState => {
         }
         // Season expired — reset everything
         if (isSeasonExpired(loaded.seasonStartedAt)) {
-          seasonResetPending = true
           return defaultState()
         }
         return loaded
@@ -120,10 +119,6 @@ const loadState = (): BattlePassState => {
   }
   return defaultState()
 }
-
-/** Deferred flag — honor track reset runs on first composable access
- *  to avoid circular import issues at module load time. */
-let seasonResetPending = false
 
 const state: Ref<BattlePassState> = ref(loadState())
 
@@ -182,7 +177,6 @@ const addXp = (amount: number) => {
   // Check for season expiry before adding XP
   if (isSeasonExpired(state.value.seasonStartedAt)) {
     state.value = defaultState()
-    resetHonorTrack()
     saveState()
   }
   if (state.value.unlockedStages >= BP_TOTAL_STAGES) return
@@ -205,6 +199,7 @@ const addXp = (amount: number) => {
 const awardCampaignWin = () => addXp(BP_XP_CAMPAIGN_WIN)
 const awardLeaderboardWin = () => addXp(BP_XP_LEADERBOARD_WIN)
 const awardLoss = () => addXp(BP_XP_LOSS)
+const awardHighscore = () => addXp(BP_XP_HIGHSCORE)
 
 // ─── Claim ──────────────────────────────────────────────────────────────────
 
@@ -280,12 +275,6 @@ const isStageUnlocked = (stage: number): boolean =>
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 export default function useBattlePass() {
-  // Flush deferred honor-track reset (avoids circular import at module load)
-  if (seasonResetPending) {
-    seasonResetPending = false
-    resetHonorTrack()
-    saveState()
-  }
   return {
     // state
     state,
@@ -311,6 +300,7 @@ export default function useBattlePass() {
     awardCampaignWin,
     awardLeaderboardWin,
     awardLoss,
+    awardHighscore,
     // claiming
     claimStage
   }

@@ -264,7 +264,10 @@ const stage: Stage = {
       'y': 540,
       'w': 80,
       'h': 80,
-      'rot': 0
+      'rot': 0,
+      'meta': {
+        'link': 'plate1'
+      }
     },
     {
       'id': 29,
@@ -366,9 +369,9 @@ const stage: Stage = {
       'id': 38,
       'type': 'pressurePlate',
       'x': 1140,
-      'y': 1120,
-      'w': 160,
-      'h': 20,
+      'y': 1100,
+      'w': 60,
+      'h': 60,
       'rot': 0,
       'meta': {
         'link': 'plate1'
@@ -404,6 +407,99 @@ const stage: Stage = {
       'type': 'destroyableGlassTube',
       'x': 1500,
       'y': 260,
+      'w': 60,
+      'h': 100,
+      'rot': 0,
+      'meta': {
+        'link': 'plate1'
+      }
+    },
+    {
+      'id': 42,
+      'type': 'pneumaticLauncher',
+      'x': 400,
+      'y': 620,
+      'w': 90,
+      'h': 60,
+      'rot': 0
+    },
+    {
+      'id': 43,
+      'type': 'destroyableGlassTube',
+      'x': 1980,
+      'y': 780,
+      'w': 60,
+      'h': 100,
+      'rot': 0,
+      'meta': {
+        'link': 'plate1'
+      }
+    },
+    {
+      'id': 44,
+      'type': 'destroyableGlassTube',
+      'x': 2080,
+      'y': 780,
+      'w': 60,
+      'h': 100,
+      'rot': 0,
+      'meta': {
+        'link': 'plate1'
+      }
+    },
+    {
+      'id': 45,
+      'type': 'overloadedGenerator',
+      'x': 1800,
+      'y': 1300,
+      'w': 80,
+      'h': 80,
+      'rot': 0,
+      'meta': {
+        'link': 'plate1'
+      }
+    },
+    {
+      'id': 46,
+      'type': 'destroyableGlassTube',
+      'x': 2100,
+      'y': 100,
+      'w': 60,
+      'h': 100,
+      'rot': 0,
+      'meta': {
+        'link': 'plate1'
+      }
+    },
+    {
+      'id': 47,
+      'type': 'overloadedGenerator',
+      'x': 1940,
+      'y': 100,
+      'w': 80,
+      'h': 80,
+      'rot': 0,
+      'meta': {
+        'link': 'plate1'
+      }
+    },
+    {
+      'id': 48,
+      'type': 'destroyableGlassTube',
+      'x': 1300,
+      'y': 100,
+      'w': 60,
+      'h': 100,
+      'rot': 0,
+      'meta': {
+        'link': 'plate1'
+      }
+    },
+    {
+      'id': 49,
+      'type': 'destroyableGlassTube',
+      'x': 1580,
+      'y': 100,
       'w': 60,
       'h': 100,
       'rot': 0,

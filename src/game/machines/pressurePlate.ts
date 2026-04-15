@@ -1,6 +1,8 @@
 import type { MachineModule, StageCtx } from './base'
 import { circleAabbOverlap, drawRotRect } from './base'
 import type { Machine } from '@/types/stage'
+import { machineArtEnabled, getMachineImage, MACHINE_ART } from '@/use/useMachineArt'
+import { spawnExplosion } from '@/game/vfx'
 
 const tick = (m: Machine, ctx: StageCtx) => {
   if (m.destroyed) return
@@ -23,18 +25,35 @@ const tick = (m: Machine, ctx: StageCtx) => {
       if (other.type === 'destroyableGlassTube') {
         other.destroyedAt = ctx.now
       }
+      // Every linked kill triggered by the plate gets a fixed 100×100
+      // blast VFX at the target's position.
+      spawnExplosion(other.x, other.y, 100)
     }
   }
 }
 
 const render = (ctx: CanvasRenderingContext2D, m: Machine, _now: number) => {
+  // ── Art mode: swap between normal and pressed sprite on trigger. ──
+  if (machineArtEnabled.value) {
+    const src = m.triggered ? MACHINE_ART.pressurePlatePressed : MACHINE_ART.pressurePlate
+    const img = getMachineImage(src)
+    if (img) {
+      ctx.save()
+      ctx.translate(m.x, m.y)
+      ctx.rotate(m.rot)
+      ctx.drawImage(img, -m.w / 2, -m.h / 2, m.w, m.h)
+      ctx.restore()
+      return
+    }
+  }
+
   drawRotRect(ctx, m, m.triggered ? '#065f46' : '#78350f', '#fbbf24')
 }
 
 const mod: MachineModule = {
   type: 'pressurePlate',
   label: 'Pressure Plate',
-  defaultSize: { w: 80, h: 20 },
+  defaultSize: { w: 60, h: 60 },
   color: '#fbbf24',
   tick,
   render

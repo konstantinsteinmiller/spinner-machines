@@ -4,8 +4,6 @@ import useUserDb from '@/use/useUserDb'
 import { type Difficulties, DIFFICULTY } from '@/utils/enums'
 import { GAME_USER_LANGUAGE } from '@/utils/constants'
 import { mobileCheck } from '@/utils/function'
-import type { GameCard } from '@/types/game.ts'
-import useModels from '@/use/useModels.ts'
 
 export const windowWidth = ref(window.innerWidth)
 export const windowHeight = ref(window.innerHeight)

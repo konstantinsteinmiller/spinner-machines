@@ -87,6 +87,9 @@ jobs:
         env:
           VITE_APP_TURN_USERNAME: ${{ secrets.VITE_APP_TURN_USERNAME }}
           VITE_APP_TURN_CREDENTIAL: ${{ secrets.VITE_APP_TURN_CREDENTIAL }}
+          VITE_JSONBIN_BIN_ID: ${{ vars.VITE_JSONBIN_BIN_ID }}
+          VITE_JSONBIN_KEY: ${{ secrets.VITE_JSONBIN_KEY }}
+
 
       - name: Build Develop Production
         run: npm run build-github-develop
@@ -94,6 +97,8 @@ jobs:
         env:
           VITE_APP_TURN_USERNAME: ${{ secrets.VITE_APP_TURN_USERNAME }}
           VITE_APP_TURN_CREDENTIAL: ${{ secrets.VITE_APP_TURN_CREDENTIAL }}
+          VITE_JSONBIN_BIN_ID: ${{ vars.VITE_JSONBIN_BIN_ID }}
+          VITE_JSONBIN_KEY: ${{ secrets.VITE_JSONBIN_KEY }}
 
       - name: Build Demo Production
         run: npm run build-github-demo
@@ -101,6 +106,8 @@ jobs:
         env:
           VITE_APP_TURN_USERNAME: ${{ secrets.VITE_APP_TURN_USERNAME }}
           VITE_APP_TURN_CREDENTIAL: ${{ secrets.VITE_APP_TURN_CREDENTIAL }}
+          VITE_JSONBIN_BIN_ID: ${{ vars.VITE_JSONBIN_BIN_ID }}
+          VITE_JSONBIN_KEY: ${{ secrets.VITE_JSONBIN_KEY }}
 
       - name: Build Editor Mode Production
         run: npm run build-github-editor
@@ -108,6 +115,9 @@ jobs:
         env:
           VITE_APP_TURN_USERNAME: ${{ secrets.VITE_APP_TURN_USERNAME }}
           VITE_APP_TURN_CREDENTIAL: ${{ secrets.VITE_APP_TURN_CREDENTIAL }}
+          VITE_PANTRY_ID: ${{ secrets.VITE_PANTRY_ID }}
+          VITE_JSONBIN_BIN_ID: ${{ vars.VITE_JSONBIN_BIN_ID }}
+          VITE_JSONBIN_KEY: ${{ secrets.VITE_JSONBIN_KEY }}
 
       - name: Create Dist Folder
         run: mkdir dist

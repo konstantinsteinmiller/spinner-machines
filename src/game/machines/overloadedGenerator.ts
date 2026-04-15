@@ -2,6 +2,7 @@ import type { MachineModule, StageCtx } from './base'
 import { circleAabbOverlap, drawRotRect } from './base'
 import type { Machine } from '@/types/stage'
 import { machineArtEnabled, getMachineImage, MACHINE_ART } from '@/use/useMachineArt'
+import { spawnExplosion } from '@/game/vfx'
 
 const SCORE = 100
 const CHAIN_SCORE = 50
@@ -25,6 +26,9 @@ const explode = (m: Machine, ctx: StageCtx, score: number) => {
   m.destroyed = true
   ctx.destroyMachine(m)
   ctx.addScore(score)
+  // Fixed-size blast VFX (100 world units) — consistent pop regardless
+  // of which machine triggered it.
+  spawnExplosion(m.x, m.y, 100)
   // Chain reaction: destroy neighbors in blast radius.
   for (const other of ctx.machines) {
     if (other === m || other.destroyed) continue
@@ -34,6 +38,7 @@ const explode = (m: Machine, ctx: StageCtx, score: number) => {
         explode(other, ctx, CHAIN_SCORE)
       } else if (other.type === 'destroyableGlassTube' || other.type === 'wall') {
         other.destroyed = true
+        if (other.type === 'destroyableGlassTube') other.destroyedAt = ctx.now
         ctx.destroyMachine(other)
         ctx.addScore(CHAIN_SCORE)
       }

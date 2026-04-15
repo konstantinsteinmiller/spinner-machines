@@ -5,6 +5,8 @@ import type { StageCtx } from '@/game/machines/base'
 import stage1 from '@/game/stages/stage1'
 import { getSelectedSkin } from '@/use/useModels'
 import useSpinnerConfig from '@/use/useSpinnerConfig'
+import { clearExplosions } from '@/game/vfx'
+import { clearSpinnerVfx } from '@/game/spinnerVfx'
 
 const FRICTION = 0.991
 const FRICTION_LOW = 0.93
@@ -129,6 +131,10 @@ function loadStage(s: Stage) {
   bossKilled.value = false
   phase.value = 'tap_to_start'
   resetSpinner()
+  // Drop any in-flight explosion VFX from the previous run so reloading
+  // a stage never leaves phantom booms hanging over the fresh layout.
+  clearExplosions()
+  clearSpinnerVfx()
 }
 
 function beginCountdown(onDone: () => void) {
@@ -266,7 +272,7 @@ function step(dt: number) {
     onBossDead: () => {
       if (bossKilled.value) return
       bossKilled.value = true
-      score.value += stage.bossKillBonus
+      score.value += stage.bossKillBonus * 2
     },
     onGoal: () => {
       if (phase.value === 'complete') return
@@ -277,40 +283,54 @@ function step(dt: number) {
   const speed = Math.hypot(sp.vx, sp.vy)
   const substeps = Math.max(1, Math.ceil(speed / MAX_SUBSTEP_DIST))
   const invN = 1 / substeps
+  const isTeleporter = sp.modelId === 'teleporter'
   for (let i = 0; i < substeps; i++) {
     sp.x += sp.vx * invN
     sp.y += sp.vy * invN
 
-    // Stage bounds clamp per substep so outer bounds can't be tunneled.
-    if (sp.x < sp.r) {
-      sp.x = sp.r
-      sp.vx = Math.abs(sp.vx) * 0.85
-    }
-    if (sp.y < sp.r) {
-      sp.y = sp.r
-      sp.vy = Math.abs(sp.vy) * 0.85
-    }
-    if (sp.x > stage.width - sp.r) {
-      sp.x = stage.width - sp.r
-      sp.vx = -Math.abs(sp.vx) * 0.85
-    }
-    if (sp.y > stage.height - sp.r) {
-      sp.y = stage.height - sp.r
-      sp.vy = -Math.abs(sp.vy) * 0.85
+    if (isTeleporter) {
+      // Teleporter skin phases through the outer stage bounds — wrap to
+      // the opposite edge so launching too hard flings you across the
+      // map. Very strong, but unpredictable.
+      if (sp.x < -sp.r) sp.x = stage.width + sp.r
+      else if (sp.x > stage.width + sp.r) sp.x = -sp.r
+      if (sp.y < -sp.r) sp.y = stage.height + sp.r
+      else if (sp.y > stage.height + sp.r) sp.y = -sp.r
+    } else {
+      // Stage bounds clamp per substep so outer bounds can't be tunneled.
+      if (sp.x < sp.r) {
+        sp.x = sp.r
+        sp.vx = Math.abs(sp.vx) * 0.85
+      }
+      if (sp.y < sp.r) {
+        sp.y = sp.r
+        sp.vy = Math.abs(sp.vy) * 0.85
+      }
+      if (sp.x > stage.width - sp.r) {
+        sp.x = stage.width - sp.r
+        sp.vx = -Math.abs(sp.vx) * 0.85
+      }
+      if (sp.y > stage.height - sp.r) {
+        sp.y = stage.height - sp.r
+        sp.vy = -Math.abs(sp.vy) * 0.85
+      }
     }
 
     // Walls resolve each substep so fast-moving blades can't skip them.
-    for (const m of stage.machines) {
-      if (m.destroyed) continue
-      if (m.type !== 'wall') continue
-      const impact = bounceAabb(sp, m)
-      if (impact <= 0) continue
-      if (m.maxHp === undefined) m.maxHp = wallMaxHp(m)
-      if (m.hp === undefined) m.hp = m.maxHp
-      m.hp -= impact * WALL_DAMAGE_PER_SPEED
-      if (m.hp <= 0) {
-        m.destroyed = true
-        score.value += Math.max(5, Math.round(m.maxHp / 2))
+    // Teleporter skin skips wall resolution entirely — it phases through.
+    if (!isTeleporter) {
+      for (const m of stage.machines) {
+        if (m.destroyed) continue
+        if (m.type !== 'wall') continue
+        const impact = bounceAabb(sp, m)
+        if (impact <= 0) continue
+        if (m.maxHp === undefined) m.maxHp = wallMaxHp(m)
+        if (m.hp === undefined) m.hp = m.maxHp
+        m.hp -= impact * WALL_DAMAGE_PER_SPEED
+        if (m.hp <= 0) {
+          m.destroyed = true
+          score.value += Math.max(5, Math.round(m.maxHp / 2))
+        }
       }
     }
     // Interactive machines tick each substep so rails / boosters / goal
@@ -352,6 +372,52 @@ function settleToAiming() {
   phase.value = 'aiming'
 }
 
+// ─── Thunderstorm aura damage ─────────────────────────────────────────
+// Applies a pulse of damage to destructible machines within range every
+// THUNDER_PULSE_MS. Bosses are explicitly immune so they stay the real
+// challenge. Called from the main loop while the spinner is in flight.
+const THUNDER_RADIUS = 140
+const THUNDER_PULSE_MS = 260
+const THUNDER_WALL_DMG = 2
+let lastThunderPulse = 0
+
+function tickThunderstormDamage(now: number) {
+  const sp = spinner.value
+  if (sp.modelId !== 'thunderstorm') return
+  if (now - lastThunderPulse < THUNDER_PULSE_MS) return
+  lastThunderPulse = now
+  const stage = currentStage.value
+  const R2 = THUNDER_RADIUS * THUNDER_RADIUS
+  for (const m of stage.machines) {
+    if (m.destroyed) continue
+    if (m.type === 'boss') continue // bosses are immune per design
+    if (m.type === 'spawn' || m.type === 'goal') continue
+    const dx = m.x - sp.x
+    const dy = m.y - sp.y
+    if (dx * dx + dy * dy > R2) continue
+    if (m.type === 'wall') {
+      if (m.maxHp === undefined) m.maxHp = wallMaxHp(m)
+      if (m.hp === undefined) m.hp = m.maxHp
+      m.hp -= THUNDER_WALL_DMG
+      if (m.hp <= 0) {
+        m.destroyed = true
+        score.value += Math.max(5, Math.round(m.maxHp / 2))
+      }
+    } else if (m.type === 'destroyableGlassTube') {
+      m.destroyed = true
+      score.value += 20
+    } else if (m.type === 'overloadedGenerator') {
+      // Trigger the generator's explosion path by marking it destroyed;
+      // its own machine module will detect and spawn the VFX / cascade.
+      m.destroyed = true
+      m.destroyedAt = now
+      score.value += 30
+    } else if (m.type === 'pressurePlate') {
+      if (!m.triggered) m.triggered = true
+    }
+  }
+}
+
 let rafId: number | null = null
 let lastTs = 0
 
@@ -360,6 +426,7 @@ function loop(ts: number) {
   lastTs = ts
   if (phase.value === 'launched' || phase.value === 'aiming') {
     step(dt)
+    if (phase.value === 'launched') tickThunderstormDamage(ts)
   }
   rafId = requestAnimationFrame(loop)
 }

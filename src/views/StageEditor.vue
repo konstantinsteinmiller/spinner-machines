@@ -625,7 +625,11 @@ async function parseStagesJsonFromClipboard() {
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ name: safe, stage: s })
         })
-        if (res.ok) ok++ else fail++
+        if (res.ok) {
+          ok++
+        } else {
+          fail++
+        }
       } else {
         localStorage.setItem(`bm_stage_${safe}`, JSON.stringify(s))
         ok++
@@ -862,7 +866,7 @@ onUnmounted(() => {
               v-for="t in linkedTargets(selectedMachine())"
               :key="t.id"
             )
-              | {{ t.type }}#{{ t.id }}
+              span {{ `${t.type}#${t.id}` }}
               button.plate-help__chip-x(
                 @click="unlinkTarget(t)"
                 title="Unlink"

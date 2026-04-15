@@ -76,25 +76,26 @@ const mod: MachineModule = {
         ctx.rect(-m.w / 2, -m.h / 2, m.w, m.h)
         ctx.save()
         ctx.clip()
-        const rows = Math.max(1, Math.round(m.h / BRICK_SIZE))
-        // Center the row stack vertically inside the wall hitbox so the
-        // pattern doesn't drift for walls whose height isn't a clean
-        // multiple of BRICK_SIZE.
-        const yStart = -m.h / 2 + (m.h - rows * BRICK_SIZE) / 2
+        // Lay rows along the short axis; run bricks along the long axis
+        // so vertical walls don't get a half-brick offset in their
+        // single-brick width.
+        const horizontal = m.w >= m.h
+        const shortDim = horizontal ? m.h : m.w
+        const longDim = horizontal ? m.w : m.h
+        const rows = Math.max(1, Math.round(shortDim / BRICK_SIZE))
+        const rowStart = -shortDim / 2 + (shortDim - rows * BRICK_SIZE) / 2
         for (let r = 0; r < rows; r++) {
           const rowOffset = (r % 2 === 1) ? BRICK_SIZE / 2 : 0
-          // Extra column on either side so the running-bond offset
-          // never leaves a gap at the wall's left edge.
-          const firstX = -m.w / 2 - rowOffset - BRICK_SIZE
-          const cols = Math.ceil((m.w + rowOffset + BRICK_SIZE * 2) / BRICK_SIZE)
+          const firstLong = -longDim / 2 - rowOffset - BRICK_SIZE
+          const cols = Math.ceil((longDim + rowOffset + BRICK_SIZE * 2) / BRICK_SIZE)
           for (let c = 0; c < cols; c++) {
-            ctx.drawImage(
-              brick,
-              firstX + c * BRICK_SIZE,
-              yStart + r * BRICK_SIZE,
-              BRICK_SIZE,
-              BRICK_SIZE
-            )
+            const longPos = firstLong + c * BRICK_SIZE
+            const shortPos = rowStart + r * BRICK_SIZE
+            if (horizontal) {
+              ctx.drawImage(brick, longPos, shortPos, BRICK_SIZE, BRICK_SIZE)
+            } else {
+              ctx.drawImage(brick, shortPos, longPos, BRICK_SIZE, BRICK_SIZE)
+            }
           }
         }
         ctx.restore()

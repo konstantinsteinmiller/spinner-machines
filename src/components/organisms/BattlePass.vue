@@ -12,13 +12,10 @@ import {
   modelImgPath,
   SKINS_PER_TOP,
   isModelFullyOwned,
-  buySkin,
   type SpinnerModelId
 } from '@/use/useModels'
 import type { TopPartId } from '@/types/spinner'
 import useSounds from '@/use/useSound.ts'
-import usePvpStats, { HONOR_PER_STAGE, HONOR_TOTAL_STAGES } from '@/use/usePvpStats'
-import usePVP from '@/use/usePVP'
 
 const {
   currentXp,
@@ -36,22 +33,6 @@ const {
   persistedOffers,
   saveOfferedSkins
 } = useBattlePass()
-
-const {
-  honor: honorPoints,
-  honorStages: honorUnlockedStages,
-  isHonorMaxed,
-  honorProgressFraction,
-  pendingHonorClaims,
-  isHonorStageClaimed,
-  isHonorStageUnlocked,
-  claimHonorStage,
-  claimedHonorSkins,
-  persistedHonorOffers,
-  saveOfferedHonorSkins
-} = usePvpStats()
-
-const { canShowPvP } = usePVP()
 
 const emit = defineEmits<{
   (e: 'coins-awarded', sourceEl: HTMLElement): void
@@ -176,64 +157,8 @@ const scrollToCurrentStage = () => {
 watch(isModalOpen, (open) => {
   if (!open) return
   refreshOfferedSkins()
-  refreshHonorOfferedSkins()
   nextTick(() => scrollToCurrentStage())
 })
-
-// ─── Honor Track ──────────────────────────────────────────────────────────
-
-const showHonorInfo = ref(false)
-
-/** Honor stage cards — each grants a skin. */
-const honorStageCards = computed(() =>
-  Array.from({ length: HONOR_TOTAL_STAGES }, (_, i) => {
-    const stage = i + 1
-    return {
-      stage,
-      unlocked: isHonorStageUnlocked(stage),
-      claimed: isHonorStageClaimed(stage),
-      inProgress: !isHonorMaxed.value && stage === honorUnlockedStages.value + 1
-    }
-  })
-)
-
-// Offered skins for honor track stages
-const honorOfferedSkins = ref<Record<number, SpinnerModelId | null>>({})
-
-const refreshHonorOfferedSkins = () => {
-  const stages = honorStageCards.value.filter(c => !c.claimed).map(c => c.stage)
-  const persisted = persistedHonorOffers.value
-  const result: Record<number, SpinnerModelId | null> = {}
-  const taken = new Set<SpinnerModelId>()
-
-  // Keep existing offers that are still unowned
-  for (const stage of stages) {
-    const prev = persisted[stage]
-    if (prev && !isModelFullyOwned(prev)) {
-      result[stage] = prev
-      taken.add(prev)
-    }
-  }
-
-  // Fill stages that need a new skin
-  const pool = shuffled(unownedSkinModelIds().filter(m => !taken.has(m)))
-  let poolIdx = 0
-  for (const stage of stages) {
-    if (result[stage]) continue
-    if (poolIdx < pool.length) {
-      result[stage] = pool[poolIdx]!
-      poolIdx++
-    }
-  }
-
-  honorOfferedSkins.value = result
-  // Persist valid offers
-  const toSave: Record<number, SpinnerModelId> = {}
-  for (const [k, v] of Object.entries(result)) {
-    if (v) toSave[Number(k)] = v
-  }
-  saveOfferedHonorSkins(toSave)
-}
 
 // ─── Claim action ──────────────────────────────────────────────────────────
 
@@ -249,18 +174,6 @@ const bpSkinMap = computed<Record<number, SpinnerModelId | null>>(() => {
 const bpSkinForStage = (stage: number): SpinnerModelId | null =>
   bpSkinMap.value[stage] ?? null
 
-/** Resolve which skin image to show for an honor track stage.
- *  Merged into a single computed map so Vue tracks both sources reactively. */
-const honorSkinMap = computed<Record<number, SpinnerModelId | null>>(() => {
-  const result: Record<number, SpinnerModelId | null> = {}
-  for (let i = 1; i <= HONOR_TOTAL_STAGES; i++) {
-    result[i] = claimedHonorSkins.value[i] ?? honorOfferedSkins.value[i] ?? null
-  }
-  return result
-})
-const honorSkinForStage = (stage: number): SpinnerModelId | null =>
-  honorSkinMap.value[stage] ?? null
-
 const onClaim = (stage: number) => {
   const { playSound } = useSounds()
   playSound('happy')
@@ -268,23 +181,7 @@ const onClaim = (stage: number) => {
   if (res) {
     if (res.coins > 0 && bpBtnRef.value) emit('coins-awarded', bpBtnRef.value)
     refreshOfferedSkins()
-    refreshHonorOfferedSkins()
   }
-}
-
-const onClaimHonor = (stage: number) => {
-  const skin = honorOfferedSkins.value[stage]
-  if (!skin) return
-  if (!claimHonorStage(stage, skin)) return
-  const { playSound } = useSounds()
-  playSound('happy')
-  // Unlock the skin everywhere (same as BP skin claim)
-  for (const topPartId of Object.keys(SKINS_PER_TOP) as TopPartId[]) {
-    if (SKINS_PER_TOP[topPartId].includes(skin)) {
-      buySkin(topPartId, skin)
-    }
-  }
-  refreshHonorOfferedSkins()
 }
 
 // ─── Drag-to-scroll for the BP strip ────────────────────────────────────────
@@ -329,7 +226,7 @@ const onStripPointerUp = (e: PointerEvent) => {
     button.group.cursor-pointer.z-10.transition-transform(
       ref="bpBtnRef"
       class="hover:scale-[103%] active:scale-90 scale-80 sm:scale-110"
-      :class="{ 'hint-bounce': hasUnclaimedReward || (canShowPvP && pendingHonorClaims > 0) }"
+      :class="{ 'hint-bounce': hasUnclaimedReward }"
       @click="isModalOpen = true"
     )
       div.relative
@@ -347,9 +244,9 @@ const onStripPointerUp = (e: PointerEvent) => {
             ) /{{ BP_TOTAL_STAGES }}
           //- Tiny unclaimed-count badge
           div.absolute.flex.items-center.justify-center.rounded-full.font-black.game-text(
-            v-if="pendingClaimCount + (canShowPvP ? pendingHonorClaims : 0) > 0"
+            v-if="pendingClaimCount > 0"
             class="bg-red-500 text-white text-[9px] w-4 h-4 -top-1 -right-1 border border-[#0f1a30]"
-          ) {{ pendingClaimCount + (canShowPvP ? pendingHonorClaims : 0) }}
+          ) {{ pendingClaimCount }}
 
   //- Battle Pass Modal
   FModal(
@@ -450,97 +347,6 @@ const onStripPointerUp = (e: PointerEvent) => {
                 )
               template(v-else-if="card.inProgress")
                 span.text-amber-300 {{ Math.floor(progressFraction * 100) }}%
-              span.text-slate-500(v-else) —
-
-      //- ── Honor Track (only visible when PvP is enabled) ──────────────
-      div.rounded-xl.border-2.border-purple-700.bg-purple-900.bg-opacity-20.p-3(
-        v-if="canShowPvP"
-        class="mt-2 space-y-2"
-      )
-        //- Header row with title + info icon
-        div.flex.items-center.justify-between
-          div.flex.items-center.gap-2
-            span.text-purple-300.font-black.game-text.uppercase(class="text-xs sm:text-sm") {{ t('honorTrack') }}
-            //- Info tooltip toggle
-            button.cursor-pointer.flex.items-center.justify-center.rounded-full.border.border-purple-500.text-purple-300.transition-colors(
-              class="w-4 h-4 sm:w-5 sm:h-5 hover:bg-purple-800"
-              @click="showHonorInfo = !showHonorInfo"
-            )
-              span.font-bold(class="text-[9px] sm:text-[10px]") ?
-          //- Progress
-          span.text-purple-300.font-bold.game-text(class="text-[10px] sm:text-xs")
-            template(v-if="isHonorMaxed") {{ t('complete') }}
-            template(v-else) {{ honorPoints }}/{{ HONOR_PER_STAGE }} {{ t('honorAbbr') }}
-
-        //- Info tooltip (toggled)
-        div.text-purple-200.rounded-lg.bg-purple-900.bg-opacity-60.p-2(
-          v-if="showHonorInfo"
-          class="text-[9px] sm:text-xs leading-snug"
-        ) {{ t('honorInfo') }}
-
-        //- Honor progress bar
-        div.relative.w-full.overflow-hidden.rounded-full.border(
-          v-if="!isHonorMaxed"
-          class="h-2 bg-slate-800/70 border-purple-700/50"
-        )
-          div.h-full.rounded-full.transition-all(
-            class="bg-gradient-to-r from-purple-500 via-purple-400 to-yellow-400"
-            :style="{ width: `${honorProgressFraction * 100}%` }"
-          )
-
-        //- Honor stage cards (3 skins)
-        div.flex.gap-2.justify-center
-          div(
-            v-for="card in honorStageCards"
-            :key="card.stage"
-            class="flex flex-col items-center rounded-xl p-2 border-2 transition-all w-20 sm:w-24"
-            :class="[\
-              card.claimed \
-                ? 'bg-green-900/40 border-green-500/50' \
-                : card.unlocked \
-                  ? 'bg-purple-900/40 border-purple-400' \
-                  : card.inProgress \
-                    ? 'bg-purple-900/25 border-purple-500/70' \
-                    : 'bg-purple-900/20 border-purple-700/60'\
-            ]"
-          )
-            //- Stage label
-            div.text-purple-300.font-bold.uppercase(class="text-[8px] sm:text-[10px]") H{{ card.stage }}
-
-            //- Skin preview
-            template(v-if="honorSkinForStage(card.stage)")
-              div.skin-thumb-wrap.relative.flex.items-center.justify-center(
-                class="w-8 h-8 sm:w-10 sm:h-10 my-0.5"
-              )
-                div.absolute.inset-0.rounded-full.pointer-events-none.skin-thumb-halo
-                img(
-                  :src="modelImgPath(honorSkinForStage(card.stage))"
-                  class="relative w-full h-full object-contain"
-                  :class="{ 'opacity-60': !card.unlocked && !card.claimed }"
-                )
-            template(v-else-if="card.claimed")
-              div.flex.items-center.justify-center.text-green-400(class="w-8 h-8 sm:w-10 sm:h-10 my-0.5 text-lg") ✓
-            template(v-else)
-              div.flex.items-center.justify-center.text-purple-500(class="w-8 h-8 sm:w-10 sm:h-10 my-0.5 text-[10px]") ?
-
-            //- Skin label
-            div.font-black.game-text.text-purple-300.uppercase.tracking-wider.leading-tight(
-              v-if="honorSkinForStage(card.stage)"
-              class="text-[7px] sm:text-[9px] truncate max-w-full"
-            ) {{ t('skins.' + honorSkinForStage(card.stage)) }}
-
-            //- Status
-            div(class="mt-0.5 text-[8px] sm:text-[10px] font-bold")
-              span.text-green-400(v-if="card.claimed") ✓
-              template(v-else-if="card.unlocked")
-                FIconButton(
-                  type="primary"
-                  size="sm"
-                  icon="right"
-                  @click="onClaimHonor(card.stage)"
-                )
-              template(v-else-if="card.inProgress")
-                span.text-purple-300 {{ Math.floor(honorProgressFraction * 100) }}%
               span.text-slate-500(v-else) —
 
       //- Season reset countdown
