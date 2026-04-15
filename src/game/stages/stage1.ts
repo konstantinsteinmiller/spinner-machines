@@ -264,7 +264,10 @@ const stage: Stage = {
       'y': 540,
       'w': 80,
       'h': 80,
-      'rot': 0
+      'rot': 0,
+      'meta': {
+        'link': 'plate1'
+      }
     },
     {
       'id': 29,
@@ -366,9 +369,9 @@ const stage: Stage = {
       'id': 38,
       'type': 'pressurePlate',
       'x': 1140,
-      'y': 1120,
-      'w': 160,
-      'h': 20,
+      'y': 1100,
+      'w': 60,
+      'h': 60,
       'rot': 0,
       'meta': {
         'link': 'plate1'

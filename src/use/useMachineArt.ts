@@ -63,7 +63,9 @@ export const MACHINE_ART = {
   overloadedGenerator: 'images/machines/overloaded-generator_256x256.webp',
   stoneBrick: 'images/machines/brick_256x256.webp',
   metalBrick: 'images/machines/metal-brick_256x256.webp',
-  woodSlap: 'images/machines/wood_256x256.webp'
+  woodSlap: 'images/machines/wood_256x256.webp',
+  pressurePlate: 'images/machines/pressure-plate_256x256.webp',
+  pressurePlatePressed: 'images/machines/pressure-plate-pressed_256x256.webp'
 } as const
 
 // Kick off preloads up front so the first reveal isn't blank.
