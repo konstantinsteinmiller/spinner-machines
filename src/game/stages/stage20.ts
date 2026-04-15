@@ -35,8 +35,11 @@ const stage: Stage = {
 
     // ── Act 3: conveyor + pneumatic launcher transitions ─────────────
     { id: 30, type: 'conveyorBelt', x: 2000, y: 900, w: 400, h: 60, rot: 0 },
-    { id: 31, type: 'pneumaticLauncher', x: 2300, y: 700, w: 90, h: 60, rot: Math.PI / 2 },
-    { id: 32, type: 'pneumaticLauncher', x: 2300, y: 1100, w: 90, h: 60, rot: -Math.PI / 2 },
+    // Two right-facing launchers framing the conveyor belt — the
+    // upper one flings the blade into the generator cage lane, the
+    // lower one pushes it toward the boss approach.
+    { id: 31, type: 'pneumaticLauncher', x: 1850, y: 700, w: 90, h: 60, rot: 0 },
+    { id: 32, type: 'pneumaticLauncher', x: 1850, y: 1100, w: 90, h: 60, rot: 0 },
 
     // ── Act 4: steel cage with linked boss-route payoff ──────────────
     { id: 40, type: 'wall', x: 2600, y: 200, w: 20, h: 280, rot: 0, meta: { material: 'metal' } },

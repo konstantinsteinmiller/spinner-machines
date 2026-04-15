@@ -40,8 +40,10 @@ const stage: Stage = {
     // Plate B — reachable only AFTER plate A breaks down the first wall
     { id: 41, type: 'pressurePlate', x: 1400, y: 1400, w: 80, h: 60, rot: 0, meta: { link: 'plate19b' } },
 
-    // A single launcher pointing diagonally to help reach plate A
-    { id: 50, type: 'pneumaticLauncher', x: 400, y: 800, w: 90, h: 60, rot: Math.PI / 2 },
+    // Right-facing launcher tucked along the top lane — fires the
+    // blade toward the plate B corridor once plate A has opened the
+    // first wall.
+    { id: 50, type: 'pneumaticLauncher', x: 300, y: 300, w: 90, h: 60, rot: 0 },
 
     { id: 60, type: 'boss', x: 2200, y: 1400, w: 140, h: 140, rot: 0, hp: 50, maxHp: 50, modelId: 'diamond' },
     { id: 70, type: 'goal', x: 2400, y: 1400, w: 120, h: 120, rot: 0 }

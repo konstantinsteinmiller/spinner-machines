@@ -53,13 +53,13 @@ export const useMusic = () => {
     })
   }
 
-  const startBattleMusic = () => {
+  const startBattleMusic = (forcedIdx?: number) => {
     if (!bgMusic.value) return
     // Already playing a battle track — leave it alone so we don't restart
     // mid-fight on extra calls.
     if (shouldPlay.value && isPlaying.value) return
     shouldPlay.value = true
-    const idx = Math.floor(Math.random() * 3) + 1
+    const idx = forcedIdx ?? Math.floor(Math.random() * 3) + 1
     const filename = `battle-${idx}.ogg`
     const src = prependBaseUrl('audio/music/' + filename)
     const cached = resourceCache.audio.get(src)

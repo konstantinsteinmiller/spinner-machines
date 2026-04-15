@@ -1,5 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t, te } = useI18n()
+
+/** Translated stage name with fallback to the stage's hardcoded `name`. */
+function stageName(s: { id: string; name: string }): string {
+  const key = `stageNames.${s.id}`
+  return te(key) ? t(key) : s.name
+}
 import useStageGame from '@/use/useStageGame'
 import useSpinnerConfig from '@/use/useSpinnerConfig'
 import { MACHINE_REGISTRY } from '@/game/machines'
@@ -17,6 +26,7 @@ import AchievementsModal from '@/components/organisms/AchievementsModal.vue'
 import useAchievements from '@/use/useAchievements'
 import useBattlePass from '@/use/useBattlePass'
 import BattlePass from '@/components/organisms/BattlePass.vue'
+import TreasureChest from '@/components/organisms/TreasureChest.vue'
 import { spawnCoinExplosion } from '@/use/useCoinExplosion'
 import useMeteorShower from '@/use/useMeteorShower'
 import { useHint } from '@/use/useHint'
@@ -24,24 +34,31 @@ import FIconButton from '@/components/atoms/FIconButton.vue'
 import FMuteButton from '@/components/atoms/FMuteButton.vue'
 import StageBadge from '@/components/StageBadge.vue'
 import { prependBaseUrl } from '@/utils/function'
-import { STAGES } from '@/game/stages'
-import { useMusic } from '@/use/useSound'
+import { STAGE_MANIFEST, loadStageById, type StageMeta } from '@/game/stages'
+import useSounds, { useMusic } from '@/use/useSound'
 import useCheats, { cheatStageRewardSignal } from '@/use/useCheats'
 import useStageLeaderboard from '@/use/useStageLeaderboard'
 import { machineArtEnabled, toggleMachineArt } from '@/use/useMachineArt'
 import { renderVfx } from '@/game/vfx'
+import { useScreenshake } from '@/use/useScreenshake'
+
+const { shakeStyle } = useScreenshake()
 import {
   recordTrail,
-  renderSpinnerTrail,
-  renderSpinnerDecals,
-  renderSpinnerAura,
-  renderSpinnerParticles,
-  updateSpinnerVfx
+  renderAllTrails,
+  renderAllDecals,
+  renderEntityAura,
+  renderAllParticles,
+  updateEntityVfx,
+  tickParticles,
+  PLAYER_VFX_ID,
+  type VfxEntity
 } from '@/game/spinnerVfx'
 import { isEditorMode } from '@/use/useAppMode'
 import { useRoute } from 'vue-router'
 
 const { initMusic, startBattleMusic, stopBattleMusic } = useMusic()
+const { playSound } = useSounds()
 initMusic()
 
 useCheats()
@@ -112,7 +129,7 @@ function fireCoinExplosion(sourceEl: HTMLElement | null) {
 
 function isStageUnlocked(idx: number): boolean {
   if (idx <= 0) return true
-  const prev = STAGES[idx - 1]
+  const prev = STAGE_MANIFEST[idx - 1]
   return !!prev && getBestStars(prev.id) >= 1
 }
 
@@ -121,8 +138,9 @@ function openAchievements() {
   markAchievementsSeen()
 }
 
-function pickStage(s: typeof STAGES[number]) {
-  loadStage(s)
+async function pickStage(s: StageMeta) {
+  const full = await loadStageById(s.id)
+  loadStage(full)
   fitInitialCamera()
   showStagePicker.value = false
 }
@@ -131,16 +149,17 @@ function pickStage(s: typeof STAGES[number]) {
  *  stage is a dead-end for the player — they see the spinner parked on
  *  the exit gate and don't know to tap Next. Auto-advance to the first
  *  still-unsolved unlocked stage so they can launch again immediately. */
-function onStagePickerClose() {
+async function onStagePickerClose() {
   showStagePicker.value = false
   if (phase.value !== 'complete') return
   if (launches.value <= 0) return
-  const targetIdx = STAGES.findIndex(
-    (s, i) => isStageUnlocked(i) && getBestStars(s.id) === 0
+  const targetIdx = STAGE_MANIFEST.findIndex(
+    (m, i) => isStageUnlocked(i) && getBestStars(m.id) === 0
   )
   if (targetIdx === -1) return
-  const target = STAGES[targetIdx]!
-  if (target.id === currentStage.value.id) return
+  const targetMeta = STAGE_MANIFEST[targetIdx]!
+  if (targetMeta.id === currentStage.value.id) return
+  const target = await loadStageById(targetMeta.id)
   loadStage(target)
   fitInitialCamera()
 }
@@ -623,30 +642,62 @@ function render(now: number) {
   ctx.strokeRect(0, 0, stage.width, stage.height)
 
   // Ground decals (boulder / diamond) — drawn under everything else.
-  renderSpinnerDecals(ctx, now)
+  renderAllDecals(ctx, now)
+
+  // Spinner & boss VFX — update emitters + trails for every entity with
+  // a skinned modelId, BEFORE the machines render so the trail draws
+  // behind the machine layer.
+  const sp = spinner.value
+  const movingNow = Math.hypot(sp.vx, sp.vy) > 0.2
+  const spEntity: VfxEntity = {
+    id: PLAYER_VFX_ID,
+    x: sp.x, y: sp.y, vx: sp.vx, vy: sp.vy,
+    r: sp.r, modelId: sp.modelId
+  }
+  updateEntityVfx(spEntity, now, movingNow)
+  recordTrail(spEntity, now, movingNow)
+
+  // Bosses — stationary entities, force the emitters active so their
+  // skin VFX still shows even though vx/vy are 0.
+  for (const m of stage.machines) {
+    if (m.type !== 'boss' || m.destroyed) continue
+    const bossEntity: VfxEntity = {
+      id: m.id,
+      x: m.x, y: m.y, vx: 0, vy: 0,
+      r: Math.max(m.w, m.h) / 2,
+      modelId: m.modelId ?? 'blades'
+    }
+    updateEntityVfx(bossEntity, now, true)
+    recordTrail(bossEntity, now, false)
+  }
+  tickParticles(now)
+  renderAllTrails(ctx)
 
   // Machines
   for (const m of stage.machines) {
     const mod = MACHINE_REGISTRY[m.type]
     if (!mod) continue
     if (m.destroyed) {
-      // A few machines opt into a post-destruction VFX window by
-      // stamping destroyedAt; keep rendering them until 600 ms elapse.
       if (m.type !== 'destroyableGlassTube' || !m.destroyedAt) continue
       if (now - m.destroyedAt > 600) continue
     }
     mod.render(ctx, m, now)
   }
 
+  // Boss auras — drawn above the boss sprite so lightning/sandstorm
+  // effects read clearly.
+  for (const m of stage.machines) {
+    if (m.type !== 'boss' || m.destroyed) continue
+    renderEntityAura(ctx, {
+      id: m.id,
+      x: m.x, y: m.y, vx: 0, vy: 0,
+      r: Math.max(m.w, m.h) / 2,
+      modelId: m.modelId ?? 'blades'
+    })
+  }
+
   // World-space explosion VFX (generator / pressure-plate kills).
   renderVfx(ctx, now)
-
-  // Spinner VFX — update particles + trail, render trail behind blade.
-  const sp = spinner.value
-  const movingNow = Math.hypot(sp.vx, sp.vy) > 0.2
-  updateSpinnerVfx(sp, now, movingNow)
-  recordTrail(sp, now, movingNow)
-  renderSpinnerTrail(ctx, sp.modelId)
 
   // Spinner
   ctx.save()
@@ -665,9 +716,10 @@ function render(now: number) {
   }
   ctx.restore()
 
-  // Special-skin aura + particle layer above the spinner.
-  renderSpinnerAura(ctx, sp)
-  renderSpinnerParticles(ctx)
+  // Spinner special-skin aura + global particles (dark smoke, sand
+  // grains — shared with bosses).
+  renderEntityAura(ctx, spEntity)
+  renderAllParticles(ctx)
 
   // Aim indicator (chaos-arena style): dashed pull line to pointer +
   // launch arrow opposite, color-coded by spring compression.
@@ -828,7 +880,9 @@ watch(phase, (p) => {
   if (p === 'aiming') startHintTimer()
   else clearHint()
   if (p === 'countdown' || p === 'aiming' || p === 'launched') {
-    startBattleMusic()
+    // Stage mode always plays battle-1 specifically (not the random
+    // arena pool) so the track feels consistent across restarts.
+    startBattleMusic(1)
   }
   if (p === 'complete' || p === 'tap_to_start') {
     stopBattleMusic()
@@ -850,7 +904,12 @@ watch(phase, (p) => {
     // Leaderboard: record the score for this stage (only applied if higher)
     // and refresh the top-5 rows shown on the reward screen.
     isNewHighscore.value = recordLbHighscore(currentStage.value.id, score.value)
-    if (isNewHighscore.value) bpAwardHighscore()
+    if (isNewHighscore.value) {
+      bpAwardHighscore()
+      // Celebration sfx — pick one of the three celebration variants.
+      const pick = 1 + Math.floor(Math.random() * 3)
+      playSound(`celebration-${pick}`)
+    }
     refreshLbRows()
     // Achievements — pass bestStars so range-based checks have full state.
     const triggeredPlateIds = currentStage.value.machines
@@ -870,15 +929,21 @@ watch(phase, (p) => {
     if (rankInfo && rankInfo.rank === 1) {
       recordAchievementsTopRank(currentStage.value.id, bestStars.value)
     }
-    showReward.value = true
-    nextTick(() => {
-      if (rewardCoinRef.value && coinBadgeRef.value?.rootEl) {
-        spawnCoinExplosion({
-          sourceEl: rewardCoinRef.value,
-          targetEl: coinBadgeRef.value.rootEl
-        })
-      }
-    })
+    // Victory sting plays immediately on reaching the exit gate; the
+    // reward screen pops 200 ms later so the sfx has the stage to
+    // itself before the confetti / coin explosion chain fires.
+    playSound('win')
+    setTimeout(() => {
+      showReward.value = true
+      nextTick(() => {
+        if (rewardCoinRef.value && coinBadgeRef.value?.rootEl) {
+          spawnCoinExplosion({
+            sourceEl: rewardCoinRef.value,
+            targetEl: coinBadgeRef.value.rootEl
+          })
+        }
+      })
+    }, 200)
   }
 })
 
@@ -894,10 +959,11 @@ function onReplay() {
   fitInitialCamera()
 }
 
-function onNextStage() {
+async function onNextStage() {
   showReward.value = false
-  const idx = STAGES.findIndex((s) => s.id === currentStage.value.id)
-  const next = STAGES[idx + 1] ?? STAGES[0]!
+  const idx = STAGE_MANIFEST.findIndex((m) => m.id === currentStage.value.id)
+  const nextMeta = STAGE_MANIFEST[idx + 1] ?? STAGE_MANIFEST[0]!
+  const next = await loadStageById(nextMeta.id)
   loadStage(next)
   fitInitialCamera()
 }
@@ -1015,6 +1081,7 @@ const launchesTierClass = computed(() => {
   )
     canvas.absolute.inset-0.w-full.h-full.touch-none(
       ref="canvasEl"
+      :style="shakeStyle"
       @pointerdown="onPointerDown"
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"
@@ -1037,9 +1104,9 @@ const launchesTierClass = computed(() => {
       class="gap-0.5 left-1/2 -translate-x-1/2 items-center"
     )
       span.game-text.camera-hint__line(class="text-[10px] sm:text-xs")
-        | {{ isTouchDevice ? 'Tap and drag to move the screen' : 'Click and drag to move the screen' }}
+        | {{ isTouchDevice ? t('stageUi.tapToPan') : t('stageUi.clickToPan') }}
       span.game-text.camera-hint__line(v-if="!isTouchDevice" class="text-[10px] sm:text-xs")
-        | Scroll to zoom in/out
+        | {{ t('stageUi.scrollZoom') }}
 
     //- Bottom-right: skins + leaderboard (stages) buttons, safe-area aware.
     //- In editor mode the whole cluster is hidden except for a "Back to
@@ -1099,14 +1166,17 @@ const launchesTierClass = computed(() => {
       div.score-badge.score-badge--score.rounded-full.font-black.game-text.flex.items-center.gap-2.px-3.py-1(
         class="text-sm sm:text-base"
       )
-        span.text-white SCORE
+        span.text-white {{ t('stageUi.score') }}
         span.text-yellow-300 {{ score }}
       div.score-badge.rounded-full.font-black.game-text.flex.items-center.gap-2.px-3.py-1(
         class="text-xs sm:text-sm"
         :class="launchesTierClass"
       )
-        span.text-white LAUNCHES
+        span.text-white {{ t('stageUi.launches') }}
         span.text-white {{ launches }}
+      //- Treasure chest — sits directly under the launches badge and
+      //- grants 75 coins on a 4h cooldown.
+      TreasureChest(@coins-awarded="fireCoinExplosion")
 
     //- Tap-to-start overlay
     div.absolute.inset-0.flex.items-center.justify-center.z-30.pointer-events-auto.cursor-pointer(
@@ -1116,9 +1186,9 @@ const launchesTierClass = computed(() => {
       div.text-center
         div.text-white.font-black.uppercase.tracking-wider.animate-pulse.game-text(
           class="text-3xl sm:text-5xl mb-2"
-        ) TAP TO START
+        ) {{ t('stageUi.tapToStart') }}
         div.text-white.italic.game-text.opacity-60(class="text-sm sm:text-lg")
-          | Drag from the spinner to launch
+          | {{ t('stageUi.dragToLaunch') }}
 
     //- Countdown
     div.absolute.inset-0.flex.items-center.justify-center.z-30.pointer-events-none(
@@ -1145,7 +1215,7 @@ const launchesTierClass = computed(() => {
       v-else-if="phase === 'aiming'"
     )
       div.aim-hint.text-white.italic.game-text.opacity-60.mx-auto(class="text-xs sm:text-sm")
-        | Drag from the spinner to compress the spring, release to launch
+        | {{ t('stageUi.dragHint') }}
 
     //- Reward overlay — Level Cleared screen (hidden in editor mode).
     FReward(
@@ -1154,7 +1224,7 @@ const launchesTierClass = computed(() => {
       :show-continue="false"
     )
       template(#ribbon)
-        span.text-white.font-black.uppercase.italic.game-text(class="sm:text-2xl") Level Cleared!
+        span.text-white.font-black.uppercase.italic.game-text(class="sm:text-2xl") {{ t('stageUi.levelCleared') }}
       div.level-cleared.flex.flex-col.items-center.justify-center(
         class="gap-6 sm:gap-8 pointer-events-auto"
         @click.stop
@@ -1180,21 +1250,21 @@ const launchesTierClass = computed(() => {
             v-if="rewardCoins > 0"
             class="text-xs sm:text-sm"
           )
-            | New High Score!
+            | {{ t('stageUi.newHighScore') }}
 
         //- Coin reward
         div.flex.items-center.gap-3(ref="rewardCoinRef" v-if="rewardCoins > 0")
           IconCoin(class="w-8 h-8 text-yellow-300")
           span.text-yellow-400.font-black.game-text(class="text-2xl sm:text-4xl") +{{ rewardCoins }}
         div.text-slate-300.italic.game-text.text-sm(v-else)
-          | No new reward — beat your best rating to earn more coins.
+          | {{ t('stageUi.noNewReward') }}
 
         //- Mini leaderboard — only shown when there are any ranked rows
         div.lb-panel(v-if="lbRows.top.length > 0")
           div.lb-panel__frame
             div.lb-panel__title.game-text
               span.lb-panel__title-accent ★
-              span.mx-2 Leaderboard
+              span.mx-2 {{ t('stageUi.leaderboard') }}
               span.lb-panel__title-accent ★
             div.lb-rows
               div.lb-row(
@@ -1212,7 +1282,7 @@ const launchesTierClass = computed(() => {
                   span.lb-name.game-text {{ lbRows.mine.name }}
                   span.lb-score.game-text {{ lbRows.mine.score }}
             div.lb-new-hint.game-text(v-if="isNewHighscore")
-              | ★ New Personal Best ★
+              | {{ t('stageUi.newPersonalBest') }}
 
         //- Three circular footer buttons: list → replay → next
         div.footer-buttons.flex.items-center.justify-center(class="gap-5 sm:gap-7 mt-2")
@@ -1282,13 +1352,13 @@ const launchesTierClass = computed(() => {
     FModal(
       :model-value="showStagePicker"
       @update:model-value="$event ? (showStagePicker = true) : onStagePickerClose()"
-      title="Stages"
+      :title="t('stageUi.stagesTitle')"
     )
       div.text-slate-300.italic.game-text.text-xs.mb-3
-        | Replay any stage to improve your rating — you only earn the difference in coins.
+        | {{ t('stageUi.stagesReplayHint') }}
       div.grid.grid-cols-2.gap-2.overflow-y-auto(class="sm:grid-cols-3 max-h-[60vh] p-1")
         button.relative.rounded-lg.border-2.bg-slate-800.p-3.text-left(
-          v-for="(s, idx) in STAGES"
+          v-for="(s, idx) in STAGE_MANIFEST"
           :key="s.id"
           :disabled="!isStageUnlocked(idx)"
           :class="[\
@@ -1311,7 +1381,7 @@ const launchesTierClass = computed(() => {
               span.stage-rank-badge__num {{ lbMyRankForStage(s.id).rank }}
               span.stage-rank-badge__total /{{ lbMyRankForStage(s.id).total }}
           div.text-yellow-300.game-text.font-black.text-xs.uppercase {{ s.id }}
-          div.text-white.game-text.font-black.text-sm {{ s.name }}
+          div.text-white.game-text.font-black.text-sm {{ stageName(s) }}
           div.stage-card-stars.flex.items-center.my-1(class="gap-1")
             div.stage-card-star(
               v-for="n in 3"
@@ -1319,8 +1389,7 @@ const launchesTierClass = computed(() => {
               :class="{ 'stage-card-star--lit': n <= getBestStars(s.id) }"
             )
               star-gem(:lit="n <= getBestStars(s.id)" :gid="`${s.id}-${n}`")
-          div.flex.items-center.justify-between.gap-2
-            div.text-slate-400.game-text.text-xs {{ s.width }}×{{ s.height }}
+          div.flex.items-center.justify-end.gap-2
             div.text-yellow-300.game-text.font-black.text-xs(
               v-if="lbMyRankForStage(s.id)"
             ) {{ lbMyRankForStage(s.id).score }}

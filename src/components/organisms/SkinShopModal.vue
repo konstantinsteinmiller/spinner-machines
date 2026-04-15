@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import IconCoin from '@/components/icons/IconCoin.vue'
 import FModal from '@/components/molecules/FModal.vue'
+
+const { t } = useI18n()
 import {
   SPINNER_MODEL_IDS,
   modelImgPath,
@@ -54,7 +57,7 @@ const buttonTheme = (id: SpinnerModelId) => {
   FModal(
     :model-value="isOpen"
     @update:model-value="(v) => !v && emit('close')"
-    title="Skin Shop"
+    :title="t('stageUi.skinShopTitle')"
   )
     div.flex.items-center.justify-center.gap-2.mb-3
       IconCoin(class="w-6 h-6 text-yellow-300")

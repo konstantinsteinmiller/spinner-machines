@@ -25,11 +25,14 @@ const machines: Machine[] = [
   wall(width / 2, 1300, 600, 24, Math.PI / 4),
   wall(width / 2, 1300, 600, 24, -Math.PI / 4),
 
-  // Launchers at cardinal positions to keep blade bouncing
+  // One right-facing launcher at the spawn side; the other three
+  // cardinal positions were non-right launchers (up/down/left) which
+  // the sprite cannot depict, so they're swapped for centrifugal
+  // boosters — same "keep the blade bouncing" role, rotation-agnostic.
   { id: id(), type: 'pneumaticLauncher', x: 120, y: 800, w: 100, h: 80, rot: 0 },
-  { id: id(), type: 'pneumaticLauncher', x: 1480, y: 800, w: 100, h: 80, rot: Math.PI },
-  { id: id(), type: 'pneumaticLauncher', x: 800, y: 120, w: 100, h: 80, rot: Math.PI / 2 },
-  { id: id(), type: 'pneumaticLauncher', x: 800, y: 1480, w: 100, h: 80, rot: -Math.PI / 2 },
+  { id: id(), type: 'centrifugalBooster', x: 1480, y: 800, w: 120, h: 100, rot: 0 },
+  { id: id(), type: 'centrifugalBooster', x: 800, y: 120, w: 120, h: 100, rot: 0 },
+  { id: id(), type: 'centrifugalBooster', x: 800, y: 1480, w: 120, h: 100, rot: 0 },
 
   // Gravity wells in the corners
   m('gravityWell', 400, 400, 80, 80),

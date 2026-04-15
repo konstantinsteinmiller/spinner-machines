@@ -46,7 +46,10 @@ const machines: Machine[] = [
 
   // ── Section 4: Pneumatic tube + glass ──
   wall(2200, 400, 20, 1000),
-  { id: id(), type: 'pneumaticLauncher', x: 2300, y: 1500, w: 100, h: 80, rot: -Math.PI / 2 },
+  // Launcher was originally pointing up from the bottom lane; swapped
+  // to a right-facing one on the left edge of the glass corridor so it
+  // fires the blade straight through the tubes.
+  { id: id(), type: 'pneumaticLauncher', x: 2260, y: 700, w: 100, h: 80, rot: 0 },
   ...Array.from({ length: 5 }, (_, i) =>
     m('destroyableGlassTube', 2350 + i * 70, 500, 40, 120)
   ),

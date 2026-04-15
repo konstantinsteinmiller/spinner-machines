@@ -1,131 +1,130 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import useSpinnerConfig from '@/use/useSpinnerConfig'
-import useSounds from '@/use/useSound.ts'
-import { spawnCoinExplosion } from '@/use/useCoinExplosion'
+import useSounds from '@/use/useSound'
+import IconCoin from '@/components/icons/IconCoin.vue'
 
-interface Props {
-  /** Element where the coin explosion VFX should fly to (e.g. the coin badge). */
-  targetEl?: HTMLElement | null
-  /** Cooldown in ms. Default 10 minutes. */
-  cooldownMs?: number
-  /** localStorage key for the cooldown timestamp. */
-  storageKey?: string
-  /** Coins awarded on collection. */
-  reward?: number
-  /** Visual scale factor (1 = default size). */
-  scale?: number
-  /** Aura color when ready. Default gold. */
-  auraColor?: string
-}
+const COIN_REWARD = 75
+const COOLDOWN_MS = 10 * 60 * 1000 // 10 min between claims
+const STORAGE_KEY = 'bm_stage_chest_ready_at'
 
-const props = withDefaults(defineProps<Props>(), {
-  targetEl: null,
-  cooldownMs: 10 * 60 * 1000,
-  storageKey: 'spinner_chest_ready_at',
-  reward: 80,
-  scale: 1,
-  auraColor: 'rgba(255,200,0,0.8)'
-})
+const emit = defineEmits<{
+  (e: 'coins-awarded', sourceEl: HTMLElement): void
+}>()
 
 const { addCoins } = useSpinnerConfig()
+const { playSound } = useSounds()
 
-// ─── Cooldown State ──────────────────────────────────────────────────────────
+const now = ref(Date.now())
+const readyAt = ref<number>(parseInt(localStorage.getItem(STORAGE_KEY) ?? '0', 10) || 0)
+const btnRef = ref<HTMLElement | null>(null)
 
-const CHEST_COOLDOWN_MS = props.cooldownMs
-const CHEST_KEY = props.storageKey
-const CHEST_REWARD = props.reward
+const isReady = computed(() => now.value >= readyAt.value)
+const msRemaining = computed(() => Math.max(0, readyAt.value - now.value))
 
-const chestReadyAt = ref(parseInt(localStorage.getItem(CHEST_KEY) || '0', 10))
-const chestRemaining = ref(0)
-let chestIntervalId: number | null = null
-
-const chestReady = computed(() => chestRemaining.value <= 0)
-
-const updateChestTimer = () => {
-  // Re-read from localStorage so external resets (cheats) are picked up
-  chestReadyAt.value = parseInt(localStorage.getItem(CHEST_KEY) || '0', 10)
-  const now = Date.now()
-  chestRemaining.value = Math.max(0, chestReadyAt.value - now)
-}
-
-const chestTimeDisplay = computed(() => {
-  const totalSec = Math.ceil(chestRemaining.value / 1000)
-  const m = Math.floor(totalSec / 60)
-  const s = totalSec % 60
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+/** Formats hh:mm:ss left on the cooldown. */
+const countdown = computed(() => {
+  const total = Math.ceil(msRemaining.value / 1000)
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const s = total % 60
+  if (h > 0) return `${h}h ${m}m`
+  if (m > 0) return `${m}m ${s}s`
+  return `${s}s`
 })
 
-const chestCooldownPct = computed(() =>
-  chestRemaining.value / CHEST_COOLDOWN_MS
-)
-
-// ─── Coin Explosion VFX ──────────────────────────────────────────────────────
-
-const chestRef = ref<HTMLElement | null>(null)
-
-const collectChest = () => {
-  if (!chestReady.value) return
-  addCoins(CHEST_REWARD)
-  const { playSound } = useSounds()
-  playSound('happy')
-  if (chestRef.value && props.targetEl) {
-    spawnCoinExplosion({ sourceEl: chestRef.value, targetEl: props.targetEl })
-  }
-  chestReadyAt.value = Date.now() + CHEST_COOLDOWN_MS
-  localStorage.setItem(CHEST_KEY, chestReadyAt.value.toString())
-  updateChestTimer()
-}
-
-// ─── Lifecycle ───────────────────────────────────────────────────────────────
-
+let tickId: number | null = null
 onMounted(() => {
-  updateChestTimer()
-  chestIntervalId = window.setInterval(updateChestTimer, 1000)
+  tickId = window.setInterval(() => {
+    now.value = Date.now()
+  }, 1000)
+})
+onUnmounted(() => {
+  if (tickId !== null) clearInterval(tickId)
 })
 
-onUnmounted(() => {
-  if (chestIntervalId !== null) clearInterval(chestIntervalId)
-})
+function onCollect() {
+  if (!isReady.value) return
+  addCoins(COIN_REWARD)
+  playSound(`celebration-${1 + Math.floor(Math.random() * 3)}`)
+  readyAt.value = Date.now() + COOLDOWN_MS
+  localStorage.setItem(STORAGE_KEY, String(readyAt.value))
+  now.value = Date.now()
+  if (btnRef.value) emit('coins-awarded', btnRef.value)
+}
 </script>
 
 <template lang="pug">
-  div.flex.flex-col.items-center.pointer-events-auto(
-    @click="collectChest"
-    :class="chestReady ? 'cursor-pointer chest-pulse' : ''"
-    :style="scale !== 1 ? { transform: `scale(${scale})`, transformOrigin: 'center' } : undefined"
+  button.chest-btn.relative.game-text.cursor-pointer.select-none(
+    ref="btnRef"
+    :disabled="!isReady"
+    :class="{ 'chest-btn--ready': isReady, 'chest-btn--cooling': !isReady }"
+    :aria-label="`Treasure chest: ${COIN_REWARD} coins`"
+    @click="onCollect"
   )
-    div.relative(ref="chestRef" class="w-10 h-10 sm:w-12 sm:h-12")
-      img.object-contain.w-full.h-full(
-        src="/images/icons/chest_128x128.webp"
-        :style="chestReady ? { filter: `drop-shadow(0 0 8px ${auraColor})` } : undefined"
-      )
-      //- Circular cooldown overlay
-      svg.absolute.inset-0.w-full.h-full(
-        v-if="!chestReady"
-        viewBox="0 0 40 40"
-        style="transform: rotate(-90deg) scaleX(-1)"
-      )
-        circle(
-          cx="20" cy="20" r="19"
-          fill="none"
-          stroke="rgba(0,0,0,0.35)"
-          stroke-width="40"
-          :stroke-dasharray="119.38"
-          :stroke-dashoffset="119.38 * (1 - chestCooldownPct)"
-        )
-    span.game-text.text-white.font-bold(
-      class="text-[10px] sm:text-xs"
-    ) {{ chestTimeDisplay }}
+    span.chest-btn__shadow
+    span.chest-btn__body
+      span.chest-btn__glyph 🎁
+      div.chest-btn__reward.flex.items-center.gap-1(v-if="isReady")
+        span.text-yellow-200.font-black.leading-none +{{ COIN_REWARD }}
+        IconCoin.w-3.h-3.text-yellow-300
+      div.chest-btn__cd(v-else) {{ countdown }}
 </template>
 
 <style scoped lang="sass">
-.chest-pulse
-  animation: chest-pulse 2s ease-in-out infinite
+.chest-btn
+  display: block
+  padding: 0
+  background: transparent
+  border: none
+  -webkit-tap-highlight-color: transparent
+  transition: transform 0.15s ease
+
+  &--ready
+    animation: chest-pulse 2s infinite ease-in-out
+
+    &:active
+      transform: scale(0.92)
+
+  &--cooling
+    opacity: 0.55
+    cursor: not-allowed
+
+.chest-btn__shadow
+  position: absolute
+  inset: 2px 0 0 0
+  border-radius: 10px
+  background: #1a2b4b
+
+.chest-btn__body
+  position: relative
+  display: flex
+  flex-direction: column
+  align-items: center
+  gap: 2px
+  padding: 6px 10px
+  border-radius: 10px
+  border: 2px solid #0f1a30
+  background: linear-gradient(to bottom, #f59e0b, #b45309)
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), inset 0 -2px 4px rgba(0, 0, 0, 0.4)
+
+.chest-btn__glyph
+  font-size: 1.35rem
+  line-height: 1
+  filter: drop-shadow(0 2px 0 #000)
+
+.chest-btn__reward
+  font-size: 0.65rem
+
+.chest-btn__cd
+  font-size: 0.6rem
+  color: #fde68a
+  font-weight: 800
+  white-space: nowrap
 
 @keyframes chest-pulse
   0%, 100%
-    opacity: 1
+    transform: translateY(0) scale(1)
   50%
-    opacity: 0.5
+    transform: translateY(-2px) scale(1.035)
 </style>

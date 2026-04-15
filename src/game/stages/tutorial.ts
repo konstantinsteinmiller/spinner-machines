@@ -43,15 +43,17 @@ const stage: Stage = {
       meta: { hint: 'Magnetic rails catch you and glide you along.' }
     },
 
-    // Launcher at end of rail, points straight down into the plate.
+    // Launcher on the drop path — fires the spinner RIGHT across the
+    // middle row so the spinner clears the wall block and slams into
+    // the plate further right.
     {
-      id: 14, type: 'pneumaticLauncher', x: 1260, y: 330, w: 80, h: 60, rot: Math.PI / 2,
+      id: 14, type: 'pneumaticLauncher', x: 600, y: 500, w: 80, h: 60, rot: 0,
       meta: { hint: 'Pneumatic launchers fire the moment you touch them.' }
     },
 
-    // ── Row 2: pressure plate sits directly under the launcher. ──────
+    // ── Row 2: pressure plate now at the launcher's trajectory end. ──
     {
-      id: 16, type: 'pressurePlate', x: 1260, y: 500, w: 80, h: 60, rot: 0,
+      id: 16, type: 'pressurePlate', x: 1300, y: 500, w: 80, h: 60, rot: 0,
       meta: {
         link: 'plate1',
         hint: 'Pressure plates detonate every linked machine at once.'

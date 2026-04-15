@@ -7,6 +7,24 @@ import { getSelectedSkin } from '@/use/useModels'
 import useSpinnerConfig from '@/use/useSpinnerConfig'
 import { clearExplosions } from '@/game/vfx'
 import { clearSpinnerVfx } from '@/game/spinnerVfx'
+import { useScreenshake } from '@/use/useScreenshake'
+import useSounds from '@/use/useSound'
+
+const { triggerShake } = useScreenshake()
+const { playSound } = useSounds()
+
+// Throttle clash sfx so bouncing against a metal wall in quick substeps
+// doesn't spam the audio stack. 90 ms is long enough to de-dupe but
+// short enough that repeated distinct impacts still register.
+let lastClashTs = 0
+
+function playClash() {
+  const now = performance.now()
+  if (now - lastClashTs < 90) return
+  lastClashTs = now
+  const pick = 1 + Math.floor(Math.random() * 5)
+  playSound(`clash-${pick}`)
+}
 
 const FRICTION = 0.991
 const FRICTION_LOW = 0.93
@@ -244,6 +262,19 @@ function bounceAabb(sp: Spinner, m: Machine): number {
 // between substeps. Thinnest walls are ~20 thick (half = 10); with a
 // 22-unit radius the safe ceiling is ~32. We use 4 for a big margin.
 const MAX_SUBSTEP_DIST = 4
+// Hard cap on per-frame speed. Boosters, rails, generator kickback and
+// bouncing-between-walls corner cases could previously compound velocity
+// unbounded — at extreme speeds the substep count explodes, the RAF
+// loop stalls for seconds, and the blade tunnels straight out of the
+// arena. 80 world units/frame keeps the fastest legit launches while
+// killing the runaway path. (Named SPEED_CLAMP to avoid collision with
+// the launch-derived MAX_SPEED at the top of the file.)
+const SPEED_CLAMP = 80
+// Upper bound on substeps in a single physics frame. 64 substeps at
+// MAX_SUBSTEP_DIST = 4 covers speeds up to 256 which is well past the
+// clamp above; anything higher would indicate a runaway the clamp
+// didn't catch, so we bail instead of freezing the tab.
+const MAX_SUBSTEPS = 64
 // Damage per unit of impact speed applied to destroyable walls.
 const WALL_DAMAGE_PER_SPEED = 1.2
 
@@ -257,6 +288,14 @@ function step(dt: number) {
   const friction = speedNow < SLOW_THRESHOLD ? FRICTION_LOW : FRICTION
   sp.vx *= friction
   sp.vy *= friction
+  // Hard speed clamp — protects against runaway acceleration loops
+  // (wall-wedge bounces, chained boosters, rail + launcher feedback).
+  const clampedSpeed = Math.hypot(sp.vx, sp.vy)
+  if (clampedSpeed > SPEED_CLAMP) {
+    const k = SPEED_CLAMP / clampedSpeed
+    sp.vx *= k
+    sp.vy *= k
+  }
   // Constant idle spin + speed-scaled boost so the blade keeps rotating
   // while parked on the exit gate / between launches, like the boss.
   sp.rotation += 0.05 + currentSpeed() * 0.04
@@ -283,7 +322,7 @@ function step(dt: number) {
   }
 
   const speed = Math.hypot(sp.vx, sp.vy)
-  const substeps = Math.max(1, Math.ceil(speed / MAX_SUBSTEP_DIST))
+  const substeps = Math.min(MAX_SUBSTEPS, Math.max(1, Math.ceil(speed / MAX_SUBSTEP_DIST)))
   const invN = 1 / substeps
   const isTeleporter = sp.modelId === 'teleporter'
   for (let i = 0; i < substeps; i++) {
@@ -329,9 +368,16 @@ function step(dt: number) {
         if (m.maxHp === undefined) m.maxHp = wallMaxHp(m)
         if (m.hp === undefined) m.hp = m.maxHp
         m.hp -= impact * WALL_DAMAGE_PER_SPEED
+        // Steel walls are the loud ones — metal clash SFX on every
+        // meaningful impact. Stone and wood stay silent so the sfx
+        // layer doesn't become noise across busy stages.
+        if (m.meta?.material === 'metal' && impact > 2) {
+          playClash()
+        }
         if (m.hp <= 0) {
           m.destroyed = true
           score.value += Math.max(5, Math.round(m.maxHp / 2))
+          triggerShake('mini')
         }
       }
     }

@@ -38,8 +38,9 @@ const machines: Machine[] = [
   m('overloadedGenerator', 1500, 300, 80, 80),
   m('overloadedGenerator', 1500, 1300, 80, 80),
 
-  // A launcher slingshots from bottom lane back up
-  { id: id(), type: 'pneumaticLauncher', x: 300, y: 1400, w: 100, h: 80, rot: -Math.PI / 2 },
+  // Bottom-lane launcher — fires the blade rightward along the lower
+  // corridor toward the boss chamber approach.
+  { id: id(), type: 'pneumaticLauncher', x: 300, y: 1400, w: 100, h: 80, rot: 0 },
 
   // Glass rewards
   m('destroyableGlassTube', 1100, 800, 40, 160),

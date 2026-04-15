@@ -135,7 +135,29 @@ export default defineConfig(({ mode, command }) => {
     build: {
       minify: 'esbuild',
       // Disable source maps in production if you want maximum protection
-      sourcemap: !shouldObfuscate
+      sourcemap: !shouldObfuscate,
+      rollupOptions: {
+        output: {
+          // Pin the framework libs into their own long-lived chunk so
+          // they stay cached across deploys that only touch game code.
+          // Everything else falls back to rollup's automatic chunking.
+          manualChunks(id: string) {
+            if (id.includes('node_modules')) {
+              if (
+                id.includes('/vue/') ||
+                id.includes('/vue-router/') ||
+                id.includes('/vue-i18n/') ||
+                id.includes('/@vue/') ||
+                id.includes('/@intlify/')
+              ) {
+                return 'vendor-vue'
+              }
+              if (id.includes('/@vueuse/')) return 'vendor-vueuse'
+              if (id.includes('/lodash')) return 'vendor-util'
+            }
+          }
+        }
+      }
     }
   }
 })

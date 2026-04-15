@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted, reactive } from 'vue'
 import { PLACEABLE_MACHINES, MACHINE_REGISTRY, type MachineModule } from '@/game/machines'
 import { WALL_PRESETS, WALL_MATERIALS, type WallPreset, type WallMaterial } from '@/game/walls/presets'
 import type { Machine, Stage } from '@/types/stage'
-import { STAGES } from '@/game/stages'
+import { STAGE_MANIFEST, loadStageById, stage1 as builtinStage1 } from '@/game/stages'
 import { SPINNER_MODEL_IDS, modelImgPath, type SpinnerModelId } from '@/use/useModels'
 import { useRouter } from 'vue-router'
 import { isEditorMode } from '@/use/useAppMode'
@@ -14,7 +14,7 @@ import {
   isPantryConfigured
 } from '@/use/usePantryStages'
 
-const stage1 = STAGES[0]!
+const stage1 = builtinStage1
 
 const canvasEl = ref<HTMLCanvasElement | null>(null)
 const editorStage = reactive<Stage>(JSON.parse(JSON.stringify(stage1)))
@@ -485,8 +485,9 @@ function loadIntoEditor(s: Stage) {
   openMenuVisible.value = false
 }
 
-function openBuiltin(s: Stage) {
-  loadIntoEditor(s)
+async function openBuiltin(s: { id: string }) {
+  const full = await loadStageById(s.id)
+  loadIntoEditor(full)
 }
 
 function openLocal(key: string) {
@@ -721,7 +722,7 @@ onUnmounted(() => {
         )
           div.text-orange-300.game-text.text-xs.uppercase.font-black Built-in
           button.text-left.text-white.game-text.text-xs.px-2.py-1.rounded.bg-slate-700(
-            v-for="s in STAGES"
+            v-for="s in STAGE_MANIFEST"
             :key="s.id"
             @click="openBuiltin(s)"
           ) {{ s.id }} · {{ s.name }}

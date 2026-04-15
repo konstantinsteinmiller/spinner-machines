@@ -1182,4 +1182,23 @@ Key rules:
 
 ---
 
+## Stage Game — recent additions
+
+Stage-game-specific systems layered on top of the shared spinner/skin/battle-pass infrastructure:
+
+- **20 hand-designed stages** (`stage1.ts`..`stage20.ts`) auto-registered via `import.meta.glob('./stage*.ts', { eager: true })` in `stages/index.ts`, deduped by `stage.id` and sorted by numeric suffix.
+- **Tutorial stage** (`tutorial.ts`) lives outside the `stage*.ts` glob so it never appears in the Stages modal. Auto-loaded first-boot when `localStorage['bm_tutorial_done']` is missing; each machine carries a `meta.hint` string that `StageView` renders as a gold bubble anchored above the machine during idle phases.
+- **Scoring** — pressure plates now award score for their linked kills (generator 100 / tube 40 / wall 30) plus a 25-point plate discovery bonus. `bossKillBonus` is doubled at runtime in `onBossDead`. Star thresholds rebalanced so optimal play lands near ~1000 score after launch-penalty deduction.
+- **Pressure plate cages** retrofitted into every stage 1–10. Each cage is four metal walls around 2 generators + 1 glass tube, linked `plateSN`, with the plate itself placed on the spinner's natural ricochet path. Cages are intentionally unreachable via direct wall-chipping.
+- **Battle pass** feeds `BP_XP_HIGHSCORE = 50` on every new stage highscore via `bpAwardHighscore()` in StageView.
+- **Achievements** cover total score, summed best, 3★ per stage range, launch-count milestones (`≤3` and `30+`), boss kills, plate activations, leaderboard rank 1, wardrobe complete.
+- **VFX module** (`src/game/spinnerVfx.ts`) is entity-agnostic — the same `updateEntityVfx` / `renderEntityAura` / `recordTrail` pipeline runs for the player spinner and every live boss. Bosses get the same skin-specific effects (thunderstorm bolts, sandstorm whirlwind, tornado vortex, dark smoke, boulder/diamond decals) plus a stationary shimmer for rainbow and forest-dragon where a trail would otherwise be pointless.
+- **Physics safety:** `MAX_SPEED = 80` clamp + `MAX_SUBSTEPS = 64` ceiling in `useStageGame.step` prevent runaway acceleration loops (wall-wedge bounces, chained boosters) from crashing the RAF loop.
+- **Teleporter skin** phases through walls and wraps around the outer stage bounds; `thunderstorm` skin pulses AoE damage on destructible machines every 260 ms while in flight (bosses exempt). Both implemented in `useStageGame.step` rather than the VFX module so they can touch the machine list.
+- **Launcher sprite limitation** — the pneumatic launcher image only depicts a right-facing muzzle. All stages use `rot: 0`; non-right cardinal positions (e.g. the stage 6 pinball chamber) have been replaced with centrifugal boosters which are rotation-agnostic.
+- **Stage unlock chain:** the Stages modal locks stage N+1 until stage N has ≥1 star. Closing the modal with no selection while the current stage is finished auto-advances to the first still-unsolved unlocked stage.
+- **Leaderboard** uses a single shared jsonbin.io bin. Bin id + master key are injected at build time via `VITE_JSONBIN_BIN_ID` / `VITE_JSONBIN_KEY`. `fetchFromServer` / `writeToServer` trip a session-wide `serverDisabled` kill switch on 401/403/404 so a misconfigured deployment doesn't spam the endpoint.
+
+---
+
 *This document is a living reference. Each section can be used as a standalone prompt for Claude Code to recreate the feature in a new project.*

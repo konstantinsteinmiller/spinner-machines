@@ -1,5 +1,5 @@
 import { ref, computed, watch } from 'vue'
-import { STAGES } from '@/game/stages'
+import { STAGE_MANIFEST, getLoadedStages } from '@/game/stages'
 import { SKINS_PER_TOP, isSkinOwned, ownedSkins } from '@/use/useModels'
 import type { TopPartId } from '@/types/spinner'
 
@@ -120,12 +120,9 @@ function saveUnlocked() {
 // ─── Helpers ──────────────────────────────────────────────────────────
 
 function stageIdsInRange(from: number, to: number): string[] {
-  return STAGES.map((s) => s.id).filter((id) => {
-    const m = id.match(/(\d+)/)
-    if (!m) return false
-    const n = parseInt(m[1]!, 10)
-    return n >= from && n <= to
-  })
+  return STAGE_MANIFEST
+    .filter((m) => m.numericOrder >= from && m.numericOrder <= to)
+    .map((m) => m.id)
 }
 
 function allThreeStars(state: AchievementState, ids: string[]): boolean {
@@ -134,7 +131,7 @@ function allThreeStars(state: AchievementState, ids: string[]): boolean {
 }
 
 function stagesWithBoss(): string[] {
-  return STAGES.filter((s) => s.machines.some((m) => m.type === 'boss')).map((s) => s.id)
+  return STAGE_MANIFEST.filter((m) => m.hasBoss).map((m) => m.id)
 }
 
 /** True when every (topPartId, modelId) pair in the catalog is owned. */
@@ -147,10 +144,13 @@ function allSkinsOwned(): boolean {
   return true
 }
 
-/** Every pressure plate across every stage, encoded as "stageId:machineId". */
+/** Every pressure plate across *currently loaded* stages, encoded as
+ *  "stageId:machineId". With the lazy stage loader, this reflects only
+ *  stages the player has actually visited — the "High Pressure"
+ *  achievement progressively uncovers new targets as they advance. */
 function allPlateKeys(): string[] {
   const out: string[] = []
-  for (const s of STAGES) {
+  for (const s of getLoadedStages()) {
     for (const machine of s.machines) {
       if (machine.type === 'pressurePlate') out.push(`${s.id}:${machine.id}`)
     }
@@ -291,7 +291,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
 const compIdx = ACHIEVEMENTS.findIndex((a) => a.id === 'all_stages_done')
 if (compIdx >= 0) {
   ACHIEVEMENTS[compIdx]!.check = (s) => {
-    const allIds = STAGES.map((x) => x.id)
+    const allIds = STAGE_MANIFEST.map((x) => x.id)
     if (allIds.length === 0) return false
     return allIds.every((id) => (s.bestStars[id] ?? 0) >= 1)
   }

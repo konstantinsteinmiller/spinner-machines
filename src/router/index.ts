@@ -9,13 +9,6 @@ const routes: RouteRecordRaw[] = [
   { path: '/', redirect: isEditorMode ? '/editor' : '/stage' },
   { path: '/stage', name: 'stage', component: () => import('@/views/StageView.vue') },
   { path: '/editor', name: 'editor', component: () => import('@/views/StageEditor.vue') },
-  { path: '/battle', name: 'battle', component: () => import('@/views/SpinnerArena.vue') },
-  { path: '/arena', name: 'arena', component: () => import('@/views/SpinnerArena.vue') }
-  // ...isDebug.value ? [
-  //   { path: '/crit-test', name: 'crit-test', component: () => import('@/views/CritTestScene.vue') },
-  //   { path: '/power-up', name: 'power-up', component: () => import('@/views/PowerupTestScene.vue') },
-  //   { path: '/trailer', name: 'trailer', component: () => import('@/views/TrailerScene.vue') }
-  // ] : []
 ]
 
 const router = createRouter({

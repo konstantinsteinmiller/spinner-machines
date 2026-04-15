@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 interface Props {
   stageId: string
@@ -9,6 +10,12 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   isBoss: false
+})
+
+const { t, te } = useI18n()
+const localizedName = computed(() => {
+  const key = `stageNames.${props.stageId}`
+  return te(key) ? t(key) : props.name
 })
 
 const shortId = computed(() => {
@@ -64,5 +71,5 @@ const theme = computed(() => {
         span.font-bold.italic.game-text(
           :class="theme.accent"
           class="text-[10px] sm:text-xs"
-        ) {{ name }}
+        ) {{ localizedName }}
 </template>

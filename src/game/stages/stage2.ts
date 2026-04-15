@@ -40,8 +40,9 @@ const machines: Machine[] = [
   m('overloadedGenerator', 1200, 680, 80, 80),
   m('overloadedGenerator', 1100, 600, 80, 80),
 
-  // Pneumatic kicker back to boss
-  { id: id(), type: 'pneumaticLauncher', x: 1400, y: 900, w: 100, h: 80, rot: -Math.PI / 2 },
+  // Pneumatic kicker fires rightward through the lower corridor,
+  // pushing the spinner toward the boss room wall gap.
+  { id: id(), type: 'pneumaticLauncher', x: 1000, y: 900, w: 100, h: 80, rot: 0 },
 
   // Boss room at top-right
   wall(1550, 300, 20, 480),

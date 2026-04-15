@@ -1,97 +1,37 @@
 import { ref } from 'vue'
-import { modelImgPath, SPINNER_MODEL_IDS, getSelectedSkin } from '@/use/useModels.ts'
-import useSpinnerConfig from '@/use/useSpinnerConfig.ts'
-import useSpinnerCampaign from '@/use/useSpinnerCampaign.ts'
+import { modelImgPath, getSelectedSkin, SPINNER_MODEL_IDS } from '@/use/useModels.ts'
 import { prependBaseUrl } from '@/utils/function.ts'
-import type { TopPartId } from '@/types/spinner'
 
-// Shared state so it can be accessed by both the loader and the progress component
+// Shared reactive loader state — surfaced to FLogoProgress.
 const loadingProgress = ref(0)
 const areAllAssetsLoaded = ref(false)
 
-// THIS IS THE KEY: A persistent memory reference
+// Persistent cache across component unmounts / route changes.
 export const resourceCache = {
   images: new Map<string, HTMLImageElement>(),
   audio: new Map<string, HTMLAudioElement>()
 }
 
-const STATIC_IMAGES = [
+// ─── Phase-5 per-route critical lists ────────────────────────────────
+// Only the stage-route images the player sees at first paint. Arena
+// icons, meteor sprites, big-spark, dark-smoke, earth-rip-decal,
+// parchment-ribbon and the full 13-sfx arena bank used to block boot.
+// Everything else is loaded lazily as the player goes deeper, and the
+// "remaining" bucket (all other skins + parchment) is fetched in the
+// background once the hot path is done and the network is idle.
+const STAGE_CRITICAL_IMAGES = [
   'images/logo/logo_256x256.webp',
-  'images/icons/difficulty-icon_128x128.webp',
-  'images/icons/settings-icon_128x128.webp',
-  'images/icons/sound-icon_128x128.webp',
   'images/icons/team_128x128.webp',
   'images/icons/gears_128x128.webp',
-  'images/icons/movie_128x96.webp',
-  'images/icons/chest_128x128.webp',
-  'images/icons/trophy_128x128.webp',
-  'images/bg/parchment-ribbon_553x188.webp',
-  'images/vfx/big-spark_1280x256.webp',
-  'images/vfx/dark-smoke_1280x128.webp',
-  'images/vfx/earth-rip-decal_138x138.webp'
+  'images/icons/trophy_128x128.webp'
 ]
 
-const SOUND_ASSETS = [
-  'audio/sfx/clash-1.ogg',
-  'audio/sfx/clash-2.ogg',
-  'audio/sfx/clash-3.ogg',
-  'audio/sfx/clash-4.ogg',
-  'audio/sfx/clash-5.ogg',
-  'audio/sfx/celebration-1.ogg',
-  'audio/sfx/celebration-2.ogg',
-  'audio/sfx/happy.ogg',
-  'audio/sfx/level-up.ogg',
-  'audio/sfx/win.ogg',
-  'audio/sfx/lose.ogg',
-  'audio/sfx/reward-continue.ogg'
+// Assets that are NOT needed for the first frame but should be warmed
+// opportunistically so the skin shop / battle pass / reward ribbon feel
+// instant when they first render.
+const BACKGROUND_IMAGES = [
+  'images/bg/parchment-ribbon_553x188.webp'
 ]
-
-// Kept for reference — music is streamed on demand from SpinnerArena, not preloaded.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const MUSIC_ASSETS = [
-  'audio/music/battle-1.ogg',
-  'audio/music/battle-2.ogg',
-  'audio/music/battle-3.ogg',
-]
-
-/**
- * Skin IDs the player will see IMMEDIATELY on first paint:
- *   • both player-team slots (resolved via getSelectedSkin — falls back to the
- *     default catalog skin when no selection has been persisted yet, which
- *     covers the very first load).
- *   • every enemy in the current campaign stage (stored on each StageBladeConfig).
- *
- * Everything else (the other ~40 skins in the config modal catalog, future
- * stages the player hasn't unlocked yet) is deferred to `preloadRemainingSkins`
- * which runs in the background once the arena is interactive.
- */
-const getCriticalSkinIds = (): Set<string> => {
-  const ids = new Set<string>()
-  try {
-    const { playerTeam } = useSpinnerConfig()
-    playerTeam.value.forEach((cfg, slotIndex) => {
-      // modelId override wins; otherwise resolve the player's chosen skin for
-      // this top part. getSelectedSkin always returns a valid id (default on
-      // first load).
-      const id = cfg.modelId ?? getSelectedSkin(cfg.topPartId as TopPartId, slotIndex)
-      if (id) ids.add(id)
-    })
-  } catch (e) {
-    console.warn('[assets] player team resolve failed, using no player skins', e)
-  }
-  try {
-    const { currentStage } = useSpinnerCampaign()
-    const stage = currentStage.value
-    if (stage?.enemyTeam) {
-      for (const enemy of stage.enemyTeam) {
-        if (enemy.modelId) ids.add(enemy.modelId)
-      }
-    }
-  } catch (e) {
-    console.warn('[assets] stage resolve failed, using no stage skins', e)
-  }
-  return ids
-}
 
 type AssetEntry = { src: string; type: 'image' | 'audio' }
 
@@ -145,21 +85,114 @@ const runInChunks = async (assets: AssetEntry[], chunkSize: number, onLoaded?: (
   }
 }
 
-// Tracks in-flight background skin preload so repeat triggers noop and the
-// config modal can await it if opened early.
-let remainingSkinsPromise: Promise<void> | null = null
+/**
+ * Resolve the boss skin id for the stage the player will boot into.
+ * Mirrors the logic in `StageView.loadInitialStage`:
+ *   • fresh player (no `bm_tutorial_done`) → peek at the tutorial stage
+ *   • otherwise → peek at stage1
+ *
+ * Returns the skin id or `null` if the stage has no boss machine.
+ */
+async function resolveInitialBossSkin(): Promise<string | null> {
+  const tutorialDone = localStorage.getItem('bm_tutorial_done') === '1'
+  try {
+    const mod = tutorialDone
+      ? await import('@/game/stages/stage1')
+      : await import('@/game/stages/tutorial')
+    const boss = mod.default.machines.find((m) => m.type === 'boss')
+    return boss?.modelId ?? null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Opportunistic loader for assets that shouldn't block the first paint.
+ * Runs after the hot path completes, ideally during browser idle time.
+ *
+ * Preload order:
+ *   1. parchment-ribbon (reward / ribbon overlays)
+ *   2. every skin model image the player doesn't already have cached
+ *      from the critical path (iterated in catalog order)
+ *
+ * Uses `requestIdleCallback` where available so we never fight the
+ * stage-view's initial render for bandwidth, and limits concurrency to
+ * 3 at a time so weak mobile connections don't get saturated.
+ */
+let backgroundPreloadKicked = false
+
+export function preloadBackgroundAssets(): void {
+  if (backgroundPreloadKicked) return
+  backgroundPreloadKicked = true
+
+  const schedule = (cb: () => void) => {
+    const ric = (window as any).requestIdleCallback as
+      | ((fn: () => void, opts?: { timeout: number }) => number)
+      | undefined
+    if (typeof ric === 'function') {
+      ric(cb, { timeout: 2500 })
+    } else {
+      setTimeout(cb, 1500)
+    }
+  }
+
+  schedule(async () => {
+    const alreadyCachedSkin = new Set<string>()
+    for (const id of SPINNER_MODEL_IDS) {
+      const src = modelImgPath(id)
+      if (resourceCache.images.has(src)) alreadyCachedSkin.add(src)
+    }
+
+    const queue: AssetEntry[] = [
+      ...BACKGROUND_IMAGES.map(src => ({ src: prependBaseUrl(src), type: 'image' as const })),
+      ...SPINNER_MODEL_IDS
+        .map(id => modelImgPath(id))
+        .filter(src => !alreadyCachedSkin.has(src))
+        .map(src => ({ src, type: 'image' as const }))
+    ]
+
+    // Small chunks so the main thread / uplink stays available for the
+    // active game loop. No progress reporting — this is fire-and-forget.
+    try {
+      await runInChunks(queue, 3)
+    } catch (err) {
+      console.warn('[assets] background preload failed:', err)
+    }
+  })
+}
 
 export default () => {
+  /**
+   * Boot-time preload. Fetches only the minimum assets needed to render
+   * the stage route's first frame:
+   *   • 4 HUD icons + logo
+   *   • The currently-selected player star-skin (resolved from the
+   *     player's actual selection — NOT hardcoded to 'blades').
+   *   • The boss skin of the stage that will boot first (tutorial boss
+   *     on a fresh install, stage1 boss afterwards).
+   *
+   * Everything else (machine art, sfx, vfx, battle music, parchment,
+   * the rest of the skin catalog) is loaded lazily when the feature
+   * that needs it first renders, with `preloadBackgroundAssets` running
+   * after the hot path to opportunistically warm skin shop + parchment.
+   */
   const preloadAssets = async () => {
     if (areAllAssetsLoaded.value) return
 
-    const criticalSkinIds = getCriticalSkinIds()
-    const criticalSkinPaths = [...criticalSkinIds].map(id => modelImgPath(id))
+    // `getSelectedSkin('star')` reads the player's persisted selection
+    // and falls back to the first skin in the star pool if nothing is
+    // stored yet. For a fresh player that first pool entry is 'blades'.
+    const playerSkinSrc = modelImgPath(getSelectedSkin('star'))
+
+    const bossSkinId = await resolveInitialBossSkin()
+    const bossSkinSrc = bossSkinId ? modelImgPath(bossSkinId) : null
 
     const allAssets: AssetEntry[] = [
-      ...STATIC_IMAGES.map(src => ({ src: prependBaseUrl(src), type: 'image' as const })),
-      ...criticalSkinPaths.map(src => ({ src, type: 'image' as const })),
-      ...SOUND_ASSETS.map(src => ({ src: prependBaseUrl(src), type: 'audio' as const }))
+      ...STAGE_CRITICAL_IMAGES.map(src => ({ src: prependBaseUrl(src), type: 'image' as const })),
+      { src: playerSkinSrc, type: 'image' as const },
+      ...(bossSkinSrc && bossSkinSrc !== playerSkinSrc
+        ? [{ src: bossSkinSrc, type: 'image' as const }]
+        : [])
     ]
 
     let loadedCount = 0
@@ -170,48 +203,24 @@ export default () => {
     }
 
     try {
-      await runInChunks(allAssets, 10, onOne)
+      await runInChunks(allAssets, 8, onOne)
       areAllAssetsLoaded.value = true
       loadingProgress.value = 100
     } catch (error) {
       console.error('Preload failed:', error)
       loadingProgress.value = 100
     }
-  }
 
-  /**
-   * Fire-and-forget background loader for every skin NOT in the critical set.
-   * Safe to call multiple times — concurrent calls share the same in-flight
-   * promise. Callers (e.g. the skin config modal) can `await` the returned
-   * promise if they need to be sure everything's cached before rendering a
-   * gallery.
-   */
-  const preloadRemainingSkins = (): Promise<void> => {
-    if (remainingSkinsPromise) return remainingSkinsPromise
-
-    const remaining: AssetEntry[] = SPINNER_MODEL_IDS
-      .map(id => modelImgPath(id))
-      .filter(src => !resourceCache.images.has(src))
-      .map(src => ({ src, type: 'image' as const }))
-
-    if (remaining.length === 0) {
-      remainingSkinsPromise = Promise.resolve()
-      return remainingSkinsPromise
-    }
-
-    // Smaller chunks than the critical preloader so we don't starve the main
-    // thread / network while the player is already interacting with the arena.
-    remainingSkinsPromise = runInChunks(remaining, 4).catch((e) => {
-      console.error('Background skin preload failed:', e)
-    }) as Promise<void>
-    return remainingSkinsPromise
+    // Kick off the background warmup the moment the hot path is done
+    // and the browser goes idle. Fire-and-forget; nothing awaits it.
+    preloadBackgroundAssets()
   }
 
   return {
     loadingProgress,
     areAllAssetsLoaded,
     preloadAssets,
-    preloadRemainingSkins,
-    resourceCache // Export this if you want to debug memory usage
+    preloadBackgroundAssets,
+    resourceCache
   }
 }

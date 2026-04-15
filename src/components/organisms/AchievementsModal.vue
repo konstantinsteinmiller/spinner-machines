@@ -1,21 +1,29 @@
 <script setup lang="ts">
 import FModal from '@/components/molecules/FModal.vue'
 import useAchievements from '@/use/useAchievements'
+import { useI18n } from 'vue-i18n'
 
 defineProps<{ isOpen: boolean }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
 
 const { achievements, isUnlocked, unlockedCount, totalCount } = useAchievements()
+const { t, te } = useI18n()
+
+// Resolve a localized title/desc for an achievement, with English fallback.
+const achTitle = (id: string, fallback: string) =>
+  te(`achievements.${id}.title`) ? t(`achievements.${id}.title`) : fallback
+const achDesc = (id: string, fallback: string) =>
+  te(`achievements.${id}.desc`) ? t(`achievements.${id}.desc`) : fallback
 </script>
 
 <template lang="pug">
   FModal(
     :model-value="isOpen"
     @update:model-value="(v) => !v && emit('close')"
-    title="Achievements"
+    :title="t('stageUi.achievementsTitle')"
   )
     div.flex.items-center.justify-center.gap-2.mb-3
-      span.text-cyan-300.font-black.game-text(class="text-sm sm:text-base") {{ unlockedCount }} / {{ totalCount }} UNLOCKED
+      span.text-cyan-300.font-black.game-text(class="text-sm sm:text-base") {{ unlockedCount }} / {{ totalCount }} {{ t('stageUi.unlocked') }}
 
     div.grid.gap-3.overflow-y-auto(
       class="grid-cols-2 sm:grid-cols-3 md:grid-cols-4 max-h-[60vh] p-1"
@@ -128,9 +136,9 @@ const { achievements, isUnlocked, unlockedCount, totalCount } = useAchievements(
               rect(x="-5" y="-3" width="10" height="9" rx="1.5" fill="#cbd5e1")
               path(d="M-3 -3 Q-3 -10 0 -10 Q3 -10 3 -3" fill="none" stroke="#cbd5e1" stroke-width="2")
 
-        //- Title + description
-        div.ach-title.game-text {{ a.title }}
-        div.ach-desc.game-text {{ a.description }}
+        //- Title + description (i18n with English fallback)
+        div.ach-title.game-text {{ achTitle(a.id, a.title) }}
+        div.ach-desc.game-text {{ achDesc(a.id, a.description) }}
 </template>
 
 <style scoped lang="sass">

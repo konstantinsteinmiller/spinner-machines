@@ -1,6 +1,11 @@
 import type { MachineModule, StageCtx } from './base'
 import type { Machine } from '@/types/stage'
 import { modelImgPath } from '@/use/useModels'
+import { useScreenshake } from '@/use/useScreenshake'
+import useSounds from '@/use/useSound'
+
+const { triggerShake } = useScreenshake()
+const { playSound } = useSounds()
 
 const HIT_COOLDOWN = 400
 
@@ -38,10 +43,17 @@ const tick = (m: Machine, ctx: StageCtx) => {
         const dmg = Math.max(1, Math.round(impact * 0.6))
         m.hp = (m.hp ?? m.maxHp ?? 10) - dmg
         m.cooldownUntil = ctx.now + HIT_COOLDOWN
+        // Clash sfx on every damaging hit — random 1..5 variant.
+        playSound(`clash-${1 + Math.floor(Math.random() * 5)}`)
+        // Screen-shake — intensity scales with impact speed, killing
+        // blow upgrades to the 'big' preset.
         if (m.hp <= 0) {
           m.destroyed = true
+          triggerShake('big')
           // Kill bonus is handled in onBossDead — no per-hit score.
           ctx.onBossDead()
+        } else {
+          triggerShake(impact > 10 ? 'strong' : 'small')
         }
       }
     }

@@ -47,7 +47,18 @@
       "Read(//c/Users/konst/**)",
       "Read(//c/Users/konst//**)",
       "Bash(cat src/router/*.ts)",
-      "Bash(wc *)"
+      "Bash(wc *)",
+      "Bash(python3)",
+      "Bash(du -sh public/*)",
+      "Bash(du -sh src/assets/*)",
+      "Bash(awk '$5 ~ /M/ || $5 ~ /K/ {print $5, $9}')",
+      "Bash(du -b node_modules/peerjs/dist/bundler.mjs)",
+      "Bash(du -sh node_modules/peerjs)",
+      "Bash(du -sh node_modules/vue-i18n)",
+      "Bash(du -sh node_modules/vue)",
+      "Bash(du -sh node_modules/lodash.clonedeep)",
+      "Bash(pnpm remove *)",
+      "Bash(pnpm exec *)"
     ]
   }
 }
