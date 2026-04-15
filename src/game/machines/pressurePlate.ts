@@ -8,12 +8,20 @@ const tick = (m: Machine, ctx: StageCtx) => {
   if (!circleAabbOverlap(m, sp.x, sp.y, sp.r)) return
   if (m.triggered) return
   m.triggered = true
-  // Activates linked machines: destroys any wall with the same meta.link
+  // Activates every machine sharing this plate's meta.link key. Any
+  // machine type can be a target — walls open shortcuts, glass tubes
+  // shatter early, generators fire their chain, etc. Plates never
+  // destroy other plates (avoids accidental self-triggering loops).
   const link = m.meta?.link
   if (link) {
     for (const other of ctx.machines) {
-      if (other.meta?.link === link && other !== m && other.type === 'wall') {
-        other.destroyed = true
+      if (other === m) continue
+      if (other.destroyed) continue
+      if (other.type === 'pressurePlate') continue
+      if (other.meta?.link !== link) continue
+      other.destroyed = true
+      if (other.type === 'destroyableGlassTube') {
+        other.destroyedAt = ctx.now
       }
     }
   }

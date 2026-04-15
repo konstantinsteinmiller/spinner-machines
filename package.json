@@ -11,6 +11,7 @@
     "build:crazy-web": "vite build --mode crazy-web --base=./ ",
     "build-github-main": "VITE_APP_PVP_ENABLED=true vite build --base=/spinner-machines/ --outDir=dist",
     "build-github-develop": "vite build --base=/spinner-machines/develop/ --outDir=dist/develop",
+    "build-github-editor": "vite build --mode editor --base=/spinner-machines/editor-mode/ --outDir=dist/editor-mode",
     "build-github-demo": "vite build --mode demo --base=/spinner-machines/demo/ --outDir=dist/demo",
     "validated-build": "vue-tsc -b && vite build",
     "deploy": "vite build && surge dist/ --domain spinner-machines.surge.sh",

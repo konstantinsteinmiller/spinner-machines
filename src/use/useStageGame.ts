@@ -104,7 +104,25 @@ function resetSpinner() {
 }
 
 function loadStage(s: Stage) {
-  currentStage.value = cloneStage(s)
+  const cloned = cloneStage(s)
+  // Restarting a stage hands us back the same currentStage reference the
+  // player just dirtied (destroyed walls, exploded generators, shattered
+  // glass tubes, triggered plates, …). Reset all transient machine state
+  // so the level starts clean regardless of what happened last run.
+  for (const m of cloned.machines) {
+    m.destroyed = false
+    m.destroyedAt = undefined
+    m.triggered = false
+    m.cooldownUntil = undefined
+    if (m.maxHp !== undefined) {
+      // Refill HP for walls / bosses back to their cached max.
+      m.hp = m.maxHp
+    } else if (m.type === 'wall') {
+      // Pristine wall — let wallMaxHp() rehydrate on the first hit.
+      m.hp = undefined
+    }
+  }
+  currentStage.value = cloned
   score.value = 0
   launches.value = 0
   stars.value = 0

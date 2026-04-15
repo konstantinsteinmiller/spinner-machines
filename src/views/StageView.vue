@@ -26,6 +26,8 @@ import { useMusic } from '@/use/useSound'
 import useCheats, { cheatStageRewardSignal } from '@/use/useCheats'
 import useStageLeaderboard from '@/use/useStageLeaderboard'
 import { machineArtEnabled, toggleMachineArt } from '@/use/useMachineArt'
+import { isEditorMode } from '@/use/useAppMode'
+import { useRoute } from 'vue-router'
 
 const { initMusic, startBattleMusic, stopBattleMusic } = useMusic()
 initMusic()
@@ -307,6 +309,262 @@ function renderHintAnimation(ctx: CanvasRenderingContext2D) {
 
 // ─── Rendering ─────────────────────────────────────────────────────────
 
+// ─── Stage floor rendering ─────────────────────────────────────────────
+// Two art styles — a cel-shaded arena floor when machine-art mode is ON
+// and the old subtle grid when it's OFF. Both are clipped to the stage
+// rect so anything outside stays background-dark.
+
+function drawStageFloor(ctx: CanvasRenderingContext2D, sw: number, sh: number, now: number) {
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(0, 0, sw, sh)
+  ctx.clip()
+
+  if (machineArtEnabled.value) {
+    drawArenaFloor(ctx, sw, sh, now)
+  } else {
+    drawLineFloor(ctx, sw, sh)
+  }
+
+  ctx.restore()
+}
+
+/** Art-mode arena floor — cel-shaded sci-fi metal plating.
+ *
+ *  Layers (bottom → top):
+ *    1. Cool steel radial base.
+ *    2. Large beveled panel grid with bold cel outlines + inner shine strip.
+ *    3. Bolt studs at every panel corner.
+ *    4. Cyan arena rings + cross-hair center pad.
+ *    5. Deterministic jagged cracks running in from all four corners and
+ *       the long edges, with a dark outline and a thin cyan "energy"
+ *       highlight to read as high-fidelity stress fractures.
+ *    6. Dark corner vignette.
+ *
+ *  Everything is deterministic from the stage size so the cracks / stud
+ *  layout never flicker between frames.
+ */
+function drawArenaFloor(ctx: CanvasRenderingContext2D, sw: number, sh: number, _now: number) {
+  // ── 1. Steel base gradient ────────────────────────────────────────
+  const base = ctx.createRadialGradient(
+    sw / 2, sh / 2, Math.min(sw, sh) * 0.05,
+    sw / 2, sh / 2, Math.max(sw, sh) * 0.75
+  )
+  base.addColorStop(0, '#3c4a5e')
+  base.addColorStop(0.55, '#212a38')
+  base.addColorStop(1, '#0a1019')
+  ctx.fillStyle = base
+  ctx.fillRect(0, 0, sw, sh)
+
+  // Subtle horizontal brushed-metal streaks.
+  ctx.save()
+  ctx.globalCompositeOperation = 'overlay'
+  ctx.strokeStyle = 'rgba(200, 220, 255, 0.035)'
+  ctx.lineWidth = 1
+  for (let y = 0; y < sh; y += 3) {
+    ctx.beginPath()
+    ctx.moveTo(0, y + 0.5)
+    ctx.lineTo(sw, y + 0.5)
+    ctx.stroke()
+  }
+  ctx.restore()
+
+  // ── 2. Panel grid ─────────────────────────────────────────────────
+  const panel = 160
+  const cols = Math.ceil(sw / panel)
+  const rows = Math.ceil(sh / panel)
+  ctx.save()
+  ctx.lineWidth = 3
+  ctx.strokeStyle = 'rgba(6, 10, 18, 0.85)' // bold cel outline
+  for (let r = 0; r <= rows; r++) {
+    const y = r * panel
+    ctx.beginPath()
+    ctx.moveTo(0, y)
+    ctx.lineTo(sw, y)
+    ctx.stroke()
+  }
+  for (let c = 0; c <= cols; c++) {
+    const x = c * panel
+    ctx.beginPath()
+    ctx.moveTo(x, 0)
+    ctx.lineTo(x, sh)
+    ctx.stroke()
+  }
+  // Inner shine strip — a lighter line 3 px inside every seam so the
+  // panels read as beveled / recessed instead of printed-on.
+  ctx.lineWidth = 1
+  ctx.strokeStyle = 'rgba(160, 200, 255, 0.18)'
+  for (let r = 1; r < rows; r++) {
+    const y = r * panel
+    ctx.beginPath()
+    ctx.moveTo(0, y - 3)
+    ctx.lineTo(sw, y - 3)
+    ctx.stroke()
+  }
+  for (let c = 1; c < cols; c++) {
+    const x = c * panel
+    ctx.beginPath()
+    ctx.moveTo(x - 3, 0)
+    ctx.lineTo(x - 3, sh)
+    ctx.stroke()
+  }
+  ctx.restore()
+
+  // ── 3. Bolt studs at every panel corner ───────────────────────────
+  ctx.save()
+  for (let r = 0; r <= rows; r++) {
+    for (let c = 0; c <= cols; c++) {
+      const x = c * panel
+      const y = r * panel
+      // Outer ring
+      ctx.fillStyle = 'rgba(10, 14, 22, 0.85)'
+      ctx.beginPath()
+      ctx.arc(x, y, 4, 0, Math.PI * 2)
+      ctx.fill()
+      // Metal cap
+      const cap = ctx.createRadialGradient(x - 1, y - 1, 0.4, x, y, 3.2)
+      cap.addColorStop(0, '#9fb3cc')
+      cap.addColorStop(1, '#3a4a5e')
+      ctx.fillStyle = cap
+      ctx.beginPath()
+      ctx.arc(x, y, 2.8, 0, Math.PI * 2)
+      ctx.fill()
+      // Highlight pip
+      ctx.fillStyle = 'rgba(255,255,255,0.65)'
+      ctx.beginPath()
+      ctx.arc(x - 0.8, y - 0.8, 0.6, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+  ctx.restore()
+
+  // ── 4. Arena rings + cross-hair center pad ────────────────────────
+  const cx = sw / 2
+  const cy = sh / 2
+  const r = Math.min(sw, sh) * 0.42
+  const ringGrad = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r)
+  ringGrad.addColorStop(0, 'rgba(125, 211, 252, 0.22)')
+  ringGrad.addColorStop(0.85, 'rgba(125, 211, 252, 0.06)')
+  ringGrad.addColorStop(1, 'rgba(125, 211, 252, 0)')
+  ctx.fillStyle = ringGrad
+  ctx.beginPath()
+  ctx.arc(cx, cy, r, 0, Math.PI * 2)
+  ctx.fill()
+
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)'
+  ctx.lineWidth = 5
+  for (let i = 0; i < 3; i++) {
+    const rr = r * (0.55 + i * 0.22)
+    ctx.beginPath()
+    ctx.arc(cx, cy, rr, 0, Math.PI * 2)
+    ctx.stroke()
+  }
+  ctx.strokeStyle = 'rgba(186, 230, 253, 0.85)'
+  ctx.lineWidth = 5
+  const ch = 26
+  ctx.beginPath()
+  ctx.moveTo(cx - ch, cy)
+  ctx.lineTo(cx - ch * 0.45, cy)
+  ctx.moveTo(cx + ch * 0.45, cy)
+  ctx.lineTo(cx + ch, cy)
+  ctx.moveTo(cx, cy - ch)
+  ctx.lineTo(cx, cy - ch * 0.45)
+  ctx.moveTo(cx, cy + ch * 0.45)
+  ctx.lineTo(cx, cy + ch)
+  ctx.stroke()
+
+  // ── 5. High-fidelity cracks running in from corners / edges ───────
+  // Seeded PRNG so the pattern is stable for any given stage size.
+  const seed = Math.floor(sw * 37 + sh * 131)
+  let rngState = seed
+  const rnd = () => {
+    rngState = (rngState * 9301 + 49297) % 233280
+    return rngState / 233280
+  }
+
+  const drawCrack = (x0: number, y0: number, ang: number, len: number, depth: number) => {
+    // Build a jagged polyline of ~12 segments with wobble and random
+    // side branches for extra detail.
+    const path: [number, number][] = [[x0, y0]]
+    let x = x0
+    let y = y0
+    let a = ang
+    const steps = 12
+    const segLen = len / steps
+    for (let i = 0; i < steps; i++) {
+      a += (rnd() - 0.5) * 0.9
+      x += Math.cos(a) * segLen
+      y += Math.sin(a) * segLen
+      path.push([x, y])
+    }
+    // Primary crack — dark outline + cyan energy core.
+    ctx.strokeStyle = 'rgba(3, 7, 14, 0.9)'
+    ctx.lineWidth = 3.5
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    ctx.moveTo(path[0]![0], path[0]![1])
+    for (let i = 1; i < path.length; i++) ctx.lineTo(path[i]![0], path[i]![1])
+    ctx.stroke()
+    ctx.strokeStyle = 'rgba(103, 232, 249, 0.55)'
+    ctx.lineWidth = 1.2
+    ctx.beginPath()
+    ctx.moveTo(path[0]![0], path[0]![1])
+    for (let i = 1; i < path.length; i++) ctx.lineTo(path[i]![0], path[i]![1])
+    ctx.stroke()
+    // Branching off-shoots
+    if (depth > 0) {
+      const branches = 2 + Math.floor(rnd() * 2)
+      for (let b = 0; b < branches; b++) {
+        const idx = 2 + Math.floor(rnd() * (path.length - 3))
+        const [bx, by] = path[idx]!
+        const bang = a + (rnd() - 0.5) * 2.2
+        drawCrack(bx, by, bang, len * (0.28 + rnd() * 0.25), depth - 1)
+      }
+    }
+  }
+
+  // Corners — one long fracture sweeping into the arena from each.
+  const cornerLen = Math.min(sw, sh) * 0.32
+  drawCrack(0, 0, Math.PI * 0.22, cornerLen, 1)
+  drawCrack(sw, 0, Math.PI * 0.78, cornerLen, 1)
+  drawCrack(0, sh, -Math.PI * 0.22, cornerLen, 1)
+  drawCrack(sw, sh, -Math.PI * 0.78, cornerLen, 1)
+
+  // Edge fractures — shorter, pointing inward from long edges.
+  const edgeLen = Math.min(sw, sh) * 0.18
+  drawCrack(sw * 0.3, 0, Math.PI * 0.55, edgeLen, 0)
+  drawCrack(sw * 0.72, 0, Math.PI * 0.45, edgeLen, 0)
+  drawCrack(sw * 0.3, sh, -Math.PI * 0.55, edgeLen, 0)
+  drawCrack(sw * 0.72, sh, -Math.PI * 0.45, edgeLen, 0)
+  drawCrack(0, sh * 0.4, 0.1, edgeLen, 0)
+  drawCrack(sw, sh * 0.6, Math.PI - 0.1, edgeLen, 0)
+
+  // ── 6. Corner vignette ────────────────────────────────────────────
+  const vg = ctx.createRadialGradient(cx, cy, Math.min(sw, sh) * 0.35, cx, cy, Math.hypot(sw, sh) * 0.55)
+  vg.addColorStop(0, 'rgba(0, 0, 0, 0)')
+  vg.addColorStop(1, 'rgba(0, 0, 0, 0.55)')
+  ctx.fillStyle = vg
+  ctx.fillRect(0, 0, sw, sh)
+}
+
+/** Line-mode floor: the original subtle blue grid. */
+function drawLineFloor(ctx: CanvasRenderingContext2D, sw: number, sh: number) {
+  ctx.strokeStyle = 'rgba(148,163,184,0.08)'
+  ctx.lineWidth = 1
+  for (let x = 0; x < sw; x += 80) {
+    ctx.beginPath()
+    ctx.moveTo(x, 0)
+    ctx.lineTo(x, sh)
+    ctx.stroke()
+  }
+  for (let y = 0; y < sh; y += 80) {
+    ctx.beginPath()
+    ctx.moveTo(0, y)
+    ctx.lineTo(sw, y)
+    ctx.stroke()
+  }
+}
+
 function render(now: number) {
   const c = canvasEl.value
   if (!c) return
@@ -327,27 +585,14 @@ function render(now: number) {
   ctx.translate(-cam.value.x * cam.value.zoom, -cam.value.y * cam.value.zoom)
   ctx.scale(cam.value.zoom, cam.value.zoom)
 
-  // Stage border
+  // Stage floor
   const stage = currentStage.value
+  drawStageFloor(ctx, stage.width, stage.height, now)
+
+  // Stage border
   ctx.strokeStyle = '#334155'
   ctx.lineWidth = 4
   ctx.strokeRect(0, 0, stage.width, stage.height)
-
-  // Grid
-  ctx.strokeStyle = 'rgba(148,163,184,0.08)'
-  ctx.lineWidth = 1
-  for (let x = 0; x < stage.width; x += 80) {
-    ctx.beginPath()
-    ctx.moveTo(x, 0)
-    ctx.lineTo(x, stage.height)
-    ctx.stroke()
-  }
-  for (let y = 0; y < stage.height; y += 80) {
-    ctx.beginPath()
-    ctx.moveTo(0, y)
-    ctx.lineTo(stage.width, y)
-    ctx.stroke()
-  }
 
   // Machines
   for (const m of stage.machines) {
@@ -545,6 +790,9 @@ watch(phase, (p) => {
     stopBattleMusic()
   }
   if (p === 'complete') {
+    // Editor-mode playtests skip all persistent progress & reward screen
+    // — the finish event is purely a "you reached the goal" ack.
+    if (isEditorMode) return
     // Leaderboard: record the score for this stage (only applied if higher)
     // and refresh the top-5 rows shown on the reward screen.
     isNewHighscore.value = recordLbHighscore(currentStage.value.id, score.value)
@@ -595,8 +843,31 @@ function onOpenStagePicker() {
   showStagePicker.value = true
 }
 
-onMounted(() => {
+const route = useRoute()
+
+function loadInitialStage() {
+  // Editor "Play" path: if we arrived with ?from=editor or the app is
+  // in editor mode, try to load the currently-edited stage from
+  // localStorage. Fall back to stage1 if nothing's saved yet.
+  const fromEditor = route.query.from === 'editor' || isEditorMode
+  if (fromEditor) {
+    const raw = localStorage.getItem('bm_editor_stage')
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw)
+        if (parsed && Array.isArray(parsed.machines)) {
+          loadStage(parsed)
+          return
+        }
+      } catch { /* fall through */
+      }
+    }
+  }
   loadStage(stage1)
+}
+
+onMounted(() => {
+  loadInitialStage()
   spinnerImg.src = modelImgPath(getSelectedSkin('star'))
   resizeCanvas()
   fitInitialCamera()
@@ -658,7 +929,9 @@ const launchesTierClass = computed(() => {
       span.game-text(v-if="!isTouchDevice" class="text-[10px] sm:text-xs")
         | Scroll to zoom in/out
 
-    //- Bottom-right: skins + leaderboard (stages) buttons, safe-area aware
+    //- Bottom-right: skins + leaderboard (stages) buttons, safe-area aware.
+    //- In editor mode the whole cluster is hidden except for a "Back to
+    //- editor" shortcut so the tester can return with one tap.
     div.fixed.flex.flex-col.items-end.gap-2.pointer-events-auto(
       class="z-40"
       @pointerdown.stop
@@ -668,34 +941,43 @@ const launchesTierClass = computed(() => {
         right: 'calc(0.5rem + env(safe-area-inset-right, 0px))'\
       }"
     )
-      FIconButton(
-        type="secondary"
-        size="md"
-        :img-src="prependBaseUrl('images/icons/team_128x128.webp')"
-        @click="showSkinShop = true"
-      )
-      FIconButton(
-        type="primary"
-        size="md"
-        :img-src="prependBaseUrl('images/icons/trophy_128x128.webp')"
-        @click="showStagePicker = true"
-      )
-      //- Achievements button — aquamarine crest with new-item counter badge
-      div.ach-btn-wrap
-        div.relative.inline-block
-          button.ach-btn(
-            @click="openAchievements"
-            aria-label="Achievements"
-          )
-            span.ach-btn__shadow
-            span.ach-btn__body
-              svg(viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round")
-                path(d="M12 2 L18 5 V11 Q18 16 12 21 Q6 16 6 11 V5 Z")
-                polyline(points="9 11 11 13 15 9")
-          span.ach-btn__badge(v-if="achUnseenCount > 0") {{ achUnseenCount }}
+      template(v-if="isEditorMode")
+        FIconButton(
+          type="secondary"
+          size="md"
+          :img-src="prependBaseUrl('images/icons/level-editor_128x128.svg')"
+          @click="$router.push('/editor')"
+        )
+      template(v-else)
+        FIconButton(
+          type="secondary"
+          size="md"
+          :img-src="prependBaseUrl('images/icons/team_128x128.webp')"
+          @click="showSkinShop = true"
+        )
+        FIconButton(
+          type="primary"
+          size="md"
+          :img-src="prependBaseUrl('images/icons/trophy_128x128.webp')"
+          @click="showStagePicker = true"
+        )
+        //- Achievements button — aquamarine crest with new-item counter badge
+        div.ach-btn-wrap
+          div.relative.inline-block
+            button.ach-btn(
+              @click="openAchievements"
+              aria-label="Achievements"
+            )
+              span.ach-btn__shadow
+              span.ach-btn__body
+                svg(viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round")
+                  path(d="M12 2 L18 5 V11 Q18 16 12 21 Q6 16 6 11 V5 Z")
+                  polyline(points="9 11 11 13 15 9")
+            span.ach-btn__badge(v-if="achUnseenCount > 0") {{ achUnseenCount }}
 
-    //- Top-right: score + coin badge
+    //- Top-right: score + coin badge — hidden in editor-mode playtests.
     div.absolute.flex.flex-col.items-end.gap-2(
+      v-if="!isEditorMode"
       class="top-2 right-2 z-20"
       :style="{ top: 'calc(0.5rem + env(safe-area-inset-top, 0px))', right: 'calc(0.5rem + env(safe-area-inset-right, 0px))' }"
     )
@@ -741,8 +1023,9 @@ const launchesTierClass = computed(() => {
       div.text-white.italic.game-text.opacity-60(class="text-xs sm:text-sm")
         | Drag from the spinner to compress the spring, release to launch
 
-    //- Reward overlay — Level Cleared screen
+    //- Reward overlay — Level Cleared screen (hidden in editor mode).
     FReward(
+      v-if="!isEditorMode"
       v-model="showReward"
       :show-continue="false"
     )

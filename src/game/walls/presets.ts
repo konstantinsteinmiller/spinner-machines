@@ -37,6 +37,20 @@ const seg = (
 
 export const WALL_PRESETS: WallPreset[] = [
   {
+    id: 'wall-tiny',
+    label: 'Tiny Block',
+    color: '#64748b',
+    hint: { w: 20, h: 20 },
+    build: (cx, cy, nid, mat = 'wood') => [seg(nid(), cx, cy, 20, 20, 0, mat)]
+  },
+  {
+    id: 'wall-short',
+    label: 'Short Wall',
+    color: '#64748b',
+    hint: { w: 40, h: 20 },
+    build: (cx, cy, nid, mat = 'wood') => [seg(nid(), cx, cy, 40, 20, 0, mat)]
+  },
+  {
     id: 'wall-long',
     label: 'Long Wall',
     color: '#64748b',

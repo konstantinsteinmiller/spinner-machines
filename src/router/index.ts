@@ -1,9 +1,12 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
 import useUser, { isWeb } from '@/use/useUser'
 import { isDebug } from '@/use/useMatch.ts'
+import { isEditorMode } from '@/use/useAppMode'
 
 const routes: RouteRecordRaw[] = [
-  { path: '/', redirect: '/stage' },
+  // In editor mode the stage editor is the default landing screen so the
+  // deployment at /spinner-machines/editor-mode opens straight into it.
+  { path: '/', redirect: isEditorMode ? '/editor' : '/stage' },
   { path: '/stage', name: 'stage', component: () => import('@/views/StageView.vue') },
   { path: '/editor', name: 'editor', component: () => import('@/views/StageEditor.vue') },
   { path: '/battle', name: 'battle', component: () => import('@/views/SpinnerArena.vue') },

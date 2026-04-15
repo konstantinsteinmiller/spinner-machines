@@ -41,6 +41,12 @@ jobs:
           ref: develop
           path: demo
 
+      - name: Checkout editor-mode
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          path: editor-mode
+
       - uses: pnpm/action-setup@v4
         name: Install pnpm
         with:
@@ -69,6 +75,12 @@ jobs:
           pnpm install --no-frozen-lockfile
         working-directory: demo
 
+      - name: Clean install dependencies (Editor Mode)
+        run: |
+          rm -rf editor-mode/node_modules
+          pnpm install --no-frozen-lockfile
+        working-directory: editor-mode
+
       - name: Build Main Production
         run: npm run build-github-main
         working-directory: main
@@ -90,6 +102,13 @@ jobs:
           VITE_APP_TURN_USERNAME: ${{ secrets.VITE_APP_TURN_USERNAME }}
           VITE_APP_TURN_CREDENTIAL: ${{ secrets.VITE_APP_TURN_CREDENTIAL }}
 
+      - name: Build Editor Mode Production
+        run: npm run build-github-editor
+        working-directory: editor-mode
+        env:
+          VITE_APP_TURN_USERNAME: ${{ secrets.VITE_APP_TURN_USERNAME }}
+          VITE_APP_TURN_CREDENTIAL: ${{ secrets.VITE_APP_TURN_CREDENTIAL }}
+
       - name: Create Dist Folder
         run: mkdir dist
 
@@ -101,6 +120,9 @@ jobs:
 
       - name: Copy Demo Build
         run: cp -r demo/dist/* dist/demo/
+
+      - name: Copy Editor Build
+        run: cp -r editor-mode/dist/* dist/editor-mode/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

@@ -25,6 +25,9 @@ export const MACHINE_REGISTRY: Record<string, MachineModule> = {
   goal
 }
 
+// Note: `wall` is intentionally omitted here — use the WALL_PRESETS
+// palette entries instead so every wall placed from the editor carries
+// a wood / stone / metal material (and therefore a real art skin).
 export const PLACEABLE_MACHINES: MachineModule[] = [
   centrifugalBooster,
   magneticRail,
@@ -34,7 +37,6 @@ export const PLACEABLE_MACHINES: MachineModule[] = [
   conveyorBelt,
   gravityWell,
   pressurePlate,
-  wall,
   boss,
   goal
 ]

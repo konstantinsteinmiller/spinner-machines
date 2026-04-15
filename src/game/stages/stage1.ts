@@ -361,6 +361,55 @@ const stage: Stage = {
       'meta': {
         'material': 'stone'
       }
+    },
+    {
+      'id': 38,
+      'type': 'pressurePlate',
+      'x': 1140,
+      'y': 1120,
+      'w': 160,
+      'h': 20,
+      'rot': 0,
+      'meta': {
+        'link': 'plate1'
+      }
+    },
+    {
+      'id': 39,
+      'type': 'wall',
+      'x': 1440,
+      'y': 260,
+      'w': 20,
+      'h': 160,
+      'rot': 0,
+      'meta': {
+        'material': 'wood',
+        'link': 'plate1'
+      }
+    },
+    {
+      'id': 40,
+      'type': 'destroyableGlassTube',
+      'x': 1380,
+      'y': 260,
+      'w': 60,
+      'h': 100,
+      'rot': 0,
+      'meta': {
+        'link': 'plate1'
+      }
+    },
+    {
+      'id': 41,
+      'type': 'destroyableGlassTube',
+      'x': 1500,
+      'y': 260,
+      'w': 60,
+      'h': 100,
+      'rot': 0,
+      'meta': {
+        'link': 'plate1'
+      }
     }
   ],
   'starThresholds': [

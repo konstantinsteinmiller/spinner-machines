@@ -5,6 +5,14 @@ import { WALL_PRESETS, WALL_MATERIALS, type WallPreset, type WallMaterial } from
 import type { Machine, Stage } from '@/types/stage'
 import { STAGES } from '@/game/stages'
 import { SPINNER_MODEL_IDS, modelImgPath, type SpinnerModelId } from '@/use/useModels'
+import { useRouter } from 'vue-router'
+import { isEditorMode } from '@/use/useAppMode'
+import {
+  savePantryStage,
+  loadPantryStage,
+  exportAllPantryStages,
+  isPantryConfigured
+} from '@/use/usePantryStages'
 
 const stage1 = STAGES[0]!
 
@@ -59,6 +67,59 @@ function resetRotationSelected() {
   if (!m) return
   snapshot()
   m.rot = 0
+}
+
+// ─── Pressure-plate linking ───────────────────────────────────────────
+// When the user clicks "Link next click" on a selected pressure plate we
+// enter linking mode: the next canvas click on another machine stamps
+// that machine's `meta.link` with the plate's link key.
+const linkingPlateId = ref<number | null>(null)
+
+function plateLink(m: Machine | null): string {
+  return (m?.meta?.link as string | undefined) ?? ''
+}
+
+function linkedTargets(plate: Machine): Machine[] {
+  const link = plateLink(plate)
+  if (!link) return []
+  return editorStage.machines.filter(
+    (mm) => mm.id !== plate.id && mm.type !== 'pressurePlate' && mm.meta?.link === link
+  )
+}
+
+function setPlateLinkKey(raw: string) {
+  const plate = selectedMachine()
+  if (!plate || plate.type !== 'pressurePlate') return
+  const prev = plateLink(plate)
+  const next = raw.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) || 'plate1'
+  snapshot()
+  plate.meta = { ...(plate.meta ?? {}), link: next }
+  // Rename any existing targets so the rewire sticks.
+  if (prev && prev !== next) {
+    for (const mm of editorStage.machines) {
+      if (mm.meta?.link === prev) {
+        mm.meta = { ...mm.meta, link: next }
+      }
+    }
+  }
+}
+
+function startLinkingFromSelectedPlate() {
+  const plate = selectedMachine()
+  if (!plate || plate.type !== 'pressurePlate') return
+  // Make sure the plate has a link key before we start linking.
+  if (!plateLink(plate)) {
+    setPlateLinkKey('plate1')
+  }
+  linkingPlateId.value = plate.id
+}
+
+function unlinkTarget(target: Machine) {
+  snapshot()
+  if (!target.meta) return
+  const { link, ...rest } = target.meta
+  void link
+  target.meta = Object.keys(rest).length ? rest : undefined
 }
 
 function cycleBossModel(delta: number) {
@@ -266,6 +327,19 @@ function onPointerDown(e: PointerEvent) {
     return
   }
   if (hit) {
+    // Pressure-plate linking mode: next click on a non-plate machine
+    // stamps that machine's meta.link with the plate's link key.
+    if (linkingPlateId.value !== null && hit.type !== 'pressurePlate') {
+      const plate = editorStage.machines.find((mm) => mm.id === linkingPlateId.value)
+      if (plate) {
+        snapshot()
+        const link = plateLink(plate) || 'plate1'
+        hit.meta = { ...(hit.meta ?? {}), link }
+      }
+      linkingPlateId.value = null
+      selectedId.value = plate?.id ?? hit.id
+      return
+    }
     // Alt+click duplicates: clone the hit machine with a fresh id and
     // grab the clone so the user can drag it into place.
     if (e.altKey) {
@@ -313,6 +387,7 @@ function onKeyDown(e: KeyboardEvent) {
     deleteSelected()
     e.preventDefault()
   } else if (e.key === 'Escape') {
+    linkingPlateId.value = null
     selectedId.value = null
   }
 }
@@ -449,6 +524,18 @@ async function saveAsStage() {
   }
   editorStage.id = safe
   editorStage.name = stageLabel.value.trim() || safe
+
+  // Editor mode — remote Pantry storage (no local filesystem access).
+  if (isEditorMode) {
+    saveStatus.value = 'saving to pantry…'
+    const ok = await savePantryStage(JSON.parse(JSON.stringify(editorStage)) as Stage)
+    saveStatus.value = ok ? `pantry: saved ${safe}` : 'pantry: failed'
+    setTimeout(() => {
+      saveStatus.value = ''
+    }, 4000)
+    return
+  }
+
   if (import.meta.env.DEV) {
     try {
       const res = await fetch('/__save-stage', {
@@ -469,6 +556,88 @@ async function saveAsStage() {
   setTimeout(() => {
     saveStatus.value = ''
   }, 4000)
+}
+
+// ── Editor-mode / cross-mode helpers ────────────────────────────────
+
+const router = useRouter()
+
+function playCurrentStage() {
+  // Persist whatever is in the editor right now so StageView can pick
+  // it up on mount and load it instead of stage1.
+  localStorage.setItem(STORAGE, JSON.stringify(editorStage))
+  router.push({ path: '/stage', query: { from: 'editor' } })
+}
+
+async function fetchAllPantryJson() {
+  if (!isPantryConfigured) {
+    saveStatus.value = 'pantry: VITE_PANTRY_ID missing'
+    setTimeout(() => {
+      saveStatus.value = ''
+    }, 4000)
+    return
+  }
+  saveStatus.value = 'pantry: fetching…'
+  try {
+    const { stages, json } = await exportAllPantryStages()
+    try {
+      await navigator.clipboard?.writeText(json)
+    } catch { /* ignore */
+    }
+    saveStatus.value = `pantry: ${stages.length} stages copied to clipboard`
+  } catch (err) {
+    saveStatus.value = `pantry fetch fail: ${String(err)}`
+  }
+  setTimeout(() => {
+    saveStatus.value = ''
+  }, 5000)
+}
+
+/**
+ * Accept a big `{ stages: Stage[] }` JSON blob (the shape produced by
+ * `fetchAllPantryJson`) and write every stage to the local store. In DEV
+ * this writes each stage through the on-disk `/__save-stage` endpoint,
+ * so the regular editor build can import what the editor-mode build
+ * produced via Pantry.
+ */
+async function parseStagesJsonFromClipboard() {
+  saveStatus.value = 'parsing clipboard…'
+  try {
+    const text = await navigator.clipboard.readText()
+    const parsed = JSON.parse(text)
+    const stages = Array.isArray(parsed?.stages)
+      ? (parsed.stages as Stage[])
+      : Array.isArray(parsed)
+        ? (parsed as Stage[])
+        : null
+    if (!stages) throw new Error('no stages[] found')
+    let ok = 0
+    let fail = 0
+    for (const s of stages) {
+      if (!s || typeof s.id !== 'string') {
+        fail++
+        continue
+      }
+      const safe = s.id.replace(/[^a-zA-Z0-9_-]/g, '')
+      if (import.meta.env.DEV) {
+        const res = await fetch('/__save-stage', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ name: safe, stage: s })
+        })
+        if (res.ok) ok++ else fail++
+      } else {
+        localStorage.setItem(`bm_stage_${safe}`, JSON.stringify(s))
+        ok++
+      }
+    }
+    saveStatus.value = `parsed: ${ok} saved, ${fail} failed`
+  } catch (err) {
+    saveStatus.value = `parse fail: ${String(err)}`
+  }
+  setTimeout(() => {
+    saveStatus.value = ''
+  }, 5000)
 }
 
 onMounted(() => {
@@ -563,9 +732,15 @@ onUnmounted(() => {
           ) 📋 Import JSON from clipboard
         button.bg-green-600.text-white.py-2.rounded-lg.game-text.font-black(@click="save") SAVE
         button.bg-sky-600.text-white.py-2.rounded-lg.game-text.font-black(@click="load") LOAD
-        button.bg-yellow-500.text-black.py-2.rounded-lg.game-text.font-black(@click="exportJson") EXPORT
+        button.bg-yellow-500.text-white.py-2.rounded-lg.game-text.font-black(@click="exportJson") EXPORT
         button.bg-red-600.text-white.py-2.rounded-lg.game-text.font-black(@click="clear") CLEAR
-        button.bg-slate-700.text-white.py-2.rounded-lg.game-text.font-black(@click="$router.push('/stage')") ← PLAY
+        button.bg-emerald-500.text-white.py-2.rounded-lg.game-text.font-black(@click="playCurrentStage") ▶ PLAY
+        //- Editor-mode only: explicit remote-pantry actions
+        template(v-if="isEditorMode")
+          button.bg-teal-600.text-white.py-2.rounded-lg.game-text.font-black(@click="fetchAllPantryJson") ⬇ FETCH ALL
+        //- Regular editor only: parse a pasted { stages: [...] } blob
+        template(v-else)
+          button.bg-purple-600.text-white.py-2.rounded-lg.game-text.font-black(@click="parseStagesJsonFromClipboard") 📥 PARSE STAGES JSON
 
     //- Canvas
     div.relative.flex-1
@@ -580,11 +755,35 @@ onUnmounted(() => {
         @drop="onCanvasDrop"
         @contextmenu.prevent
       )
-      div.absolute.top-2.right-2.text-white.text-xs.game-text.opacity-70.pointer-events-none
+      div.absolute.top-2.right-2.text-white.text-xs.game-text.opacity-75.pointer-events-none.leading-tight.text-right
+        div.text-yellow-300.font-black.uppercase.mb-1 Editor Shortcuts
         div Drag palette → canvas to place
         div Click to select · Drag to move
-        div R / Shift+R to rotate · Del to remove
-        div Right-click to delete · Wheel to zoom
+        div
+          span.text-cyan-300 Alt + Click
+          |  to duplicate a piece
+        div
+          span.text-cyan-300 Shift + Click
+          |  on a piece to rotate it +15°
+        div
+          span.text-cyan-300 R
+          |  /
+          span.text-cyan-300  Shift + R
+          |  rotate selected ±15°
+        div
+          span.text-cyan-300 Del
+          |  /
+          span.text-cyan-300  Backspace
+          |  remove selected
+        div
+          span.text-cyan-300 Esc
+          |  deselect
+        div Right-click a piece to delete it
+        div Click empty space and drag to pan · Wheel to zoom
+        div
+          span.text-cyan-300 Ctrl + Z
+          |  undo last change
+        div When a boss is selected · ◄ ► cycle its model
 
       //- Selected-piece toolbar (on-canvas, touch friendly)
       div.absolute.flex.gap-2.items-center.px-3.py-2.rounded-full.bg-black.border-2.border-yellow-300(
@@ -607,6 +806,67 @@ onUnmounted(() => {
         button.rotate-btn(@click="rotateSelected(ROT_STEP)" title="Rotate +15°") ↻
         button.rotate-btn(@click="resetRotationSelected()" title="Reset rotation") 0°
         button.rotate-btn.bg-red-600(@click="deleteSelected()" title="Delete") 🗑
+
+      //- Pressure-plate help & linking panel (only visible when a plate
+      //- is selected). Placed top-center so it doesn't fight with the
+      //- selected-piece toolbar at the bottom.
+      div.plate-help(
+        v-if="selectedMachine()?.type === 'pressurePlate'"
+        @pointerdown.stop
+        @wheel.stop
+      )
+        div.plate-help__title 🔘 Pressure Plate
+        div.plate-help__body
+          div
+            | A pressure plate activates any other piece that shares its
+            span.plate-help__key link key
+            | .
+          div
+            | When the spinner rolls over it once, every linked machine
+            | is destroyed — perfect for secret walls, primed generators,
+            | or timed glass tubes.
+          ol.plate-help__steps
+            li
+              | 1. Type a short
+              span.plate-help__key link key
+              |  below (or keep the default).
+            li
+              | 2. Click
+              span.plate-help__key Link next click
+              |  — the next machine you click on the canvas will join this
+              | plate's group.
+            li
+              | 3. Repeat to link more pieces. Press
+              span.plate-help__key Esc
+              |  to cancel linking.
+        div.plate-help__row
+          span.plate-help__label LINK KEY
+          input.plate-help__input(
+            :value="plateLink(selectedMachine())"
+            @input="setPlateLinkKey(($event.target).value)"
+            placeholder="plate1"
+          )
+        div.plate-help__row.plate-help__row--actions
+          button.plate-help__btn(
+            :class="{ 'plate-help__btn--active': linkingPlateId !== null }"
+            @click="startLinkingFromSelectedPlate"
+          ) {{ linkingPlateId !== null ? '… click target' : 'Link next click' }}
+          button.plate-help__btn.plate-help__btn--cancel(
+            v-if="linkingPlateId !== null"
+            @click="linkingPlateId = null"
+          ) cancel
+        div.plate-help__targets(v-if="linkedTargets(selectedMachine()).length > 0")
+          div.plate-help__label LINKED TARGETS
+          div.plate-help__chiplist
+            span.plate-help__chip(
+              v-for="t in linkedTargets(selectedMachine())"
+              :key="t.id"
+            )
+              | {{ t.type }}#{{ t.id }}
+              button.plate-help__chip-x(
+                @click="unlinkTarget(t)"
+                title="Unlink"
+              ) ×
 </template>
 
 <style scoped lang="sass">
@@ -643,4 +903,148 @@ onUnmounted(() => {
 
   &:hover
     background: #334155
+
+// ─── Pressure plate help / linking panel ───────────────────────────
+.plate-help
+  position: absolute
+  top: 2.5rem
+  left: 50%
+  transform: translateX(-50%)
+  z-index: 15
+  width: min(26rem, 90%)
+  padding: 0.75rem 0.9rem 0.85rem
+  background: linear-gradient(180deg, rgba(15,23,42,0.97) 0%, rgba(7,11,25,0.97) 100%)
+  border: 2px solid #fbbf24
+  border-radius: 0.75rem
+  color: #e2e8f0
+  font-family: inherit
+  box-shadow: 0 8px 20px rgba(0,0,0,0.6), 0 0 0 1px #0f1a30 inset, 0 0 18px rgba(251,191,36,0.3)
+
+  &__title
+    color: #fde047
+    font-weight: 900
+    font-size: 0.85rem
+    letter-spacing: 0.05em
+    text-transform: uppercase
+    margin-bottom: 0.4rem
+
+  &__body
+    font-size: 0.7rem
+    line-height: 1.35
+    display: flex
+    flex-direction: column
+    gap: 0.2rem
+
+  &__steps
+    list-style: none
+    padding: 0
+    margin: 0.35rem 0 0
+    display: flex
+    flex-direction: column
+    gap: 0.15rem
+
+  &__key
+    display: inline-block
+    margin: 0 0.2rem
+    padding: 0 0.35rem
+    border-radius: 0.25rem
+    background: rgba(253, 224, 71, 0.18)
+    color: #fde047
+    font-weight: 900
+    font-size: 0.68rem
+
+  &__row
+    display: flex
+    align-items: center
+    gap: 0.45rem
+    margin-top: 0.6rem
+
+  &__row--actions
+    margin-top: 0.4rem
+
+  &__label
+    color: #94a3b8
+    font-size: 0.6rem
+    font-weight: 900
+    letter-spacing: 0.08em
+    text-transform: uppercase
+    white-space: nowrap
+
+  &__input
+    flex: 1
+    padding: 0.25rem 0.45rem
+    border-radius: 0.35rem
+    background: #0f172a
+    border: 2px solid #475569
+    color: #fff
+    font-size: 0.75rem
+    font-weight: 800
+
+    &:focus
+      outline: none
+      border-color: #fde047
+
+  &__btn
+    padding: 0.3rem 0.65rem
+    border-radius: 0.4rem
+    border: 2px solid #0f1a30
+    background: linear-gradient(180deg, #22c55e 0%, #065f46 100%)
+    color: #fff
+    font-weight: 900
+    font-size: 0.7rem
+    text-transform: uppercase
+    cursor: pointer
+    box-shadow: 0 2px 0 #052e16
+
+    &:hover
+      filter: brightness(1.1)
+
+    &--active
+      background: linear-gradient(180deg, #fbbf24 0%, #b45309 100%)
+      box-shadow: 0 2px 0 #3b1a00
+      animation: plate-blink 1.1s ease-in-out infinite alternate
+
+    &--cancel
+      background: linear-gradient(180deg, #64748b 0%, #1e293b 100%)
+      box-shadow: 0 2px 0 #0b1220
+
+  &__targets
+    margin-top: 0.55rem
+
+  &__chiplist
+    display: flex
+    flex-wrap: wrap
+    gap: 0.3rem
+    margin-top: 0.2rem
+
+  &__chip
+    display: inline-flex
+    align-items: center
+    gap: 0.25rem
+    padding: 0.15rem 0.45rem
+    border-radius: 9999px
+    background: rgba(251, 191, 36, 0.12)
+    border: 1px solid rgba(251, 191, 36, 0.45)
+    font-size: 0.65rem
+    font-weight: 800
+    color: #fde68a
+
+  &__chip-x
+    background: transparent
+    border: 0
+    color: #fca5a5
+    font-weight: 900
+    cursor: pointer
+    padding: 0
+    line-height: 1
+
+    &:hover
+      color: #fff
+
+@keyframes plate-blink
+  from
+    filter: brightness(1)
+  to
+    filter: brightness(1.25)
+
 </style>
