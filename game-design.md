@@ -248,7 +248,7 @@ div(class="p-1.5 sm:p-2")
 
 - **Music singleton**: `bgMusic` ref outside the hook — true singleton.
 - `initMusic()` creates an `Audio` element on mount, cleans up on unmount.
-- `startBattleMusic()` picks a random track (`battle-1.ogg` to `battle-3.ogg`), fades in with setInterval volume
+- `startBattleMusic()` picks (`factory.ogg`), fades in with setInterval volume
   ramping.
 - `stopBattleMusic()` fades out, then pauses.
 - `pauseMusic()` / `continueMusic()` for visibility change (only resumes if `shouldPlay` is true).

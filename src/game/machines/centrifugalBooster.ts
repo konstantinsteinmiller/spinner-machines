@@ -2,6 +2,9 @@ import type { MachineModule, StageCtx } from './base'
 import { circleAabbOverlap, drawRotRect } from './base'
 import type { Machine } from '@/types/stage'
 import { machineArtEnabled, getMachineImage, MACHINE_ART } from '@/use/useMachineArt'
+import useSounds from '@/use/useSound'
+
+const { playSound } = useSounds()
 
 const ROTATOR_FRAMES = 6
 const ROTATOR_FRAME_MS = 70
@@ -26,6 +29,7 @@ const tick = (m: Machine, ctx: StageCtx) => {
   const newSpeed = Math.max(speed * BOOST, MIN_EXIT)
   sp.vx = dirX * newSpeed
   sp.vy = dirY * newSpeed
+  playSound('fan-whoosh')
 }
 
 const render = (ctx: CanvasRenderingContext2D, m: Machine, now: number) => {

@@ -13,6 +13,7 @@
 
 import { ref } from 'vue'
 import { prependBaseUrl } from '@/utils/function'
+import { resourceCache } from '@/use/useAssets'
 
 const STORAGE_KEY = 'bm_machine_art_enabled'
 const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null
@@ -38,6 +39,14 @@ const imageCache = new Map<string, HTMLImageElement>()
 
 export function getMachineImage(relativePath: string): HTMLImageElement | null {
   const src = prependBaseUrl(relativePath)
+  // Check the preloader's cache first — if the boot preload already
+  // fetched + decoded this image we reuse it instead of creating a
+  // duplicate Image object.
+  const preloaded = resourceCache.images.get(src)
+  if (preloaded && preloaded.complete && preloaded.naturalWidth > 0) {
+    imageCache.set(src, preloaded)
+    return preloaded
+  }
   let img = imageCache.get(src)
   if (!img) {
     img = new Image()
@@ -66,11 +75,12 @@ export const MACHINE_ART = {
   woodSlap: 'images/machines/wood_128x128.webp',
   pressurePlate: 'images/machines/pressure-plate_256x256.webp',
   pressurePlatePressed: 'images/machines/pressure-plate-pressed_256x256.webp',
+  gearSystem: 'images/machines/gear-system_256x256.webp',
+  bgTile: 'images/bg/spinner-machines-bg-tile_256x256.webp',
   explosionSheet: 'images/vfx/explosion_2080x160.webp',
   launcherShotSheet: 'images/vfx/pneumatic-launcher-shot_1280x128.webp'
 } as const
 
-// Kick off preloads up front so the first reveal isn't blank.
-Object.values(MACHINE_ART).forEach((p) => {
-  getMachineImage(p)
-})
+// Machine sprites are preloaded by useAssets during boot (critical path).
+// getMachineImage() falls back to lazy on-demand fetch for any sprite
+// not yet in cache, so no eager loop is needed here.

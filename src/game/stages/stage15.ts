@@ -56,7 +56,11 @@ const stage: Stage = {
 
     // Boss guarding the goal
     { id: 170, type: 'boss', x: 2200, y: 800, w: 140, h: 140, rot: 0, hp: 50, maxHp: 50, modelId: 'boulder' },
-    { id: 180, type: 'goal', x: 2400, y: 800, w: 120, h: 120, rot: 0 }
+    { id: 180, type: 'goal', x: 2400, y: 800, w: 120, h: 120, rot: 0 },
+
+    // ── Gear system: on left wall, rotates a wall to create a shortcut to Plate C ──
+    { id: 181, type: 'gearSystem', x: 20, y: 1200, w: 100, h: 100, rot: 0, meta: { link: 'gear15' } },
+    { id: 182, type: 'wall', x: 400, y: 1100, w: 140, h: 20, rot: 0, meta: { material: 'stone', link: 'gear15' } }
   ]
 }
 

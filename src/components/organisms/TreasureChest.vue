@@ -46,10 +46,12 @@ onUnmounted(() => {
 function onCollect() {
   if (!isReady.value) return
   addCoins(COIN_REWARD)
-  playSound(`celebration-${1 + Math.floor(Math.random() * 3)}`)
+  // Set cooldown BEFORE playSound — if playSound throws (Firefox volume
+  // edge case) the chest still locks and can't be collected infinitely.
   readyAt.value = Date.now() + COOLDOWN_MS
   localStorage.setItem(STORAGE_KEY, String(readyAt.value))
   now.value = Date.now()
+  playSound(`celebration-${1 + Math.floor(Math.random() * 3)}`)
   if (btnRef.value) emit('coins-awarded', btnRef.value)
 }
 </script>

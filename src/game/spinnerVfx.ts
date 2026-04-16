@@ -98,9 +98,12 @@ export function recordTrail(entity: VfxEntity, now: number, moving: boolean) {
     const spd = Math.hypot(entity.vx, entity.vy)
     buf.pts.push({ x: entity.x, y: entity.y, speed: spd, time: now })
   }
-  while (buf.pts.length > 0 && now - buf.pts[0]!.time > TRAIL_DURATION) {
-    buf.pts.shift()
-  }
+  // Batch-prune expired points in one splice instead of shift()-per-point.
+  let cutoff = 0
+  const pts = buf.pts
+  const expiry = now - TRAIL_DURATION
+  while (cutoff < pts.length && pts[cutoff]!.time < expiry) cutoff++
+  if (cutoff > 0) pts.splice(0, cutoff)
   if (buf.pts.length === 0 && !moving) entityTrails.delete(entity.id)
 }
 
@@ -314,7 +317,10 @@ export function tickParticles(now: number) {
       p.frameTick -= SMOKE_FRAME_MS
       if (p.frame < SMOKE_FRAMES - 1) p.frame++
     }
-    if (p.life <= 0) cloudParticles.splice(i, 1)
+    if (p.life <= 0) {
+      cloudParticles[i] = cloudParticles[cloudParticles.length - 1]!
+      cloudParticles.pop()
+    }
   }
   for (let i = sandGrains.length - 1; i >= 0; i--) {
     const g = sandGrains[i]!
@@ -323,11 +329,16 @@ export function tickParticles(now: number) {
     g.vy += 0.003
     g.life -= 16
     g.size *= 0.998
-    if (g.life <= 0) sandGrains.splice(i, 1)
+    if (g.life <= 0) {
+      sandGrains[i] = sandGrains[sandGrains.length - 1]!
+      sandGrains.pop()
+    }
   }
-  while (groundDecals.length > 0 && now - groundDecals[0]!.time > GROUND_DECAL_DURATION) {
-    groundDecals.shift()
-  }
+  // Batch-prune expired decals.
+  let dCut = 0
+  const dExpiry = now - GROUND_DECAL_DURATION
+  while (dCut < groundDecals.length && groundDecals[dCut]!.time < dExpiry) dCut++
+  if (dCut > 0) groundDecals.splice(0, dCut)
 }
 
 export function renderAllDecals(ctx: CanvasRenderingContext2D, now: number) {

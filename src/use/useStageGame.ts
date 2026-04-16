@@ -13,17 +13,30 @@ import useSounds from '@/use/useSound'
 const { triggerShake } = useScreenshake()
 const { playSound } = useSounds()
 
-// Throttle clash sfx so bouncing against a metal wall in quick substeps
-// doesn't spam the audio stack. 90 ms is long enough to de-dupe but
-// short enough that repeated distinct impacts still register.
+// Throttle collision sfx so bouncing in quick substeps doesn't spam the
+// audio stack. Per-material cooldowns so distinct surfaces stay audible.
+// The `ts` parameter comes from the step() timestamp to avoid redundant
+// performance.now() calls in the hot path.
 let lastClashTs = 0
+let lastWoodTs = 0
+let lastStoneTs = 0
 
-function playClash() {
-  const now = performance.now()
-  if (now - lastClashTs < 90) return
-  lastClashTs = now
-  const pick = 1 + Math.floor(Math.random() * 5)
-  playSound(`clash-${pick}`)
+function playClash(ts: number) {
+  if (ts - lastClashTs < 90) return
+  lastClashTs = ts
+  playSound('steel-collision')
+}
+
+function playWoodCollision(ts: number) {
+  if (ts - lastWoodTs < 90) return
+  lastWoodTs = ts
+  playSound('wood-collision')
+}
+
+function playStoneCollision(ts: number) {
+  if (ts - lastStoneTs < 90) return
+  lastStoneTs = ts
+  playSound('stone-brick-collision')
 }
 
 const FRICTION = 0.991
@@ -137,10 +150,14 @@ function loadStage(s: Stage) {
     if (m.maxHp !== undefined) {
       // Refill HP for walls / bosses back to their cached max.
       m.hp = m.maxHp
-    } else if (m.type === 'wall') {
-      // Pristine wall — let wallMaxHp() rehydrate on the first hit.
+    } else if (m.type === 'wall' || m.type === 'gearSystem') {
+      // Pristine wall/gear — let wallMaxHp() rehydrate on the first hit.
       m.hp = undefined
     }
+    // Clear gear system runtime animation state.
+    if (m.meta?._gearRot !== undefined) delete m.meta._gearRot
+    if (m.meta?._gearAnimStart !== undefined) delete m.meta._gearAnimStart
+    if (m.meta?._rotAnimStart !== undefined) delete m.meta._rotAnimStart
   }
   currentStage.value = cloned
   score.value = 0
@@ -284,21 +301,22 @@ function step(dt: number) {
   const now = performance.now()
 
   // Friction is a per-frame decay — apply once, then substep the motion.
-  const speedNow = currentSpeed()
-  const friction = speedNow < SLOW_THRESHOLD ? FRICTION_LOW : FRICTION
+  let spd = Math.hypot(sp.vx, sp.vy)
+  const friction = spd < SLOW_THRESHOLD ? FRICTION_LOW : FRICTION
   sp.vx *= friction
   sp.vy *= friction
   // Hard speed clamp — protects against runaway acceleration loops
   // (wall-wedge bounces, chained boosters, rail + launcher feedback).
-  const clampedSpeed = Math.hypot(sp.vx, sp.vy)
-  if (clampedSpeed > SPEED_CLAMP) {
-    const k = SPEED_CLAMP / clampedSpeed
+  spd = Math.hypot(sp.vx, sp.vy)
+  if (spd > SPEED_CLAMP) {
+    const k = SPEED_CLAMP / spd
     sp.vx *= k
     sp.vy *= k
+    spd = SPEED_CLAMP
   }
   // Constant idle spin + speed-scaled boost so the blade keeps rotating
   // while parked on the exit gate / between launches, like the boss.
-  sp.rotation += 0.05 + currentSpeed() * 0.04
+  sp.rotation += 0.05 + spd * 0.04
 
   const ctx: StageCtx = {
     now,
@@ -321,8 +339,7 @@ function step(dt: number) {
     }
   }
 
-  const speed = Math.hypot(sp.vx, sp.vy)
-  const substeps = Math.min(MAX_SUBSTEPS, Math.max(1, Math.ceil(speed / MAX_SUBSTEP_DIST)))
+  const substeps = Math.min(MAX_SUBSTEPS, Math.max(1, Math.ceil(spd / MAX_SUBSTEP_DIST)))
   const invN = 1 / substeps
   const isTeleporter = sp.modelId === 'teleporter'
   for (let i = 0; i < substeps; i++) {
@@ -362,17 +379,21 @@ function step(dt: number) {
     if (!isTeleporter) {
       for (const m of stage.machines) {
         if (m.destroyed) continue
-        if (m.type !== 'wall') continue
+        if (m.type !== 'wall' && m.type !== 'gearSystem') continue
         const impact = bounceAabb(sp, m)
         if (impact <= 0) continue
         if (m.maxHp === undefined) m.maxHp = wallMaxHp(m)
         if (m.hp === undefined) m.hp = m.maxHp
         m.hp -= impact * WALL_DAMAGE_PER_SPEED
-        // Steel walls are the loud ones — metal clash SFX on every
-        // meaningful impact. Stone and wood stay silent so the sfx
-        // layer doesn't become noise across busy stages.
-        if (m.meta?.material === 'metal' && impact > 2) {
-          playClash()
+        // Material-specific collision sounds on meaningful impacts.
+        if (impact > 2) {
+          if (m.meta?.material === 'metal' || m.type === 'gearSystem') {
+            playClash(now)
+          } else if (m.meta?.material === 'stone') {
+            playStoneCollision(now)
+          } else if (m.type === 'wall') {
+            playWoodCollision(now)
+          }
         }
         if (m.hp <= 0) {
           m.destroyed = true
@@ -460,6 +481,14 @@ function tickThunderstormDamage(now: number) {
       m.destroyed = true
       m.destroyedAt = now
       score.value += 30
+    } else if (m.type === 'gearSystem') {
+      if (m.maxHp === undefined) m.maxHp = wallMaxHp(m)
+      if (m.hp === undefined) m.hp = m.maxHp
+      m.hp -= THUNDER_WALL_DMG
+      if (m.hp <= 0) {
+        m.destroyed = true
+        score.value += Math.max(5, Math.round(m.maxHp / 2))
+      }
     } else if (m.type === 'pressurePlate') {
       if (!m.triggered) m.triggered = true
     }
@@ -470,16 +499,20 @@ let rafId: number | null = null
 let lastTs = 0
 
 function loop(ts: number) {
-  const dt = lastTs ? (ts - lastTs) : 16
-  lastTs = ts
-  if (phase.value === 'launched' || phase.value === 'aiming') {
-    step(dt)
-    if (phase.value === 'launched') tickThunderstormDamage(ts)
-  } else {
-    // Idle spin in every other phase (tap_to_start, countdown, complete)
-    // so the blade keeps rotating on the tutorial tap-overlay and while
-    // parked on the exit gate.
-    spinner.value.rotation += 0.05
+  try {
+    const dt = lastTs ? (ts - lastTs) : 16
+    lastTs = ts
+    if (phase.value === 'launched' || phase.value === 'aiming') {
+      step(dt)
+      if (phase.value === 'launched') tickThunderstormDamage(ts)
+    } else {
+      // Idle spin in every other phase (tap_to_start, countdown, complete)
+      // so the blade keeps rotating on the tutorial tap-overlay and while
+      // parked on the exit gate.
+      spinner.value.rotation += 0.05
+    }
+  } catch (e) {
+    console.error('[game loop] uncaught error:', e)
   }
   rafId = requestAnimationFrame(loop)
 }

@@ -53,7 +53,7 @@ const stage: Stage = {
     {
       'id': 5,
       'type': 'wall',
-      'x': 400,
+      'x': 460,
       'y': 480,
       'w': 600,
       'h': 20,
@@ -62,7 +62,7 @@ const stage: Stage = {
     {
       'id': 6,
       'type': 'wall',
-      'x': 400,
+      'x': 480,
       'y': 760,
       'w': 600,
       'h': 20,
@@ -134,8 +134,8 @@ const stage: Stage = {
     {
       'id': 14,
       'type': 'wall',
-      'x': 1060,
-      'y': 400,
+      'x': 1040,
+      'y': 460,
       'w': 20,
       'h': 440,
       'rot': 0
@@ -302,17 +302,8 @@ const stage: Stage = {
     {
       'id': 32,
       'type': 'wall',
-      'x': 840,
-      'y': 1020,
-      'w': 600,
-      'h': 20,
-      'rot': 0
-    },
-    {
-      'id': 33,
-      'type': 'wall',
-      'x': 780,
-      'y': 120,
+      'x': 860,
+      'y': 1040,
       'w': 600,
       'h': 20,
       'rot': 0
@@ -369,7 +360,7 @@ const stage: Stage = {
       'id': 38,
       'type': 'pressurePlate',
       'x': 1140,
-      'y': 1100,
+      'y': 1200,
       'w': 60,
       'h': 60,
       'rot': 0,
@@ -505,6 +496,31 @@ const stage: Stage = {
       'rot': 0,
       'meta': {
         'link': 'plate1'
+      }
+    },
+    {
+      'id': 50,
+      'type': 'gearSystem',
+      'x': 300,
+      'y': 20,
+      'w': 100,
+      'h': 100,
+      'rot': -1.5707963267948963,
+      'meta': {
+        'link': 'gear1'
+      }
+    },
+    {
+      'id': 51,
+      'type': 'wall',
+      'x': 940,
+      'y': 120,
+      'w': 120,
+      'h': 24,
+      'rot': 1.308996938995747,
+      'meta': {
+        'material': 'metal',
+        'link': 'gear1'
       }
     }
   ],

@@ -89,7 +89,8 @@ export function renderVfx(ctx: CanvasRenderingContext2D, now: number) {
       const s = activeLauncherShots[i]!
       const elapsed = now - s.startTs
       if (elapsed >= LAUNCHER_SHOT_DURATION_MS) {
-        activeLauncherShots.splice(i, 1)
+        activeLauncherShots[i] = activeLauncherShots[activeLauncherShots.length - 1]!
+        activeLauncherShots.pop()
         continue
       }
       if (!shotSheet) continue
@@ -120,7 +121,8 @@ export function renderVfx(ctx: CanvasRenderingContext2D, now: number) {
     const e = activeExplosions[i]!
     const elapsed = now - e.startTs
     if (elapsed >= EXPLOSION_DURATION_MS) {
-      activeExplosions.splice(i, 1)
+      activeExplosions[i] = activeExplosions[activeExplosions.length - 1]!
+      activeExplosions.pop()
       continue
     }
     if (!sheet) continue // asset still loading, skip this frame

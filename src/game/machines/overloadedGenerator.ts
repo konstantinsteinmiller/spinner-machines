@@ -3,6 +3,10 @@ import { circleAabbOverlap, drawRotRect } from './base'
 import type { Machine } from '@/types/stage'
 import { machineArtEnabled, getMachineImage, MACHINE_ART } from '@/use/useMachineArt'
 import { spawnExplosion } from '@/game/vfx'
+import useSounds from '@/use/useSound'
+
+const { playSound } = useSounds()
+let explosionVariant = 0
 
 const SCORE = 100
 const CHAIN_SCORE = 50
@@ -29,6 +33,8 @@ const explode = (m: Machine, ctx: StageCtx, score: number) => {
   // Fixed-size blast VFX (100 world units) — consistent pop regardless
   // of which machine triggered it.
   spawnExplosion(m.x, m.y, 100)
+  explosionVariant = (explosionVariant % 3) + 1
+  playSound(`explosion-${explosionVariant}`)
   // Chain reaction: destroy neighbors in blast radius.
   for (const other of ctx.machines) {
     if (other === m || other.destroyed) continue

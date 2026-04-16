@@ -4,6 +4,12 @@ import { resourceCache } from '@/use/useAssets'
 
 import { ref, onMounted, watch, onUnmounted } from 'vue'
 
+// Firefox throws DOMException if audio.volume is NaN or outside [0, 1].
+// Chrome silently clamps, but Firefox does not — guard every assignment.
+function safeVolume(v: number): number {
+  return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0
+}
+
 // We keep the audio instance outside the hook so it's a true Singleton
 const bgMusic = ref<HTMLAudioElement | null>(null)
 const isLoaded = ref(false)
@@ -18,7 +24,7 @@ export const useMusic = () => {
 
   watch(userMusicVolume, () => {
     if (!bgMusic.value) return
-    bgMusic.value.volume = userMusicVolume.value * 0.025
+    bgMusic.value.volume = safeVolume(userMusicVolume.value * 0.025)
   })
 
   const pauseMusic = () => {
@@ -53,14 +59,13 @@ export const useMusic = () => {
     })
   }
 
-  const startBattleMusic = (forcedIdx?: number) => {
+  const startBattleMusic = (_forcedIdx?: number) => {
     if (!bgMusic.value) return
     // Already playing a battle track — leave it alone so we don't restart
     // mid-fight on extra calls.
     if (shouldPlay.value && isPlaying.value) return
     shouldPlay.value = true
-    const idx = forcedIdx ?? Math.floor(Math.random() * 3) + 1
-    const filename = `battle-${idx}.ogg`
+    const filename = 'factory.ogg'
     const src = prependBaseUrl('audio/music/' + filename)
     const cached = resourceCache.audio.get(src)
 
@@ -109,7 +114,7 @@ export const useMusic = () => {
   const fadeIn = () => {
     if (!bgMusic.value) return
     let vol = 0
-    const target = userMusicVolume.value * 0.025
+    const target = safeVolume(userMusicVolume.value * 0.025)
     const interval = setInterval(() => {
       if (!bgMusic.value || !shouldPlay.value) {
         clearInterval(interval)
@@ -117,7 +122,7 @@ export const useMusic = () => {
       }
       if (vol < target) {
         vol += 0.005
-        bgMusic.value.volume = Math.min(vol, target)
+        bgMusic.value.volume = safeVolume(Math.min(vol, target))
       } else {
         clearInterval(interval)
       }
@@ -161,7 +166,7 @@ const useSounds = () => {
       ? cached.cloneNode(false) as HTMLAudioElement
       : new Audio(src)
     // iOS requires volume to be set BEFORE play()
-    audio.volume = userSoundVolume.value * ratio
+    audio.volume = safeVolume(userSoundVolume.value * ratio)
     audio.play().catch(e => console.warn('SFX play blocked:', e))
   }
 

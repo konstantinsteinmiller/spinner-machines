@@ -10,6 +10,7 @@ export type MachineType =
   | 'gravityWell'
   | 'pneumaticLauncher'
   | 'pressurePlate'
+  | 'gearSystem'
   | 'destroyableGlassTube'
   | 'wall'
   | 'goal'

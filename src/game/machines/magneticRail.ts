@@ -2,6 +2,9 @@ import type { MachineModule, StageCtx } from './base'
 import { circleAabbOverlap, drawRotRect } from './base'
 import type { Machine } from '@/types/stage'
 import { machineArtEnabled, getMachineImage, MACHINE_ART } from '@/use/useMachineArt'
+import useSounds from '@/use/useSound'
+
+const { playSound } = useSounds()
 
 const RAIL_SPEED = 16
 
@@ -28,6 +31,7 @@ const tick = (m: Machine, ctx: StageCtx) => {
   if (!m.triggered) {
     m.triggered = true
     sp.railId = m.id
+    playSound('magnetic-rail-acceleration')
   }
 }
 

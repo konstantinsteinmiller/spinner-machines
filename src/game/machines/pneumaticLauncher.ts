@@ -3,6 +3,9 @@ import { circleAabbOverlap, drawRotRect } from './base'
 import type { Machine } from '@/types/stage'
 import { machineArtEnabled, getMachineImage, MACHINE_ART } from '@/use/useMachineArt'
 import { spawnLauncherShot } from '@/game/vfx'
+import useSounds from '@/use/useSound'
+
+const { playSound } = useSounds()
 
 const LAUNCH_SPEED = 22
 
@@ -22,6 +25,7 @@ const tick = (m: Machine, ctx: StageCtx) => {
   const muzzleX = m.x + dirX * (m.w / 2 + 10)
   const muzzleY = m.y + dirY * (m.w / 2 + 10)
   spawnLauncherShot(muzzleX, muzzleY, m.rot, 100)
+  playSound('pneumatic-shot')
 }
 
 const render = (ctx: CanvasRenderingContext2D, m: Machine, now: number) => {

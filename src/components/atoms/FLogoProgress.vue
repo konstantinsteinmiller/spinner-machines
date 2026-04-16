@@ -158,7 +158,8 @@ div[style*="conic-gradient"]
   position: fixed
   inset: 0
   z-index: 150
-  background: #0d1117
+  background: #0d1117 url('/images/bg/spinner-machines-bg-tile_256x256.webp') repeat
+  background-size: 128px 128px
 // No pointer events so nothing underneath is accidentally clickable anyway
 // (there's nothing interactive rendered yet during initial load)
 

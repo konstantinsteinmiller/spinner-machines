@@ -62,7 +62,11 @@ const machines: Machine[] = [
   { id: id(), type: 'overloadedGenerator', x: 1150, y: 200, w: 80, h: 80, rot: 0, meta: { link: 'plateS3' } },
   { id: id(), type: 'overloadedGenerator', x: 1250, y: 200, w: 80, h: 80, rot: 0, meta: { link: 'plateS3' } },
   { id: id(), type: 'destroyableGlassTube', x: 1200, y: 140, w: 60, h: 60, rot: 0, meta: { link: 'plateS3' } },
-  { id: id(), type: 'pressurePlate', x: 1200, y: 1400, w: 90, h: 70, rot: 0, meta: { link: 'plateS3' } }
+  { id: id(), type: 'pressurePlate', x: 1200, y: 1400, w: 90, h: 70, rot: 0, meta: { link: 'plateS3' } },
+
+  // ── Gear system: on bottom wall, rotates a maze wall to open a shortcut ──
+  { id: id(), type: 'gearSystem', x: 800, y: 1580, w: 100, h: 100, rot: 0, meta: { link: 'gearS3' } },
+  { id: id(), type: 'wall', x: 800, y: 1300, w: 120, h: 20, rot: 0, meta: { material: 'metal', link: 'gearS3' } }
 ]
 
 const stage3: Stage = {

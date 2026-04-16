@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted, reactive } from 'vue'
 import { PLACEABLE_MACHINES, MACHINE_REGISTRY, type MachineModule } from '@/game/machines'
 import { WALL_PRESETS, WALL_MATERIALS, type WallPreset, type WallMaterial } from '@/game/walls/presets'
 import type { Machine, Stage } from '@/types/stage'
-import { STAGE_MANIFEST, loadStageById, stage1 as builtinStage1 } from '@/game/stages'
+import { STAGE_MANIFEST, TUTORIAL_META, loadStageById, stage1 as builtinStage1 } from '@/game/stages'
 import { SPINNER_MODEL_IDS, modelImgPath, type SpinnerModelId } from '@/use/useModels'
 import { useRouter } from 'vue-router'
 import { isEditorMode } from '@/use/useAppMode'
@@ -114,6 +114,47 @@ function startLinkingFromSelectedPlate() {
   linkingPlateId.value = plate.id
 }
 
+// ─── Gear-system linking ──────────────────────────────────────────────
+// Works identically to pressure-plate linking but for gear systems.
+const linkingGearId = ref<number | null>(null)
+
+function gearLink(m: Machine | null): string {
+  return (m?.meta?.link as string | undefined) ?? ''
+}
+
+function gearLinkedTargets(gear: Machine): Machine[] {
+  const link = gearLink(gear)
+  if (!link) return []
+  return editorStage.machines.filter(
+    (mm) => mm.id !== gear.id && mm.type !== 'gearSystem' && mm.meta?.link === link
+  )
+}
+
+function setGearLinkKey(raw: string) {
+  const gear = selectedMachine()
+  if (!gear || gear.type !== 'gearSystem') return
+  const prev = gearLink(gear)
+  const next = raw.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) || 'gear1'
+  snapshot()
+  gear.meta = { ...(gear.meta ?? {}), link: next }
+  if (prev && prev !== next) {
+    for (const mm of editorStage.machines) {
+      if (mm.meta?.link === prev) {
+        mm.meta = { ...mm.meta, link: next }
+      }
+    }
+  }
+}
+
+function startLinkingFromSelectedGear() {
+  const gear = selectedMachine()
+  if (!gear || gear.type !== 'gearSystem') return
+  if (!gearLink(gear)) {
+    setGearLinkKey('gear1')
+  }
+  linkingGearId.value = gear.id
+}
+
 function unlinkTarget(target: Machine) {
   snapshot()
   if (!target.meta) return
@@ -162,8 +203,7 @@ function render(now: number) {
   ctx.scale(dpr, dpr)
   const w = c.clientWidth
   const h = c.clientHeight
-  ctx.fillStyle = '#0b1220'
-  ctx.fillRect(0, 0, w, h)
+  ctx.clearRect(0, 0, w, h)
   ctx.save()
   ctx.translate(-cam.value.x * cam.value.zoom, -cam.value.y * cam.value.zoom)
   ctx.scale(cam.value.zoom, cam.value.zoom)
@@ -340,6 +380,18 @@ function onPointerDown(e: PointerEvent) {
       selectedId.value = plate?.id ?? hit.id
       return
     }
+    // Gear-system linking mode: same pattern as plate linking.
+    if (linkingGearId.value !== null && hit.type !== 'gearSystem') {
+      const gear = editorStage.machines.find((mm) => mm.id === linkingGearId.value)
+      if (gear) {
+        snapshot()
+        const link = gearLink(gear) || 'gear1'
+        hit.meta = { ...(hit.meta ?? {}), link }
+      }
+      linkingGearId.value = null
+      selectedId.value = gear?.id ?? hit.id
+      return
+    }
     // Alt+click duplicates: clone the hit machine with a fresh id and
     // grab the clone so the user can drag it into place.
     if (e.altKey) {
@@ -388,6 +440,7 @@ function onKeyDown(e: KeyboardEvent) {
     e.preventDefault()
   } else if (e.key === 'Escape') {
     linkingPlateId.value = null
+    linkingGearId.value = null
     selectedId.value = null
   }
 }
@@ -659,7 +712,7 @@ onUnmounted(() => {
 </script>
 
 <template lang="pug">
-  div.relative.w-full.h-full.flex(style="background:#0b1220")
+  div.relative.w-full.h-full.flex.editor-bg
     //- Palette
     div.flex.flex-col.gap-2.p-3.overflow-y-auto(
       class="w-40 sm:w-52 bg-slate-900 border-r-2 border-slate-700 z-10"
@@ -721,6 +774,9 @@ onUnmounted(() => {
           v-if="openMenuVisible"
         )
           div.text-orange-300.game-text.text-xs.uppercase.font-black Built-in
+          button.text-left.text-cyan-200.game-text.text-xs.px-2.py-1.rounded.bg-slate-700(
+            @click="openBuiltin(TUTORIAL_META)"
+          ) tutorial · Tutorial
           button.text-left.text-white.game-text.text-xs.px-2.py-1.rounded.bg-slate-700(
             v-for="s in STAGE_MANIFEST"
             :key="s.id"
@@ -872,9 +928,74 @@ onUnmounted(() => {
                 @click="unlinkTarget(t)"
                 title="Unlink"
               ) ×
+
+      //- Gear-system help & linking panel (only visible when a gear
+      //- system is selected).
+      div.plate-help(
+        v-if="selectedMachine()?.type === 'gearSystem'"
+        @pointerdown.stop
+        @wheel.stop
+        style="border-color: #94a3b8"
+      )
+        div.plate-help__title(style="color: #94a3b8") ⚙ Gear System
+        div.plate-help__body
+          div
+            | A gear system rotates any linked piece (usually walls) by 30°
+            | each time the spinner hits it. It works like a
+            span.plate-help__key(style="background: rgba(148,163,184,0.18); color: #94a3b8")  clockwork trigger
+            | .
+          div
+            | The gear system is destroyable (metal HP). Place it on an outer
+            | wall with only the big gear poking into the stage.
+          ol.plate-help__steps
+            li
+              | 1. Type a short
+              span.plate-help__key(style="background: rgba(148,163,184,0.18); color: #94a3b8")  link key
+              |  below (or keep the default).
+            li
+              | 2. Click
+              span.plate-help__key(style="background: rgba(148,163,184,0.18); color: #94a3b8")  Link next click
+              |  — the next machine you click will be rotated by the gears.
+            li
+              | 3. Repeat to link more pieces. Press
+              span.plate-help__key(style="background: rgba(148,163,184,0.18); color: #94a3b8")  Esc
+              |  to cancel linking.
+        div.plate-help__row
+          span.plate-help__label LINK KEY
+          input.plate-help__input(
+            :value="gearLink(selectedMachine())"
+            @input="setGearLinkKey(($event.target).value)"
+            placeholder="gear1"
+          )
+        div.plate-help__row.plate-help__row--actions
+          button.plate-help__btn(
+            :class="{ 'plate-help__btn--active': linkingGearId !== null }"
+            @click="startLinkingFromSelectedGear"
+          ) {{ linkingGearId !== null ? '… click target' : 'Link next click' }}
+          button.plate-help__btn.plate-help__btn--cancel(
+            v-if="linkingGearId !== null"
+            @click="linkingGearId = null"
+          ) cancel
+        div.plate-help__targets(v-if="gearLinkedTargets(selectedMachine()).length > 0")
+          div.plate-help__label LINKED TARGETS
+          div.plate-help__chiplist
+            span.plate-help__chip(
+              v-for="t in gearLinkedTargets(selectedMachine())"
+              :key="t.id"
+              style="background: rgba(148,163,184,0.12); border-color: rgba(148,163,184,0.45); color: #cbd5e1"
+            )
+              span {{ `${t.type}#${t.id}` }}
+              button.plate-help__chip-x(
+                @click="unlinkTarget(t)"
+                title="Unlink"
+              ) ×
 </template>
 
 <style scoped lang="sass">
+.editor-bg
+  background: #0b1220 url('/images/bg/spinner-machines-bg-tile_256x256.webp') repeat
+  background-size: 128px 128px
+
 .palette-btn
   background: #1e293b
   border: 2px solid #475569

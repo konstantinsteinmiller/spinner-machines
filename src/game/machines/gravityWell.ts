@@ -1,6 +1,9 @@
 import type { MachineModule, StageCtx } from './base'
 import type { Machine } from '@/types/stage'
 import { machineArtEnabled, getMachineImage, MACHINE_ART } from '@/use/useMachineArt'
+import useSounds from '@/use/useSound'
+
+const { playSound } = useSounds()
 
 const STRENGTH = 0.9
 const RADIUS = 180
@@ -11,7 +14,16 @@ const tick = (m: Machine, ctx: StageCtx) => {
   const dx = m.x - sp.x
   const dy = m.y - sp.y
   const d = Math.hypot(dx, dy)
-  if (d < 1 || d > RADIUS) return
+  if (d < 1 || d > RADIUS) {
+    // Left the gravity well — reset entry flag.
+    m.triggered = false
+    return
+  }
+  // Play sound once on entry into the gravity well.
+  if (!m.triggered) {
+    m.triggered = true
+    playSound('gravity-well')
+  }
   const pull = STRENGTH * (1 - d / RADIUS)
   sp.vx += (dx / d) * pull
   sp.vy += (dy / d) * pull

@@ -50,6 +50,10 @@ const tick = (m: Machine, ctx: StageCtx) => {
         if (m.hp <= 0) {
           m.destroyed = true
           triggerShake('big')
+          // Explosion SFX cascade on boss defeat.
+          playSound('explosion-1')
+          playSound('explosion-2')
+          playSound('explosion-3')
           // Kill bonus is handled in onBossDead — no per-hit score.
           ctx.onBossDead()
         } else {

@@ -46,7 +46,11 @@ const stage: Stage = {
     { id: 50, type: 'pneumaticLauncher', x: 300, y: 300, w: 90, h: 60, rot: 0 },
 
     { id: 60, type: 'boss', x: 2200, y: 1400, w: 140, h: 140, rot: 0, hp: 50, maxHp: 50, modelId: 'diamond' },
-    { id: 70, type: 'goal', x: 2400, y: 1400, w: 120, h: 120, rot: 0 }
+    { id: 70, type: 'goal', x: 2400, y: 1400, w: 120, h: 120, rot: 0 },
+
+    // ── Gear system: on right wall, rotates a metal wall near the boss ──
+    { id: 71, type: 'gearSystem', x: 2580, y: 800, w: 100, h: 100, rot: 0, meta: { link: 'gear19' } },
+    { id: 72, type: 'wall', x: 2100, y: 1000, w: 20, h: 200, rot: 0, meta: { material: 'metal', link: 'gear19' } }
   ]
 }
 

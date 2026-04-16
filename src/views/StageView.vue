@@ -396,18 +396,40 @@ function renderHintAnimation(ctx: CanvasRenderingContext2D) {
 // and the old subtle grid when it's OFF. Both are clipped to the stage
 // rect so anything outside stays background-dark.
 
-function drawStageFloor(ctx: CanvasRenderingContext2D, sw: number, sh: number, now: number) {
+// ─── Floor cache ──────────────────────────────────────────────────────
+// The arena floor (art mode) and line floor are completely static for a
+// given stage size. Rendering them from scratch every frame is the
+// single biggest CPU cost in the render loop — hundreds of strokes,
+// per-bolt radial gradients, recursive crack generation, etc.
+// We blit them once to an offscreen canvas and drawImage that every
+// frame instead. The cache invalidates when dimensions or art-mode
+// change.
+let floorCache: HTMLCanvasElement | null = null
+let floorCacheKey = ''
+
+function getFloorCache(sw: number, sh: number, art: boolean): HTMLCanvasElement {
+  const key = `${sw}:${sh}:${art ? 1 : 0}`
+  if (floorCache && floorCacheKey === key) return floorCache
+  const offscreen = document.createElement('canvas')
+  offscreen.width = sw
+  offscreen.height = sh
+  const offCtx = offscreen.getContext('2d')!
+  if (art) {
+    drawArenaFloor(offCtx, sw, sh, 0)
+  } else {
+    drawLineFloor(offCtx, sw, sh)
+  }
+  floorCache = offscreen
+  floorCacheKey = key
+  return offscreen
+}
+
+function drawStageFloor(ctx: CanvasRenderingContext2D, sw: number, sh: number, _now: number) {
   ctx.save()
   ctx.beginPath()
   ctx.rect(0, 0, sw, sh)
   ctx.clip()
-
-  if (machineArtEnabled.value) {
-    drawArenaFloor(ctx, sw, sh, now)
-  } else {
-    drawLineFloor(ctx, sw, sh)
-  }
-
+  ctx.drawImage(getFloorCache(sw, sh, machineArtEnabled.value), 0, 0)
   ctx.restore()
 }
 
@@ -621,12 +643,9 @@ function render(now: number) {
   ctx.scale(dpr, dpr)
   const w = c.clientWidth
   const h = c.clientHeight
-  // Background
-  const grad = ctx.createLinearGradient(0, 0, 0, h)
-  grad.addColorStop(0, '#0b1220')
-  grad.addColorStop(1, '#1e293b')
-  ctx.fillStyle = grad
-  ctx.fillRect(0, 0, w, h)
+  // Clear to transparent — the tiled background is handled by CSS on
+  // the parent div (GPU-composited, no per-frame JS cost).
+  ctx.clearRect(0, 0, w, h)
 
   ctx.save()
   ctx.translate(-cam.value.x * cam.value.zoom, -cam.value.y * cam.value.zoom)
@@ -1076,9 +1095,7 @@ const launchesTierClass = computed(() => {
 </script>
 
 <template lang="pug">
-  div.relative.w-full.h-full.overflow-hidden(
-    style="background:#0b1220"
-  )
+  div.relative.w-full.h-full.overflow-hidden.stage-bg
     canvas.absolute.inset-0.w-full.h-full.touch-none(
       ref="canvasEl"
       :style="shakeStyle"
@@ -1396,6 +1413,12 @@ const launchesTierClass = computed(() => {
 </template>
 
 <style scoped lang="sass">
+// Canvas outer background — handled by the CSS compositor (GPU) instead
+// of per-frame canvas pattern fills which stall on Brave/Edge/Yandex.
+.stage-bg
+  background: #0b1220 url('/images/bg/spinner-machines-bg-tile_256x256.webp') repeat
+  background-size: 128px 128px
+
 .camera-hint
   top: calc(0.5rem + env(safe-area-inset-top, 0px))
   text-align: center

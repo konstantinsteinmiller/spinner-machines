@@ -55,7 +55,11 @@ const stage: Stage = {
     // Boss next to goal
     { id: 70, type: 'boss', x: 2600, y: 940, w: 140, h: 140, rot: 0, hp: 50, maxHp: 50, modelId: 'diamond' },
 
-    { id: 80, type: 'goal', x: 2800, y: 940, w: 120, h: 120, rot: 0 }
+    { id: 80, type: 'goal', x: 2800, y: 940, w: 120, h: 120, rot: 0 },
+
+    // ── Gear system: on bottom wall, rotates a wall blocking the lower rail shortcut ──
+    { id: 81, type: 'gearSystem', x: 1200, y: 1180, w: 100, h: 100, rot: 0, meta: { link: 'gear12' } },
+    { id: 82, type: 'wall', x: 1200, y: 800, w: 120, h: 20, rot: 0, meta: { material: 'metal', link: 'gear12' } }
   ]
 }
 

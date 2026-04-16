@@ -6,6 +6,7 @@ import conveyorBelt from './conveyorBelt'
 import gravityWell from './gravityWell'
 import pneumaticLauncher from './pneumaticLauncher'
 import pressurePlate from './pressurePlate'
+import gearSystem from './gearSystem'
 import destroyableGlassTube from './destroyableGlassTube'
 import wall from './wall'
 import boss from './boss'
@@ -19,6 +20,7 @@ export const MACHINE_REGISTRY: Record<string, MachineModule> = {
   gravityWell,
   pneumaticLauncher,
   pressurePlate,
+  gearSystem,
   destroyableGlassTube,
   wall,
   boss,
@@ -37,6 +39,7 @@ export const PLACEABLE_MACHINES: MachineModule[] = [
   conveyorBelt,
   gravityWell,
   pressurePlate,
+  gearSystem,
   boss,
   goal
 ]

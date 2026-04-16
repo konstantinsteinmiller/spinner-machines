@@ -1,6 +1,10 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import FTabs, { type TabOption } from '@/components/atoms/FTabs.vue'
 import { isMobileLandscape, isMobilePortrait } from '@/use/useUser'
+import { prependBaseUrl } from '@/utils/function'
+
+const bgTileUrl = computed(() => prependBaseUrl('images/bg/spinner-machines-bg-tile_256x256.webp'))
 
 interface Props {
   modelValue: boolean | any
@@ -80,7 +84,10 @@ const handleTabChange = (val: string | number) => {
         div(class="relative")
           div(class="absolute inset-0 translate-y-2 rounded-[1.5rem] sm:rounded-[2.5rem] bg-[#0c1626]")
 
-          div(class="modal-frame relative bg-[#1a2b4b] border-[5px] border-[#0f1a30] rounded-[1.25rem] sm:rounded-[2rem] pt-7 pb-0 px-2 sm:px-4 sm:pt-6 md:p-8 md:pb-2 md:pt-10")
+          div(
+            class="modal-frame relative bg-[#1a2b4b] border-[5px] border-[#0f1a30] rounded-[1.25rem] sm:rounded-[2rem] pt-7 pb-0 px-2 sm:px-4 sm:pt-6 md:p-8 md:pb-2 md:pt-10"
+          )
+            //:style="{ backgroundImage: `url(${bgTileUrl})`, backgroundRepeat: 'repeat', backgroundSize: '128px 128px', backgroundColor: '#1a2b4b' }"
 
             //- Close Button (X) — wrapper is purely a layout spacer for
             //- the absolutely-positioned X button; it must NOT also close

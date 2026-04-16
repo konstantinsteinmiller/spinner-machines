@@ -64,7 +64,11 @@ const machines: Machine[] = [
   { id: id(), type: 'overloadedGenerator', x: 1150, y: 200, w: 80, h: 80, rot: 0, meta: { link: 'plateS8' } },
   { id: id(), type: 'overloadedGenerator', x: 1250, y: 200, w: 80, h: 80, rot: 0, meta: { link: 'plateS8' } },
   { id: id(), type: 'destroyableGlassTube', x: 1200, y: 140, w: 60, h: 60, rot: 0, meta: { link: 'plateS8' } },
-  { id: id(), type: 'pressurePlate', x: 1200, y: 1440, w: 90, h: 70, rot: 0, meta: { link: 'plateS8' } }
+  { id: id(), type: 'pressurePlate', x: 1200, y: 1440, w: 90, h: 70, rot: 0, meta: { link: 'plateS8' } },
+
+  // ── Gear system: on top wall, rotates a wall to open boss chamber shortcut ──
+  { id: id(), type: 'gearSystem', x: 1900, y: 20, w: 100, h: 100, rot: 0, meta: { link: 'gearS8' } },
+  { id: id(), type: 'wall', x: 2000, y: 300, w: 120, h: 20, rot: 0, meta: { material: 'metal', link: 'gearS8' } }
 ]
 
 const stage8: Stage = {

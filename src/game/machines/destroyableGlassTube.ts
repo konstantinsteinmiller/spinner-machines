@@ -2,6 +2,10 @@ import type { MachineModule, StageCtx } from './base'
 import { circleAabbOverlap, drawRotRect } from './base'
 import type { Machine } from '@/types/stage'
 import { machineArtEnabled, getMachineImage, MACHINE_ART } from '@/use/useMachineArt'
+import useSounds from '@/use/useSound'
+
+const { playSound } = useSounds()
+let glassVariant = 0
 
 const SCORE = 40
 const SHARD_FRAMES = 3
@@ -16,6 +20,8 @@ const tick = (m: Machine, ctx: StageCtx) => {
   m.destroyedAt = ctx.now
   ctx.destroyMachine(m)
   ctx.addScore(SCORE)
+  glassVariant = (glassVariant % 2) + 1
+  playSound(`glass-shatter-${glassVariant}`)
   // Slight slowdown to feel the crunch.
   sp.vx *= 0.92
   sp.vy *= 0.92

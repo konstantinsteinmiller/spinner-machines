@@ -57,6 +57,11 @@ export const STAGE_MANIFEST: readonly StageMeta[] = [
 const loadedCache = new Map<string, Stage>()
 loadedCache.set(stage1.id, stage1)
 
+// Tutorial is named `tutorial.ts` (not `stage*.ts`) so the glob misses
+// it. Register a manual lazy loader so loadStageById can resolve it.
+const tutorialLoader = () => import('./tutorial') as Promise<{ default: Stage }>
+
+
 // File-name → stage-id lookup, built from the first glob pass so we can
 // resolve a stage by id without scanning every chunk. Because dynamic
 // imports are keyed by path, we need to map id → loader key.
@@ -75,6 +80,7 @@ const loaderByStageId = new Map<string, () => Promise<{ default: Stage }>>()
     loaderByStageId.set(`stage${n}`, loader)
     loaderByStageId.set(`stage-${n}`, loader)
   }
+  loaderByStageId.set('tutorial', tutorialLoader)
 }
 
 /**
@@ -119,6 +125,10 @@ export async function preloadAllStages(): Promise<readonly Stage[]> {
   )
   return getLoadedStages()
 }
+
+// Tutorial metadata — not in STAGE_MANIFEST (excluded from stage picker,
+// achievements, and unlock chain) but exposed for the editor.
+export const TUTORIAL_META: StageMeta = { id: 'tutorial', name: 'Tutorial', hasBoss: true, numericOrder: 0 }
 
 // Re-export stage1 for code paths that statically import the default
 // boot stage.
