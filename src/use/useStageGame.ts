@@ -62,6 +62,12 @@ let stuckCheckTs = 0
 let stuckLastX = 0
 let stuckLastY = 0
 
+// Anti-loop friction: if the spinner travels more than 3 seconds without
+// hitting a destructible object (wall, boss, generator, glass, plate),
+// friction ramps up drastically to kill infinite fan/booster/rail loops.
+const IDLE_LOOP_THRESHOLD_MS = 3000
+let lastDestructibleHitTs = 0
+
 const currentStage = shallowRef<Stage>(cloneStage(stage1))
 const phase = ref<StagePhase>('tap_to_start')
 const score = ref(0)
@@ -301,8 +307,18 @@ function step(dt: number) {
   const now = performance.now()
 
   // Friction is a per-frame decay — apply once, then substep the motion.
+  // Anti-loop: if the spinner hasn't hit anything destructible for 3+ seconds,
+  // ramp friction aggressively to kill infinite fan/booster loops.
   let spd = Math.hypot(sp.vx, sp.vy)
-  const friction = spd < SLOW_THRESHOLD ? FRICTION_LOW : FRICTION
+  const idleMs = now - lastDestructibleHitTs
+  let friction: number
+  if (idleMs > IDLE_LOOP_THRESHOLD_MS) {
+    // Ramp from normal friction (0.991) down to 0.92 over 3 extra seconds.
+    const t = Math.min(1, (idleMs - IDLE_LOOP_THRESHOLD_MS) / 3000)
+    friction = FRICTION - t * (FRICTION - 0.92)
+  } else {
+    friction = spd < SLOW_THRESHOLD ? FRICTION_LOW : FRICTION
+  }
   sp.vx *= friction
   sp.vy *= friction
   // Hard speed clamp — protects against runaway acceleration loops
@@ -382,6 +398,7 @@ function step(dt: number) {
         if (m.type !== 'wall' && m.type !== 'gearSystem') continue
         const impact = bounceAabb(sp, m)
         if (impact <= 0) continue
+        lastDestructibleHitTs = now
         if (m.maxHp === undefined) m.maxHp = wallMaxHp(m)
         if (m.hp === undefined) m.hp = m.maxHp
         m.hp -= impact * WALL_DAMAGE_PER_SPEED
@@ -408,7 +425,15 @@ function step(dt: number) {
       if (m.destroyed) continue
       if (m.type === 'wall') continue
       const mod = MACHINE_REGISTRY[m.type]
-      if (mod) mod.tick(m, ctx)
+      if (mod) {
+        const hpBefore = m.hp
+        mod.tick(m, ctx)
+        // Reset anti-loop timer when a destructible interaction occurs
+        // (machine destroyed, or boss/gear took HP damage).
+        if (m.destroyed || (hpBefore !== undefined && m.hp !== undefined && m.hp < hpBefore)) {
+          lastDestructibleHitTs = now
+        }
+      }
     }
   }
 
@@ -546,6 +571,7 @@ function launch(dirX: number, dirY: number, compression: number) {
   stuckCheckTs = now
   stuckLastX = sp.x
   stuckLastY = sp.y
+  lastDestructibleHitTs = now
 }
 
 function beginStage() {
@@ -556,6 +582,8 @@ function beginStage() {
 
 function finishStage() {
   const stage = currentStage.value
+  // Efficiency bonus: finishing in 3 or fewer launches earns extra points.
+  if (launches.value <= 3) score.value += 100
   const penalty = launches.value * stage.launchPenalty
   const final = Math.max(0, score.value - penalty)
   score.value = final

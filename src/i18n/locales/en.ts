@@ -133,6 +133,7 @@ export default {
     'tapToPan': 'Tap and drag to move the screen',
     'clickToPan': 'Click and drag to move the screen',
     'scrollZoom': 'Scroll to zoom in/out',
+    'pinchZoom': 'Pinch to zoom in/out',
     'score': 'SCORE',
     'launches': 'LAUNCHES',
     'tapToStart': 'TAP TO START',

@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import IconCoin from '@/components/icons/IconCoin.vue'
 import { isSdkActive, showRewardedAd } from '@/use/useCrazyGames'
 import useSpinnerConfig from '@/use/useSpinnerConfig'
-import { isCrazyGamesFullRelease } from '@/use/useMatch'
+import { isCrazyWeb } from '@/use/useUser'
 
 interface Props {
   /** How many coins the player gets after watching the ad. */
@@ -37,7 +37,7 @@ const grantReward = () => {
 <template lang="pug">
   button.adReward.group.cursor-pointer.z-10.transition-transform(
     ref="rootEl"
-    v-if="isSdkActive && isCrazyGamesFullRelease"
+    v-if="isSdkActive && isCrazyWeb"
     class="hover:scale-[103%] active:scale-90 scale-80 sm:scale-110"
     @click="triggerAdReward"
   )

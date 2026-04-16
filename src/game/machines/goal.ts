@@ -6,13 +6,41 @@ import { machineArtEnabled, getMachineImage, MACHINE_ART } from '@/use/useMachin
 // Matches STOP_SPEED in useStageGame so the transition feels consistent.
 const REST_SPEED = 0.35
 
+// Graceful pull zone — if the spinner is approaching the gate at low
+// velocity, gently steer it toward the center so near-misses still
+// land. Strong enough to catch a drifting spinner, weak enough that a
+// fast bounce or deliberate trajectory isn't hijacked.
+const PULL_RADIUS = 1.8 // multiplier on gate radius
+const PULL_STRENGTH = 0.12 // acceleration per tick toward center
+const PULL_MAX_SPEED = 4 // ignore spinners faster than this
+const PULL_MIN_SPEED = 0.2 // ignore nearly stationary spinners (just bouncing)
+
 const tick = (m: Machine, ctx: StageCtx) => {
   if (m.destroyed) return
   const sp = ctx.spinner
   const r = m.w / 2
-  const d = Math.hypot(sp.x - m.x, sp.y - m.y)
+  const dx = sp.x - m.x
+  const dy = sp.y - m.y
+  const d = Math.hypot(dx, dy)
+  const spd = Math.hypot(sp.vx, sp.vy)
   const inside = d < r + sp.r
-  const atRest = Math.hypot(sp.vx, sp.vy) < REST_SPEED
+  const atRest = spd < REST_SPEED
+
+  // Graceful pull: nudge spinner toward gate center when approaching slowly.
+  if (!inside && d < r * PULL_RADIUS && spd > PULL_MIN_SPEED && spd < PULL_MAX_SPEED && d > 1) {
+    const pull = PULL_STRENGTH * (1 - d / (r * PULL_RADIUS))
+    sp.vx -= (dx / d) * pull
+    sp.vy -= (dy / d) * pull
+  }
+
+  // Heavy friction inside the gate — the spinner decelerates fast so it
+  // settles without overshooting. 0.88 per tick ≈ halves speed every ~5
+  // ticks, much stronger than the global stage friction (0.991).
+  if (inside) {
+    sp.vx *= 0.88
+    sp.vy *= 0.88
+  }
+
   if (inside && atRest) ctx.onGoal()
 }
 

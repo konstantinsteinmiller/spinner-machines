@@ -38,7 +38,11 @@ import { STAGE_MANIFEST, loadStageById, type StageMeta } from '@/game/stages'
 import useSounds, { useMusic } from '@/use/useSound'
 import useCheats, { cheatStageRewardSignal } from '@/use/useCheats'
 import useStageLeaderboard from '@/use/useStageLeaderboard'
-import { machineArtEnabled, toggleMachineArt } from '@/use/useMachineArt'
+import { machineArtEnabled } from '@/use/useMachineArt'
+import { isSdkActive, startGameplay, stopGameplay, showMidgameAd } from '@/use/useCrazyGames'
+import { isCrazyWeb } from '@/use/useUser'
+import DailyRewards from '@/components/organisms/DailyRewards.vue'
+import AdRewardButton from '@/components/organisms/AdRewardButton.vue'
 import { renderVfx } from '@/game/vfx'
 import { useScreenshake } from '@/use/useScreenshake'
 
@@ -141,6 +145,7 @@ function openAchievements() {
 async function pickStage(s: StageMeta) {
   const full = await loadStageById(s.id)
   loadStage(full)
+  saveLastStageId(full.id)
   fitInitialCamera()
   showStagePicker.value = false
 }
@@ -161,13 +166,35 @@ async function onStagePickerClose() {
   if (targetMeta.id === currentStage.value.id) return
   const target = await loadStageById(targetMeta.id)
   loadStage(target)
+  saveLastStageId(target.id)
   fitInitialCamera()
 }
 
 const meteor = useMeteorShower()
 const { showHint, startHintTimer, clearHint } = useHint(2500)
 
-const MAX_PULL = 220
+// On touch devices the player's thumb covers the spinner so short,
+// precise pulls are near-impossible at the default cap. Mobile gets a
+// longer pull range for finer control.
+const isTouchInput = typeof window !== 'undefined' && ('ontouchstart' in window || (navigator.maxTouchPoints ?? 0) > 0)
+const MAX_PULL = isTouchInput ? 435 : 145
+
+// Non-linear force curve: the first 20% of the pull range builds up
+// force slowly (quadratic ease-in), giving a wide precision zone for
+// short positioning shots. The remaining 80% ramps linearly to full
+// power.  Input/output are both in [0, 1].
+function forceCurve(t: number): number {
+  const KNEE = 0.2 // fraction of pull range that's the "precision zone"
+  const KNEE_OUT = 0.08 // force output at the knee point (8% of max)
+  if (t <= KNEE) {
+    // Quadratic ease-in: slow buildup
+    const k = t / KNEE // 0→1 within the precision zone
+    return KNEE_OUT * k * k
+  }
+  // Linear ramp from KNEE_OUT to 1.0 over the remaining 80%
+  const k = (t - KNEE) / (1 - KNEE)
+  return KNEE_OUT + (1 - KNEE_OUT) * k
+}
 
 // Camera
 const cam = ref({ x: 0, y: 0, zoom: 1 })
@@ -269,7 +296,8 @@ function renderDragIndicator(ctx: CanvasRenderingContext2D) {
 
   if (pullMag < 3) return
 
-  const ratio = Math.min(1, pullMag / MAX_PULL)
+  const rawRatio = Math.min(1, pullMag / MAX_PULL)
+  const ratio = forceCurve(rawRatio)
 
   ctx.save()
   // Pull line (dashed) — blade center to pointer
@@ -795,7 +823,9 @@ function onPointerDown(e: PointerEvent) {
   const dx = wp.x - sp.x
   const dy = wp.y - sp.y
   const dist = Math.hypot(dx, dy)
-  if (phase.value === 'aiming' && dist < 120) {
+  // Larger hit radius on touch so fat fingers can grab the spinner easily.
+  const aimRadius = isTouchInput ? 200 : 120
+  if (phase.value === 'aiming' && dist < aimRadius) {
     ptr.value = {
       mode: 'aim',
       startX: e.clientX, startY: e.clientY,
@@ -831,7 +861,11 @@ function onPointerUp(_e: PointerEvent) {
     const dx = sp.x - wp.x
     const dy = sp.y - wp.y
     const len = Math.hypot(dx, dy)
-    launch(dx, dy, len)
+    // Map pull distance through the non-linear force curve so the first
+    // 20% of the pull is a precision zone for short positioning shots.
+    const ratio = Math.min(1, len / MAX_PULL)
+    const compression = forceCurve(ratio) * 220 // MAX_COMPRESS = 220
+    launch(dx, dy, compression)
   }
   ptr.value.mode = 'none'
   if (phase.value === 'aiming') startHintTimer()
@@ -845,6 +879,44 @@ function onWheel(e: WheelEvent) {
   const after = screenToWorld(e.clientX, e.clientY)
   cam.value.x += before.x - after.x
   cam.value.y += before.y - after.y
+}
+
+// ─── Pinch-to-zoom (mobile) ──────────────────────────────────────────
+// Tracked separately from pointer events because PointerEvent only
+// fires per-finger — we need the two-finger distance for the zoom ratio.
+let pinchStartDist = 0
+let pinchStartZoom = 1
+let pinchActive = false
+
+function onTouchStart(e: TouchEvent) {
+  if (e.touches.length === 2) {
+    pinchActive = true
+    const t0 = e.touches[0]!
+    const t1 = e.touches[1]!
+    pinchStartDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY)
+    pinchStartZoom = cam.value.zoom
+    // Cancel any active drag so aim/pan doesn't fight the pinch.
+    ptr.value.mode = 'none'
+  }
+}
+
+function onTouchMove(e: TouchEvent) {
+  if (!pinchActive || e.touches.length < 2) return
+  const t0 = e.touches[0]!
+  const t1 = e.touches[1]!
+  const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY)
+  if (pinchStartDist < 1) return
+  const midX = (t0.clientX + t1.clientX) / 2
+  const midY = (t0.clientY + t1.clientY) / 2
+  const before = screenToWorld(midX, midY)
+  cam.value.zoom = Math.max(0.3, Math.min(2.5, pinchStartZoom * (dist / pinchStartDist)))
+  const after = screenToWorld(midX, midY)
+  cam.value.x += before.x - after.x
+  cam.value.y += before.y - after.y
+}
+
+function onTouchEnd(e: TouchEvent) {
+  if (e.touches.length < 2) pinchActive = false
 }
 
 // ─── Camera follow ─────────────────────────────────────────────────────
@@ -895,16 +967,20 @@ function onTapToStart() {
   beginStage()
 }
 
+// ─── Midgame ad: show an interstitial every 3 stage completions ──────
+const MIDGAME_AD_INTERVAL = 3
+let stageCompletionCount = 0
+
 watch(phase, (p) => {
   if (p === 'aiming') startHintTimer()
   else clearHint()
   if (p === 'countdown' || p === 'aiming' || p === 'launched') {
-    // Stage mode always plays battle-1 specifically (not the random
-    // arena pool) so the track feels consistent across restarts.
     startBattleMusic(1)
+    startGameplay()
   }
   if (p === 'complete' || p === 'tap_to_start') {
     stopBattleMusic()
+    stopGameplay()
   }
   if (p === 'complete') {
     // Editor-mode playtests skip all persistent progress & reward screen
@@ -916,6 +992,7 @@ watch(phase, (p) => {
       localStorage.setItem(TUTORIAL_DONE_KEY, '1')
       setTimeout(() => {
         loadStage(stage1)
+        saveLastStageId(stage1.id)
         fitInitialCamera()
       }, 600)
       return
@@ -966,24 +1043,38 @@ watch(phase, (p) => {
   }
 })
 
-function onContinue() {
+/** Show a midgame interstitial ad if the counter threshold is met. */
+async function maybeShowMidgameAd() {
+  stageCompletionCount++
+  if (isSdkActive.value && isCrazyWeb && stageCompletionCount % MIDGAME_AD_INTERVAL === 0) {
+    await showMidgameAd()
+  }
+}
+
+async function onContinue() {
   showReward.value = false
+  await maybeShowMidgameAd()
   loadStage(stage1)
+  saveLastStageId(stage1.id)
   fitInitialCamera()
 }
 
-function onReplay() {
+async function onReplay() {
   showReward.value = false
+  await maybeShowMidgameAd()
   loadStage(currentStage.value)
+  saveLastStageId(currentStage.value.id)
   fitInitialCamera()
 }
 
 async function onNextStage() {
   showReward.value = false
+  await maybeShowMidgameAd()
   const idx = STAGE_MANIFEST.findIndex((m) => m.id === currentStage.value.id)
   const nextMeta = STAGE_MANIFEST[idx + 1] ?? STAGE_MANIFEST[0]!
   const next = await loadStageById(nextMeta.id)
   loadStage(next)
+  saveLastStageId(next.id)
   fitInitialCamera()
 }
 
@@ -995,8 +1086,17 @@ function onOpenStagePicker() {
 const route = useRoute()
 
 const TUTORIAL_DONE_KEY = 'bm_tutorial_done'
+const LAST_STAGE_KEY = 'bm_last_stage'
 
-function loadInitialStage() {
+/** Persist the current stage id so the next page load resumes there. */
+function saveLastStageId(id: string) {
+  try {
+    localStorage.setItem(LAST_STAGE_KEY, id)
+  } catch { /* ignore */
+  }
+}
+
+async function loadInitialStage() {
   // Editor "Play" path: if we arrived with ?from=editor or the app is
   // in editor mode, try to load the currently-edited stage from
   // localStorage. Fall back to stage1 if nothing's saved yet.
@@ -1020,11 +1120,23 @@ function loadInitialStage() {
     loadStage(tutorialStage)
     return
   }
+  // Resume the last played stage if one is saved.
+  const lastId = localStorage.getItem(LAST_STAGE_KEY)
+  if (lastId && lastId !== 'tutorial') {
+    try {
+      const last = await loadStageById(lastId)
+      loadStage(last)
+      saveLastStageId(last.id)
+      return
+    } catch { /* stage id invalid or removed — fall through to stage1 */
+    }
+  }
   loadStage(stage1)
+  saveLastStageId(stage1.id)
 }
 
-onMounted(() => {
-  loadInitialStage()
+onMounted(async () => {
+  await loadInitialStage()
   resizeCanvas()
   fitInitialCamera()
   refreshCanvasRect()
@@ -1035,11 +1147,25 @@ onMounted(() => {
     fitInitialCamera()
     refreshCanvasRect()
   })
+  // Pinch-to-zoom touch listeners — must be non-passive to prevent
+  // default browser zoom while we handle it ourselves.
+  const cv = canvasEl.value
+  if (cv) {
+    cv.addEventListener('touchstart', onTouchStart, { passive: true })
+    cv.addEventListener('touchmove', onTouchMove, { passive: true })
+    cv.addEventListener('touchend', onTouchEnd, { passive: true })
+  }
 })
 onUnmounted(() => {
   stopLoop()
   if (raf !== null) cancelAnimationFrame(raf)
   stopBattleMusic()
+  const cv = canvasEl.value
+  if (cv) {
+    cv.removeEventListener('touchstart', onTouchStart)
+    cv.removeEventListener('touchmove', onTouchMove)
+    cv.removeEventListener('touchend', onTouchEnd)
+  }
 })
 
 const rewardCoins = computed(() => lastCoinsAwarded.value)
@@ -1055,6 +1181,7 @@ interface TutorialHint {
   text: string
   left: number
   top: number
+  opacity: number
 }
 
 const showTutorialHints = computed(() =>
@@ -1067,6 +1194,7 @@ const tutorialHints = computed<TutorialHint[]>(() => {
   const rect = canvasRect.value
   if (!rect.width) return []
   const z = cam.value.zoom
+  const sp = spinner.value
   const out: TutorialHint[] = []
   for (const m of currentStage.value.machines) {
     const hint = (m.meta && typeof m.meta.hint === 'string') ? m.meta.hint : null
@@ -1079,7 +1207,13 @@ const tutorialHints = computed<TutorialHint[]>(() => {
     const sy = (worldY - cam.value.y) * z
     if (sx < -200 || sx > rect.width + 200) continue
     if (sy < -80 || sy > rect.height + 80) continue
-    out.push({ id: m.id, text: hint, left: sx, top: sy })
+    // Fade hints that overlap the spinner so it stays visible/launchable.
+    const dToSpinner = Math.hypot(m.x - sp.x, m.y - sp.y)
+    const fadeRadius = 180 // world units — hints within this distance fade
+    const opacity = dToSpinner < fadeRadius
+      ? Math.max(0.25, dToSpinner / fadeRadius)
+      : 1
+    out.push({ id: m.id, text: hint, left: sx, top: sy, opacity })
   }
   return out
 })
@@ -1122,8 +1256,8 @@ const launchesTierClass = computed(() => {
     )
       span.game-text.camera-hint__line(class="text-[10px] sm:text-xs")
         | {{ isTouchDevice ? t('stageUi.tapToPan') : t('stageUi.clickToPan') }}
-      span.game-text.camera-hint__line(v-if="!isTouchDevice" class="text-[10px] sm:text-xs")
-        | {{ t('stageUi.scrollZoom') }}
+      span.game-text.camera-hint__line(class="text-[10px] sm:text-xs")
+        | {{ isTouchDevice ? t('stageUi.pinchZoom') : t('stageUi.scrollZoom') }}
 
     //- Bottom-right: skins + leaderboard (stages) buttons, safe-area aware.
     //- In editor mode the whole cluster is hidden except for a "Back to
@@ -1179,7 +1313,13 @@ const launchesTierClass = computed(() => {
       class="top-2 right-2 z-20"
       :style="{ top: 'calc(0.5rem + env(safe-area-inset-top, 0px))', right: 'calc(0.5rem + env(safe-area-inset-right, 0px))' }"
     )
-      CoinBadge(ref="coinBadgeRef")
+      //- Coin badge + treasure chest row: on landscape mobile the chest
+      //- sits to the left of the badge so it doesn't overflow into the
+      //- bottom-right button cluster.
+      div.flex.items-center.gap-2
+        div.hud-chest-landscape
+          TreasureChest(@coins-awarded="fireCoinExplosion")
+        CoinBadge(ref="coinBadgeRef")
       div.score-badge.score-badge--score.rounded-full.font-black.game-text.flex.items-center.gap-2.px-3.py-1(
         class="text-sm sm:text-base"
       )
@@ -1191,9 +1331,9 @@ const launchesTierClass = computed(() => {
       )
         span.text-white {{ t('stageUi.launches') }}
         span.text-white {{ launches }}
-      //- Treasure chest — sits directly under the launches badge and
-      //- grants 75 coins on a 4h cooldown.
-      TreasureChest(@coins-awarded="fireCoinExplosion")
+      //- Treasure chest below badges on portrait / desktop
+      div.hud-chest-portrait
+        TreasureChest(@coins-awarded="fireCoinExplosion")
 
     //- Tap-to-start overlay
     div.absolute.inset-0.flex.items-center.justify-center.z-30.pointer-events-auto.cursor-pointer(
@@ -1222,7 +1362,7 @@ const launchesTierClass = computed(() => {
       div.tutorial-hint.absolute.pointer-events-none.z-20(
         v-for="h in tutorialHints"
         :key="h.id"
-        :style="{ left: h.left + 'px', top: h.top + 'px' }"
+        :style="{ left: h.left + 'px', top: h.top + 'px', opacity: h.opacity, transition: 'opacity 0.2s' }"
       )
         div.tutorial-hint__bubble.game-text {{ h.text }}
         div.tutorial-hint__stem
@@ -1242,85 +1382,84 @@ const launchesTierClass = computed(() => {
     )
       template(#ribbon)
         span.text-white.font-black.uppercase.italic.game-text(class="sm:text-2xl") {{ t('stageUi.levelCleared') }}
-      div.level-cleared.flex.flex-col.items-center.justify-center(
-        class="gap-6 sm:gap-8 pointer-events-auto"
+      div.level-cleared.reward-layout.pointer-events-auto(
         @click.stop
       )
-        //- Interlocked 3-star cluster — center star in the back-center,
-        //- left/right stars forward and lower, tucked under the middle's
-        //- side points. Shared warm aura + ruby detail at the base junctions.
-        div.stars-cluster
-          //- Shared gold aura behind the whole cluster
-          div.stars-cluster__aura(v-if="stars >= 1")
-          //- Z-order: center drawn first (back), then side stars (front)
-          div.star-slot.star-slot--mid(:class="{ 'is-lit': stars >= 2 }")
-            star-gem(:lit="stars >= 2" gid="mid")
-          div.star-slot.star-slot--left(:class="{ 'is-lit': stars >= 1 }")
-            star-gem(:lit="stars >= 1" gid="lft")
-          div.star-slot.star-slot--right(:class="{ 'is-lit': stars >= 3 }")
-            star-gem(:lit="stars >= 3" gid="rgt")
+        //- Left column (portrait: full width, landscape: left half)
+        div.reward-col.reward-col--main
+          //- Interlocked 3-star cluster
+          div.stars-cluster
+            div.stars-cluster__aura(v-if="stars >= 1")
+            div.star-slot.star-slot--mid(:class="{ 'is-lit': stars >= 2 }")
+              star-gem(:lit="stars >= 2" gid="mid")
+            div.star-slot.star-slot--left(:class="{ 'is-lit': stars >= 1 }")
+              star-gem(:lit="stars >= 1" gid="lft")
+            div.star-slot.star-slot--right(:class="{ 'is-lit': stars >= 3 }")
+              star-gem(:lit="stars >= 3" gid="rgt")
 
-        //- Score
-        div.flex.flex-col.items-center.gap-1
-          div.score-number.game-text(class="text-5xl sm:text-7xl") {{ score }}
-          div.text-white.font-black.game-text.uppercase.tracking-widest(
-            v-if="rewardCoins > 0"
-            class="text-xs sm:text-sm"
-          )
-            | {{ t('stageUi.newHighScore') }}
+          //- Score
+          div.flex.flex-col.items-center.gap-1
+            div.score-number.game-text.reward-score {{ score }}
+            div.text-white.font-black.game-text.uppercase.tracking-widest(
+              v-if="rewardCoins > 0"
+              class="text-xs sm:text-sm"
+            )
+              | {{ t('stageUi.newHighScore') }}
 
-        //- Coin reward
-        div.flex.items-center.gap-3(ref="rewardCoinRef" v-if="rewardCoins > 0")
-          IconCoin(class="w-8 h-8 text-yellow-300")
-          span.text-yellow-400.font-black.game-text(class="text-2xl sm:text-4xl") +{{ rewardCoins }}
-        div.text-slate-300.italic.game-text.text-sm(v-else)
-          | {{ t('stageUi.noNewReward') }}
+          //- Coin reward
+          div.flex.items-center.gap-3(ref="rewardCoinRef" v-if="rewardCoins > 0")
+            IconCoin(class="w-8 h-8 text-yellow-300")
+            span.text-yellow-400.font-black.game-text(class="text-2xl sm:text-4xl") +{{ rewardCoins }}
+          div.text-slate-300.italic.game-text.text-sm(v-else)
+            | {{ t('stageUi.noNewReward') }}
 
-        //- Mini leaderboard — only shown when there are any ranked rows
-        div.lb-panel(v-if="lbRows.top.length > 0")
-          div.lb-panel__frame
-            div.lb-panel__title.game-text
-              span.lb-panel__title-accent ★
-              span.mx-2 {{ t('stageUi.leaderboard') }}
-              span.lb-panel__title-accent ★
-            div.lb-rows
-              div.lb-row(
-                v-for="row in lbRows.top"
-                :key="row.id"
-                :class="{ 'lb-row--me': row.isMe, 'lb-row--top1': row.rank === 1 }"
-              )
-                span.lb-rank {{ row.rank }}
-                span.lb-name.game-text {{ row.name }}
-                span.lb-score.game-text {{ row.score }}
-              template(v-if="lbRows.mine")
-                div.lb-sep …
-                div.lb-row.lb-row--me(:key="'mine'")
-                  span.lb-rank {{ lbRows.mine.rank }}
-                  span.lb-name.game-text {{ lbRows.mine.name }}
-                  span.lb-score.game-text {{ lbRows.mine.score }}
-            div.lb-new-hint.game-text(v-if="isNewHighscore")
-              | {{ t('stageUi.newPersonalBest') }}
+        //- Right column (portrait: full width, landscape: right half)
+        div.reward-col.reward-col--side
+          //- Mini leaderboard
+          div.lb-panel(v-if="lbRows.top.length > 0")
+            div.lb-panel__frame
+              div.lb-panel__title.game-text
+                span.lb-panel__title-accent ★
+                span.mx-2 {{ t('stageUi.leaderboard') }}
+                span.lb-panel__title-accent ★
+              div.lb-rows
+                div.lb-row(
+                  v-for="row in lbRows.top"
+                  :key="row.id"
+                  :class="{ 'lb-row--me': row.isMe, 'lb-row--top1': row.rank === 1 }"
+                )
+                  span.lb-rank {{ row.rank }}
+                  span.lb-name.game-text {{ row.name }}
+                  span.lb-score.game-text {{ row.score }}
+                template(v-if="lbRows.mine")
+                  div.lb-sep …
+                  div.lb-row.lb-row--me(:key="'mine'")
+                    span.lb-rank {{ lbRows.mine.rank }}
+                    span.lb-name.game-text {{ lbRows.mine.name }}
+                    span.lb-score.game-text {{ lbRows.mine.score }}
+              div.lb-new-hint.game-text(v-if="isNewHighscore")
+                | {{ t('stageUi.newPersonalBest') }}
 
-        //- Three circular footer buttons: list → replay → next
-        div.footer-buttons.flex.items-center.justify-center(class="gap-5 sm:gap-7 mt-2")
-          button.fbtn(@click="onOpenStagePicker" aria-label="Stages")
-            svg(viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round")
-              line(x1="8" y1="6" x2="20" y2="6")
-              line(x1="8" y1="12" x2="20" y2="12")
-              line(x1="8" y1="18" x2="20" y2="18")
-              circle(cx="4" cy="6" r="1.2" fill="currentColor")
-              circle(cx="4" cy="12" r="1.2" fill="currentColor")
-              circle(cx="4" cy="18" r="1.2" fill="currentColor")
-          button.fbtn.fbtn--big(@click="onReplay" aria-label="Replay")
-            svg(viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round")
-              path(d="M20 12a8 8 0 1 1-2.34-5.66")
-              polyline(points="20 4 20 10 14 10")
-          button.fbtn(v-if="stars >= 1" @click="onNextStage" aria-label="Next Level")
-            svg(viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round")
-              polyline(points="7 5 14 12 7 19")
-              polyline(points="13 5 20 12 13 19")
+          //- Footer buttons
+          div.footer-buttons.flex.items-center.justify-center(class="gap-5 sm:gap-7")
+            button.fbtn(@click="onOpenStagePicker" aria-label="Stages")
+              svg(viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round")
+                line(x1="8" y1="6" x2="20" y2="6")
+                line(x1="8" y1="12" x2="20" y2="12")
+                line(x1="8" y1="18" x2="20" y2="18")
+                circle(cx="4" cy="6" r="1.2" fill="currentColor")
+                circle(cx="4" cy="12" r="1.2" fill="currentColor")
+                circle(cx="4" cy="18" r="1.2" fill="currentColor")
+            button.fbtn.fbtn--big(@click="onReplay" aria-label="Replay")
+              svg(viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round")
+                path(d="M20 12a8 8 0 1 1-2.34-5.66")
+                polyline(points="20 4 20 10 14 10")
+            button.fbtn(v-if="stars >= 1" @click="onNextStage" aria-label="Next Level")
+              svg(viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round")
+                polyline(points="7 5 14 12 7 19")
+                polyline(points="13 5 20 12 13 19")
 
-    //- Bottom-left: mute button → settings (editor) button
+    //- Bottom-left: mute → settings → editor → daily rewards → ad reward
     div.fixed.flex.flex-col.items-start.gap-1.pointer-events-auto(
       class="z-40"
       @pointerdown.stop
@@ -1335,17 +1474,17 @@ const launchesTierClass = computed(() => {
         @click="showOptions = true"
       )
       FIconButton(
+        v-if="!isTouchInput"
         type="secondary"
         size="md"
         :img-src="prependBaseUrl('images/icons/level-editor_128x128.svg')"
         @click="$router.push('/editor')"
       )
-      //- Debug: toggle between new machine art and the drawn-line fallback
-      button.machine-art-toggle.game-text(
-        @click="toggleMachineArt"
-        :class="{ 'machine-art-toggle--off': !machineArtEnabled }"
-        :title="machineArtEnabled ? 'Machine art: ON (click for lines)' : 'Machine art: OFF (click for art)'"
-      ) {{ machineArtEnabled ? 'ART' : 'LINES' }}
+      DailyRewards(@coins-awarded="fireCoinExplosion")
+      AdRewardButton(
+        v-if="isSdkActive && isCrazyWeb"
+        @coins-awarded="fireCoinExplosion"
+      )
 
     //- Skin shop
     SkinShopModal(
@@ -1488,6 +1627,18 @@ const launchesTierClass = computed(() => {
     filter: none
     opacity: 1
 
+// Treasure chest position — below badges on portrait, left of coin badge
+// on landscape so it doesn't overlap the bottom-right button cluster.
+.hud-chest-portrait
+  display: block
+  @media (orientation: landscape) and (max-height: 500px)
+    display: none
+
+.hud-chest-landscape
+  display: none
+  @media (orientation: landscape) and (max-height: 500px)
+    display: block
+
 .score-badge
   border: 2px solid #fcd34d
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 4px 10px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.25), inset 0 -2px 4px rgba(0, 0, 0, 0.4)
@@ -1512,15 +1663,57 @@ const launchesTierClass = computed(() => {
 .level-cleared
   max-width: 90vw
 
+// Reward layout — vertical stack on portrait, two-column on landscape.
+// Uses clamp() with vh units so the layout scales to fit any viewport
+// height instead of overflowing at the sm breakpoint (640px).
+.reward-layout
+  display: flex
+  flex-direction: column
+  align-items: center
+  justify-content: center
+  gap: clamp(0.35rem, 1.2vh, 1.5rem)
+  max-width: 90vw
+
+  // Landscape mobile: side-by-side columns
+  @media (orientation: landscape) and (max-height: 500px)
+    flex-direction: row
+    align-items: center
+    gap: 1rem
+    max-width: 95vw
+
+.reward-col
+  display: flex
+  flex-direction: column
+  align-items: center
+
+  &--main
+    gap: clamp(0.25rem, 0.8vh, 1rem)
+    @media (orientation: landscape) and (max-height: 500px)
+      gap: 0.4rem
+      flex: 1
+      min-width: 0
+
+  &--side
+    gap: clamp(0.25rem, 0.6vh, 0.75rem)
+    @media (orientation: landscape) and (max-height: 500px)
+      gap: 0.4rem
+      flex: 1
+      min-width: 0
+
+.reward-score
+  font-size: clamp(2rem, 5vh, 4.5rem)
+  @media (orientation: landscape) and (max-height: 500px)
+    font-size: 2rem
+
 // ─── 3-star interlocking cluster ───────────────────────────────────────
 .stars-cluster
   position: relative
-  width: 17rem
-  height: 10rem
+  width: clamp(10rem, 22vh, 22rem)
+  height: clamp(6rem, 13vh, 13rem)
 
-  @media (min-width: 640px)
-    width: 22rem
-    height: 13rem
+  @media (orientation: landscape) and (max-height: 500px)
+    width: 10rem
+    height: 6rem
 
 .stars-cluster__aura
   position: absolute
@@ -1547,44 +1740,42 @@ const launchesTierClass = computed(() => {
 
   //- Center star — largest, back apex of the cluster
   &--mid
-    width: 10rem
-    height: 10rem
+    width: clamp(6rem, 13vh, 13rem)
+    height: clamp(6rem, 13vh, 13rem)
     top: 0
     left: 50%
     transform: translateX(-50%)
     z-index: 1
 
-    @media (min-width: 640px)
-      width: 13rem
-      height: 13rem
+    @media (orientation: landscape) and (max-height: 500px)
+      width: 6rem
+      height: 6rem
 
   //- Left star — smaller, forward, tucked under the middle's side point
   &--left
-    width: 7rem
-    height: 7rem
+    width: clamp(4rem, 9vh, 9rem)
+    height: clamp(4rem, 9vh, 9rem)
     top: 30%
     left: 50%
     transform: translate(-128%, 0) rotate(-4deg)
     z-index: 2
 
-    @media (min-width: 640px)
-      width: 9rem
-      height: 9rem
-      transform: translate(-130%, 0) rotate(-4deg)
+    @media (orientation: landscape) and (max-height: 500px)
+      width: 4rem
+      height: 4rem
 
   //- Right star — mirrored
   &--right
-    width: 7rem
-    height: 7rem
+    width: clamp(4rem, 9vh, 9rem)
+    height: clamp(4rem, 9vh, 9rem)
     top: 30%
     left: 50%
     transform: translate(28%, 0) rotate(4deg)
     z-index: 2
 
-    @media (min-width: 640px)
-      width: 9rem
-      height: 9rem
-      transform: translate(30%, 0) rotate(4deg)
+    @media (orientation: landscape) and (max-height: 500px)
+      width: 4rem
+      height: 4rem
 
 
   &.is-lit :deep(.star-gem)
@@ -1659,32 +1850,16 @@ const launchesTierClass = computed(() => {
       width: 5rem
       height: 5rem
 
+    @media (orientation: landscape) and (max-height: 500px)
+      width: 3rem
+      height: 3rem
+
+  @media (orientation: landscape) and (max-height: 500px)
+    .fbtn
+      width: 2.5rem
+      height: 2.5rem
+
 // ─── Debug: machine art / lines toggle ────────────────────────────────
-.machine-art-toggle
-  margin-top: 0.25rem
-  padding: 0.2rem 0.5rem
-  border-radius: 0.4rem
-  border: 2px solid #0f1a30
-  background: linear-gradient(180deg, #10b981 0%, #047857 100%)
-  color: #ecfdf5
-  font-weight: 900
-  font-size: 0.62rem
-  letter-spacing: 0.05em
-  cursor: pointer
-  text-shadow: 1px 1px 0 #000
-  box-shadow: 0 2px 0 #022c22, inset 0 1px 0 rgba(255, 255, 255, 0.35)
-
-  &:hover
-    filter: brightness(1.1)
-
-  &:active
-    transform: translateY(1px)
-
-  &--off
-    background: linear-gradient(180deg, #64748b 0%, #1e293b 100%)
-    color: #cbd5e1
-    box-shadow: 0 2px 0 #0b1220, inset 0 1px 0 rgba(255, 255, 255, 0.2)
-
 // ─── Achievements button (aquamarine crest) ────────────────────────────
 // Sized to match FIconButton size="md": scale-80 on mobile, scale-100 on sm+.
 .ach-btn-wrap
@@ -1825,12 +2000,19 @@ const launchesTierClass = computed(() => {
 // ─── Mini leaderboard (reward screen) ──────────────────────────────────
 .lb-panel
   width: min(90vw, 340px)
-  margin-top: 0.25rem
+  margin-top: 0.15rem
+
+  @media (orientation: landscape) and (max-height: 500px)
+    width: min(40vw, 280px)
+    margin-top: 0
 
 .lb-panel__frame
   position: relative
-  padding: 0.75rem 0.75rem 0.85rem
+  padding: 0.5rem 0.6rem 0.6rem
   border-radius: 0.75rem
+
+  @media (min-width: 640px)
+    padding: 0.75rem 0.75rem 0.85rem
   background: linear-gradient(180deg, rgba(14, 22, 45, 0.95) 0%, rgba(7, 11, 25, 0.95) 100%)
   border: 3px solid #fcd34d
   box-shadow: 0 0 0 2px #0f1a30, 0 0 18px rgba(252, 211, 77, 0.35), inset 0 2px 0 rgba(255, 255, 255, 0.12), inset 0 -3px 0 rgba(0, 0, 0, 0.35)
@@ -1859,9 +2041,13 @@ const launchesTierClass = computed(() => {
   font-weight: 900
   text-transform: uppercase
   letter-spacing: 0.08em
-  font-size: 0.9rem
-  margin-bottom: 0.5rem
+  font-size: 0.72rem
+  margin-bottom: 0.3rem
   text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000
+
+  @media (min-width: 640px)
+    font-size: 0.9rem
+    margin-bottom: 0.5rem
 
 .lb-panel__title-accent
   color: #fcd34d
@@ -1870,38 +2056,56 @@ const launchesTierClass = computed(() => {
 .lb-rows
   display: flex
   flex-direction: column
-  gap: 0.25rem
+  gap: 0.15rem
+
+  @media (min-width: 640px)
+    gap: 0.25rem
 
 .lb-row
   display: grid
-  grid-template-columns: 2.25rem 1fr auto
+  grid-template-columns: 1.75rem 1fr auto
   align-items: center
-  gap: 0.5rem
-  padding: 0.3rem 0.55rem
-  border-radius: 0.5rem
+  gap: 0.35rem
+  padding: 0.2rem 0.4rem
+  border-radius: 0.4rem
   background: linear-gradient(180deg, rgba(30, 41, 82, 0.85) 0%, rgba(15, 22, 45, 0.85) 100%)
   border: 2px solid rgba(96, 165, 250, 0.55)
   font-weight: 900
   line-height: 1
   text-shadow: 1px 1px 0 #000, -1px -1px 0 #000
 
+  @media (min-width: 640px)
+    grid-template-columns: 2.25rem 1fr auto
+    gap: 0.5rem
+    padding: 0.3rem 0.55rem
+    border-radius: 0.5rem
+
 .lb-rank
   color: #60a5fa
-  font-size: 0.85rem
+  font-size: 0.72rem
   text-align: center
   font-weight: 900
 
+  @media (min-width: 640px)
+    font-size: 0.85rem
+
 .lb-name
   color: #ffffff
-  font-size: 0.85rem
+  font-size: 0.72rem
   overflow: hidden
   text-overflow: ellipsis
   white-space: nowrap
 
+  @media (min-width: 640px)
+    font-size: 0.85rem
+
 .lb-score
   color: #facc15
-  font-size: 0.85rem
+  font-size: 0.72rem
   text-align: right
+
+  @media (min-width: 640px)
+    font-size: 0.85rem
 
 .lb-row--top1
   border-color: #fde047

@@ -146,19 +146,35 @@ const runInChunks = async (assets: AssetEntry[], chunkSize: number, onLoaded?: (
 /**
  * Resolve the boss skin id for the stage the player will boot into.
  * Mirrors the logic in `StageView.loadInitialStage`:
- *   • fresh player (no `bm_tutorial_done`) → peek at the tutorial stage
- *   • otherwise → peek at stage1
+ *   • fresh player (no `bm_tutorial_done`) → tutorial stage
+ *   • last played stage saved → that stage
+ *   • otherwise → stage1
  *
  * Returns the skin id or `null` if the stage has no boss machine.
  */
 async function resolveInitialBossSkin(): Promise<string | null> {
   const tutorialDone = localStorage.getItem('bm_tutorial_done') === '1'
+  if (!tutorialDone) {
+    try {
+      const mod = await import('@/game/stages/tutorial')
+      return mod.default.machines.find((m) => m.type === 'boss')?.modelId ?? null
+    } catch {
+      return null
+    }
+  }
+  // Try the last-played stage first, fall back to stage1.
+  const lastId = localStorage.getItem('bm_last_stage')
+  if (lastId && lastId !== 'tutorial') {
+    try {
+      const { loadStageById } = await import('@/game/stages')
+      const stage = await loadStageById(lastId)
+      return stage.machines.find((m) => m.type === 'boss')?.modelId ?? null
+    } catch { /* fall through */
+    }
+  }
   try {
-    const mod = tutorialDone
-      ? await import('@/game/stages/stage1')
-      : await import('@/game/stages/tutorial')
-    const boss = mod.default.machines.find((m) => m.type === 'boss')
-    return boss?.modelId ?? null
+    const mod = await import('@/game/stages/stage1')
+    return mod.default.machines.find((m) => m.type === 'boss')?.modelId ?? null
   } catch {
     return null
   }

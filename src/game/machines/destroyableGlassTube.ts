@@ -90,7 +90,7 @@ const render = (ctx: CanvasRenderingContext2D, m: Machine, now: number) => {
 const mod: MachineModule = {
   type: 'destroyableGlassTube',
   label: 'Glass Tube',
-  defaultSize: { w: 100, h: 40 },
+  defaultSize: { w: 60, h: 100 },
   color: '#38bdf8',
   tick,
   render

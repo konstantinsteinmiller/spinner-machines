@@ -13,10 +13,10 @@
       @click="handleOverlayClick"
     )
       //- Parchment ribbon header
-      div.ribbon-wrap.relative.mb-10(
+      div.ribbon-wrap.relative(
         v-if="$slots.ribbon"
-        class=""
         :class="{ '!mb-2 -mt-2': isMobileLandscape, 'is-desktop': !isMobileLandscape && !isMobilePortrait }"
+        :style="{ marginBottom: isMobileLandscape ? undefined : 'clamp(0.5rem, 2vh, 2.5rem)' }"
       )
         img.ribbon-img.-mb-6(
           src="/images/bg/parchment-ribbon_553x188.webp"
