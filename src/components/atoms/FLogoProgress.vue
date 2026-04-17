@@ -35,6 +35,11 @@
       //- Loading Text
       div.absolute.-bottom-8(v-if="!done" class="mt-0 flex flex-col items-center gap-1")
         span(class="percentage-text text-shadow font-mono text-amber-500") {{ Math.round(progress) }}%
+
+      //- Soft hint if loading is stuck — appears after 10s
+      Transition(name="hint-fade")
+        div.stuck-hint(v-if="showStuckHint && !done")
+          | Loading taking too long? Try disabling your ad blocker and refresh.
 </template>
 
 <script setup lang="ts">
@@ -49,6 +54,8 @@ preloadAssets()
 const done = ref(false)
 const settled = ref(false)
 const backdropHidden = ref(false)
+const showStuckHint = ref(false)
+let stuckHintId: number | null = null
 
 // Compute 40% of the smaller viewport dimension
 const viewportSize = ref(Math.min(window.innerWidth, window.innerHeight))
@@ -80,10 +87,14 @@ onMounted(() => {
   settleFallbackId = window.setTimeout(() => {
     if (!done.value) done.value = true
   }, 4000)
+  stuckHintId = window.setTimeout(() => {
+    if (!done.value) showStuckHint.value = true
+  }, 10000)
 })
 onUnmounted(() => {
   window.removeEventListener('resize', onResize)
   if (settleFallbackId !== null) clearTimeout(settleFallbackId)
+  if (stuckHintId !== null) clearTimeout(stuckHintId)
 })
 
 const centeredSize = computed(() => Math.floor(viewportSize.value * 0.4))
@@ -164,6 +175,32 @@ div[style*="conic-gradient"]
   background-size: 128px 128px
 // No pointer events so nothing underneath is accidentally clickable anyway
 // (there's nothing interactive rendered yet during initial load)
+
+// ─── Stuck hint ─────────────────────────────────────────────────────────────
+.stuck-hint
+  position: fixed
+  bottom: 15%
+  left: 50%
+  transform: translateX(-50%)
+  z-index: 200
+  max-width: 80vw
+  padding: 0.6rem 1.2rem
+  border-radius: 0.6rem
+  background: rgba(0, 0, 0, 0.7)
+  color: #fbbf24
+  font-family: inherit
+  font-weight: 800
+  font-size: 0.85rem
+  text-align: center
+  line-height: 1.4
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9)
+  border: 1px solid rgba(251, 191, 36, 0.3)
+
+.hint-fade-enter-active
+  transition: opacity 0.6s ease-out
+
+.hint-fade-enter-from
+  opacity: 0
 
 // Fade-out transition for the backdrop
 .splash-fade-leave-active
