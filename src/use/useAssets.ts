@@ -16,9 +16,9 @@ export const resourceCache = {
 // These block the loading screen. Order: HUD chrome, then machine
 // sprites + wall bricks + VFX sheets so the stage renders fully once
 // the progress bar hits 100% — no pop-in.
+// NOTE: bg-tile and logo are NOT listed here — they're already loaded by
+// the static HTML splash in index.html before any JS runs.
 const HUD_IMAGES = [
-  'images/logo/logo_256x256.webp',
-  'images/bg/spinner-machines-bg-tile_256x256.webp',
   'images/icons/team_128x128.webp',
   'images/icons/gears_128x128.webp',
   'images/icons/trophy_128x128.webp'
@@ -93,6 +93,8 @@ const BACKGROUND_SFX = [
 
 type AssetEntry = { src: string; type: 'image' | 'audio' }
 
+const ASSET_TIMEOUT_MS = 8000
+
 const loadAsset = (
   { src, type }: AssetEntry,
   onLoaded?: () => void
@@ -106,30 +108,35 @@ const loadAsset = (
     return Promise.resolve()
   }
   return new Promise((resolve) => {
+    let settled = false
+    const done = (v: unknown) => {
+      if (settled) return
+      settled = true
+      onLoaded?.()
+      resolve(v)
+    }
+    // Safety timeout — if the asset never loads or errors, unblock the
+    // progress bar so the game can start.
+    setTimeout(() => done(null), ASSET_TIMEOUT_MS)
+
     if (type === 'image') {
       const img = new Image()
       img.onload = () => {
         resourceCache.images.set(src, img)
-        onLoaded?.()
-        resolve(img)
+        done(img)
       }
       img.onerror = () => {
         console.error('Preload fail:', src)
-        onLoaded?.()
-        resolve(null)
+        done(null)
       }
       img.src = src
     } else {
       const audio = new Audio()
       audio.oncanplaythrough = () => {
         resourceCache.audio.set(src, audio)
-        onLoaded?.()
-        resolve(audio)
+        done(audio)
       }
-      audio.onerror = () => {
-        onLoaded?.()
-        resolve(null)
-      }
+      audio.onerror = () => done(null)
       audio.src = src
       audio.load()
     }
@@ -152,7 +159,17 @@ const runInChunks = async (assets: AssetEntry[], chunkSize: number, onLoaded?: (
  *
  * Returns the skin id or `null` if the stage has no boss machine.
  */
+/** Race a promise against a timeout so a stuck dynamic import can't
+ *  block the boot indefinitely. */
+function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([p, new Promise<T>(r => setTimeout(() => r(fallback), ms))])
+}
+
 async function resolveInitialBossSkin(): Promise<string | null> {
+  return withTimeout(resolveInitialBossSkinInner(), 3000, null)
+}
+
+async function resolveInitialBossSkinInner(): Promise<string | null> {
   const tutorialDone = localStorage.getItem('bm_tutorial_done') === '1'
   if (!tutorialDone) {
     try {

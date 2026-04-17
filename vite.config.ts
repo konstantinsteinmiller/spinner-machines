@@ -104,6 +104,21 @@ export default defineConfig(({ mode, command }) => {
     )
   }
 
+  // Strip the CrazyGames SDK <script> tag from index.html for non-CrazyGames builds
+  // so it doesn't block or error on other platforms (e.g. Wavedash).
+  const isCrazyWeb = env.VITE_APP_CRAZY_WEB === 'true'
+  if (!isCrazyWeb) {
+    plugins.push({
+      name: 'strip-crazygames-sdk',
+      transformIndexHtml(html: string) {
+        return html.replace(
+          /<!-- Load the SDK before your game code -->\s*<script[^>]*sdk\.crazygames\.com[^>]*><\/script>\s*/,
+          ''
+        )
+      }
+    })
+  }
+
   return {
     base: '/',
     define: {

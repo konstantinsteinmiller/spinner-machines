@@ -5,7 +5,7 @@
   <meta name="color-scheme" content="dark only">
   <link rel="icon" href="/favicon.ico">
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self' https://*.crazygames.com; script-src 'self' https://sdk.crazygames.com https://*.crazygames.com; style-src 'self' 'unsafe-inline' https://*.crazygames.com; img-src 'self' data: https://*.crazygames.com; connect-src 'self' https://*.crazygames.com wss://0.peerjs.com https://0.peerjs.com https://api.jsonbin.io https://getpantry.cloud https://*.getpantry.cloud; frame-src https://*.crazygames.com; media-src 'self' https://*.crazygames.com;"
+        content="default-src 'self' https://*.crazygames.com https://wavedash.com https://*.wavedash.com; script-src 'self' https://sdk.crazygames.com https://*.crazygames.com https://wavedash.com https://*.wavedash.com; style-src 'self' 'unsafe-inline' https://*.crazygames.com https://wavedash.com https://*.wavedash.com; img-src 'self' data: https://*.crazygames.com https://wavedash.com https://*.wavedash.com; connect-src 'self' https://*.crazygames.com https://wavedash.com https://*.wavedash.com https://*.sentry.io wss://*.wavedash.com wss://0.peerjs.com https://0.peerjs.com; frame-src https://*.crazygames.com https://wavedash.com https://*.wavedash.com; media-src 'self' https://*.crazygames.com https://wavedash.com https://*.wavedash.com;"
   />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -17,9 +17,6 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/images/icons/icon_192x192.png">
   <title>Spinner Machines</title>
-  <!-- Preload splash assets so they're available before JS boots -->
-  <link rel="preload" href="/images/bg/spinner-machines-bg-tile_256x256.webp" as="image" type="image/webp">
-  <link rel="preload" href="/images/logo/logo_256x256.webp" as="image" type="image/webp">
   <style>
       /* Static splash — renders instantly before any JS loads */
       body {
@@ -68,6 +65,22 @@
 <div id="static-splash">
   <img src="/images/logo/logo_256x256.webp" alt="Loading...">
 </div>
+<!-- Workaround: Wavedash service worker crashes when Sentry sends
+     keepalive fetch with a ReadableStream body. Convert stream to
+     ArrayBuffer so the SW can clone the request. -->
+<script>
+  (function() {
+    var f = window.fetch.bind(window)
+    window.fetch = function(i, o) {
+      if (o && o.keepalive && o.body instanceof ReadableStream) {
+        return new Response(o.body).arrayBuffer().then(function(b) {
+          return f(i, Object.assign({}, o, { body: b }))
+        })
+      }
+      return f.apply(window, arguments)
+    }
+  })()
+</script>
 <!-- Load the SDK before your game code -->
 <script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
 <div id="app"></div>

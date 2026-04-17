@@ -158,6 +158,8 @@ div[style*="conic-gradient"]
   position: fixed
   inset: 0
   z-index: 150
+  // The bg-tile is already cached by the static HTML splash — reuse it
+  // here so there's no flash when the static splash is removed.
   background: #0d1117 url('/images/bg/spinner-machines-bg-tile_256x256.webp') repeat
   background-size: 128px 128px
 // No pointer events so nothing underneath is accidentally clickable anyway
