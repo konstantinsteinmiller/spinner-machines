@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted, reactive } from 'vue'
 import { PLACEABLE_MACHINES, MACHINE_REGISTRY, type MachineModule } from '@/game/machines'
 import { WALL_PRESETS, WALL_MATERIALS, type WallPreset, type WallMaterial } from '@/game/walls/presets'
 import type { Machine, Stage } from '@/types/stage'
-import { STAGE_MANIFEST, TUTORIAL_META, loadStageById, stage1 as builtinStage1 } from '@/game/stages'
+import { STAGE_MANIFEST, TUTORIAL_META, loadStageById, getStageFilename, stage1 as builtinStage1 } from '@/game/stages'
 import { SPINNER_MODEL_IDS, modelImgPath, type SpinnerModelId } from '@/use/useModels'
 import { useRouter } from 'vue-router'
 import { isEditorMode } from '@/use/useAppMode'
@@ -20,6 +20,12 @@ const canvasEl = ref<HTMLCanvasElement | null>(null)
 const editorStage = reactive<Stage>(JSON.parse(JSON.stringify(stage1)))
 const stageName = ref<string>(editorStage.id || 'stage1')
 const stageLabel = ref<string>(editorStage.name || 'Stage 1')
+// File stem (without `.ts`) the current editorStage was loaded from.
+// Tracks the actual filename — used by saveAsStage to decide whether
+// we're overwriting the loaded file or saving as a new one, so a stage
+// like `stage-3` (id) loaded from `stage3.ts` (file) writes back to
+// `stage3.ts` instead of silently creating `stage-3.ts`.
+const loadedStageName = ref<string>('stage1')
 const saveStatus = ref<string>('')
 const selectedType = ref<MachineModule | null>(null)
 const draggedId = ref<number | null>(null)
@@ -526,13 +532,17 @@ function toggleOpenMenu() {
   openMenuVisible.value = !openMenuVisible.value
 }
 
-function loadIntoEditor(s: Stage) {
+function loadIntoEditor(s: Stage, filename?: string) {
   snapshot()
   const cloned = JSON.parse(JSON.stringify(s)) as Stage
   Object.assign(editorStage, cloned)
   editorStage.machines = cloned.machines
   nextId = Math.max(...editorStage.machines.map((m) => m.id), 0) + 1
-  stageName.value = cloned.id || 'stage'
+  // Prefer the real on-disk file stem over the stage's internal id so
+  // the filename input reflects what "Save as Stage" will overwrite.
+  const nameForInput = filename ?? cloned.id ?? 'stage'
+  stageName.value = nameForInput
+  loadedStageName.value = nameForInput
   stageLabel.value = cloned.name || cloned.id || 'Stage'
   selectedId.value = null
   openMenuVisible.value = false
@@ -540,14 +550,14 @@ function loadIntoEditor(s: Stage) {
 
 async function openBuiltin(s: { id: string }) {
   const full = await loadStageById(s.id)
-  loadIntoEditor(full)
+  loadIntoEditor(full, getStageFilename(s.id))
 }
 
 function openLocal(key: string) {
   const raw = localStorage.getItem(`bm_stage_${key}`)
   if (!raw) return
   try {
-    loadIntoEditor(JSON.parse(raw) as Stage)
+    loadIntoEditor(JSON.parse(raw) as Stage, key)
   } catch {
     saveStatus.value = `failed to parse ${key}`
   }
@@ -576,14 +586,22 @@ async function saveAsStage() {
     saveStatus.value = 'bad name'
     return
   }
-  editorStage.id = safe
-  editorStage.name = stageLabel.value.trim() || safe
+  // Overwriting the same file we loaded from: preserve the stage's
+  // internal id (e.g. keep `stage-3` intact even though the file stem
+  // is `stage3`, so the manifest and campaign still find it). Only
+  // rewrite the id when the user saves to a new filename.
+  const isOverwrite = safe === loadedStageName.value
+  if (!isOverwrite) {
+    editorStage.id = safe
+  }
+  editorStage.name = stageLabel.value.trim() || editorStage.id || safe
 
   // Editor mode — remote Pantry storage (no local filesystem access).
   if (isEditorMode) {
     saveStatus.value = 'saving to pantry…'
     const ok = await savePantryStage(JSON.parse(JSON.stringify(editorStage)) as Stage)
     saveStatus.value = ok ? `pantry: saved ${safe}` : 'pantry: failed'
+    if (ok) loadedStageName.value = safe
     setTimeout(() => {
       saveStatus.value = ''
     }, 4000)
@@ -600,12 +618,14 @@ async function saveAsStage() {
       if (!res.ok) throw new Error(await res.text())
       const j = await res.json()
       saveStatus.value = `wrote ${j.path}`
+      loadedStageName.value = safe
     } catch (err) {
       saveStatus.value = `fail: ${String(err)}`
     }
   } else {
     localStorage.setItem(`bm_stage_${safe}`, JSON.stringify(editorStage))
     saveStatus.value = `saved ${safe} (local)`
+    loadedStageName.value = safe
   }
   setTimeout(() => {
     saveStatus.value = ''

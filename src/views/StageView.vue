@@ -108,6 +108,7 @@ const {
 const { coins } = useSpinnerConfig()
 
 const canvasEl = ref<HTMLCanvasElement | null>(null)
+const isHoveringSpinner = ref(false)
 const coinBadgeRef = ref<{ rootEl: HTMLElement | null } | null>(null)
 const rewardCoinRef = ref<HTMLElement | null>(null)
 const showReward = ref(false)
@@ -834,6 +835,13 @@ function onPointerDown(e: PointerEvent) {
 }
 
 function onPointerMove(e: PointerEvent) {
+  if (!isTouchInput && phase.value === 'aiming' && ptr.value.mode !== 'aim') {
+    const wp = screenToWorld(e.clientX, e.clientY)
+    const sp = spinner.value
+    isHoveringSpinner.value = Math.hypot(wp.x - sp.x, wp.y - sp.y) < 120
+  } else if (isHoveringSpinner.value) {
+    isHoveringSpinner.value = false
+  }
   if (ptr.value.mode === 'none') return
   ptr.value.curX = e.clientX
   ptr.value.curY = e.clientY
@@ -1223,6 +1231,7 @@ const launchesTierClass = computed(() => {
   div.relative.w-full.h-full.overflow-hidden.stage-bg
     canvas.absolute.inset-0.w-full.h-full.touch-none(
       ref="canvasEl"
+      :class="{ 'cursor-pointer': isHoveringSpinner }"
       :style="shakeStyle"
       @pointerdown="onPointerDown"
       @pointermove="onPointerMove"

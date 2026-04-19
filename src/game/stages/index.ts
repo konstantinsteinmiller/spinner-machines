@@ -66,21 +66,52 @@ const tutorialLoader = () => import('./tutorial') as Promise<{ default: Stage }>
 // resolve a stage by id without scanning every chunk. Because dynamic
 // imports are keyed by path, we need to map id → loader key.
 const loaderByStageId = new Map<string, () => Promise<{ default: Stage }>>()
+// Parallel map: stage id → actual file stem (e.g. `stage-3` → `stage3`).
+// Lets the editor save back to the exact file a stage was loaded from,
+// instead of deriving a filename from the stage id (which silently
+// creates a duplicate when id and file stem disagree, like `stage-3`
+// living in `stage3.ts`).
+const filenameByStageId = new Map<string, string>()
 {
-  // Heuristic: the stage file `./stageN.ts` usually exports `stage.id`
-  // matching `stageN` or `stage-N`. We resolve lazily on first load of
-  // each id by iterating the glob map until we find a match.
   for (const [path, loader] of Object.entries(lazyLoaders)) {
-    const m = path.match(/\/stage(-?\d+)\.ts$/)
+    const m = path.match(/\/(stage-?\d+)\.ts$/)
     if (!m) continue
-    // Both `stageN` and `stage-N` variants may exist in the manifest —
-    // point both possible ids at this loader and let loadStageById
-    // resolve the correct one at runtime.
-    const n = m[1]!.replace('-', '')
-    loaderByStageId.set(`stage${n}`, loader)
-    loaderByStageId.set(`stage-${n}`, loader)
+    const filename = m[1]! // e.g. 'stage3' or 'stage-3'
+    const n = filename.replace(/^stage-?/, '')
+    const idNoDash = `stage${n}`
+    const idDash = `stage-${n}`
+    // Exact match (file stem === id) always wins so both `./stage3.ts`
+    // and `./stage-3.ts` resolve to themselves. The other variant only
+    // registers as a fallback when that id is otherwise unclaimed.
+    if (filename === idNoDash) {
+      loaderByStageId.set(idNoDash, loader)
+      filenameByStageId.set(idNoDash, filename)
+      if (!loaderByStageId.has(idDash)) {
+        loaderByStageId.set(idDash, loader)
+        filenameByStageId.set(idDash, filename)
+      }
+    } else {
+      loaderByStageId.set(idDash, loader)
+      filenameByStageId.set(idDash, filename)
+      if (!loaderByStageId.has(idNoDash)) {
+        loaderByStageId.set(idNoDash, loader)
+        filenameByStageId.set(idNoDash, filename)
+      }
+    }
   }
   loaderByStageId.set('tutorial', tutorialLoader)
+  filenameByStageId.set('tutorial', 'tutorial')
+  filenameByStageId.set('stage1', 'stage1')
+}
+
+/**
+ * Returns the file stem (without `.ts`) that a given stage id resolves
+ * to on disk. Used by the stage editor so "Save as Stage" overwrites
+ * the same file the stage was loaded from, even when the stage's
+ * internal id doesn't match its filename.
+ */
+export function getStageFilename(id: string): string | undefined {
+  return filenameByStageId.get(id)
 }
 
 /**

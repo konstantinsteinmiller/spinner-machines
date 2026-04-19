@@ -1,85 +1,406 @@
-import type { Stage, Machine } from '@/types/stage'
+import type { Stage } from '@/types/stage'
 
-let nextId = 1
-const id = () => nextId++
-const wall = (x: number, y: number, w: number, h: number, rot = 0): Machine => ({
-  id: id(), type: 'wall', x, y, w, h, rot
-})
-const m = (type: Machine['type'], x: number, y: number, w: number, h: number, rot = 0): Machine => ({
-  id: id(), type, x, y, w, h, rot
-})
-
-// Compact square arena — pure boss fight.
-const width = 1600
-const height = 1600
-
-const machines: Machine[] = [
-  wall(width / 2, 20, width, 40),
-  wall(width / 2, height - 20, width, 40),
-  wall(20, height / 2, 40, height),
-  wall(width - 20, height / 2, 40, height),
-
-  // Diamond of diagonal walls forming an inner chamber
-  wall(width / 2, 300, 600, 24, Math.PI / 4),
-  wall(width / 2, 300, 600, 24, -Math.PI / 4),
-  wall(width / 2, 1300, 600, 24, Math.PI / 4),
-  wall(width / 2, 1300, 600, 24, -Math.PI / 4),
-
-  // One right-facing launcher at the spawn side; the other three
-  // cardinal positions were non-right launchers (up/down/left) which
-  // the sprite cannot depict, so they're swapped for centrifugal
-  // boosters — same "keep the blade bouncing" role, rotation-agnostic.
-  { id: id(), type: 'pneumaticLauncher', x: 120, y: 800, w: 100, h: 80, rot: 0 },
-  { id: id(), type: 'centrifugalBooster', x: 1480, y: 800, w: 120, h: 100, rot: 0 },
-  { id: id(), type: 'centrifugalBooster', x: 800, y: 120, w: 120, h: 100, rot: 0 },
-  { id: id(), type: 'centrifugalBooster', x: 800, y: 1480, w: 120, h: 100, rot: 0 },
-
-  // Gravity wells in the corners
-  m('gravityWell', 400, 400, 80, 80),
-  m('gravityWell', 1200, 400, 80, 80),
-  m('gravityWell', 400, 1200, 80, 80),
-  m('gravityWell', 1200, 1200, 80, 80),
-
-  // Generators ringed around the boss
-  m('overloadedGenerator', 600, 800, 80, 80),
-  m('overloadedGenerator', 1000, 800, 80, 80),
-  m('overloadedGenerator', 800, 600, 80, 80),
-  m('overloadedGenerator', 800, 1000, 80, 80),
-
-  // The boss at the center
-  {
-    id: id(), type: 'boss',
-    x: 800, y: 800, w: 220, h: 220, rot: 0,
-    hp: 100, maxHp: 100, modelId: 'boulder'
+const stage: Stage = {
+  'id': 'stage-6',
+  'name': 'Pinball Chamber',
+  'width': 1600,
+  'height': 1600,
+  'spawn': {
+    'x': 200,
+    'y': 800
   },
-
-  // Goal tucked behind a small wall
-  wall(1400, 1450, 200, 20),
-  m('goal', 1400, 1380, 90, 90),
-
-  // ── Pressure plate cage (retrofit) ────────────────────────────────
-  { id: id(), type: 'wall', x: 1300, y: 90, w: 220, h: 20, rot: 0, meta: { material: 'metal' } },
-  { id: id(), type: 'wall', x: 1300, y: 310, w: 220, h: 20, rot: 0, meta: { material: 'metal' } },
-  { id: id(), type: 'wall', x: 1190, y: 200, w: 20, h: 220, rot: 0, meta: { material: 'metal' } },
-  { id: id(), type: 'wall', x: 1410, y: 200, w: 20, h: 220, rot: 0, meta: { material: 'metal' } },
-  { id: id(), type: 'overloadedGenerator', x: 1250, y: 200, w: 80, h: 80, rot: 0, meta: { link: 'plateS6' } },
-  { id: id(), type: 'overloadedGenerator', x: 1350, y: 200, w: 80, h: 80, rot: 0, meta: { link: 'plateS6' } },
-  { id: id(), type: 'destroyableGlassTube', x: 1300, y: 140, w: 60, h: 60, rot: 0, meta: { link: 'plateS6' } },
-  { id: id(), type: 'pressurePlate', x: 300, y: 1300, w: 90, h: 70, rot: 0, meta: { link: 'plateS6' } }
-]
-
-const stage6: Stage = {
-  id: 'stage-6',
-  name: 'Pinball Chamber',
-  width,
-  height,
-  spawn: { x: 200, y: 800 },
-  goal: { x: 1400, y: 1380 },
-  machines,
-  starThresholds: [0, 650, 1300],
-  launchPenalty: 55,
-  bossKillBonus: 350,
-  bossModelId: 'boulder'
+  'goal': {
+    'x': 1400,
+    'y': 1380
+  },
+  'machines': [
+    {
+      'id': 1,
+      'type': 'wall',
+      'x': 800,
+      'y': 20,
+      'w': 1600,
+      'h': 40,
+      'rot': 0
+    },
+    {
+      'id': 2,
+      'type': 'wall',
+      'x': 800,
+      'y': 1580,
+      'w': 1600,
+      'h': 40,
+      'rot': 0
+    },
+    {
+      'id': 3,
+      'type': 'wall',
+      'x': 20,
+      'y': 800,
+      'w': 40,
+      'h': 1600,
+      'rot': 0
+    },
+    {
+      'id': 4,
+      'type': 'wall',
+      'x': 1580,
+      'y': 800,
+      'w': 40,
+      'h': 1600,
+      'rot': 0
+    },
+    {
+      'id': 5,
+      'type': 'wall',
+      'x': 800,
+      'y': 300,
+      'w': 600,
+      'h': 24,
+      'rot': 0.7853981633974483
+    },
+    {
+      'id': 6,
+      'type': 'wall',
+      'x': 800,
+      'y': 300,
+      'w': 600,
+      'h': 24,
+      'rot': -0.7853981633974483
+    },
+    {
+      'id': 7,
+      'type': 'wall',
+      'x': 800,
+      'y': 1300,
+      'w': 600,
+      'h': 24,
+      'rot': 0.7853981633974483
+    },
+    {
+      'id': 8,
+      'type': 'wall',
+      'x': 800,
+      'y': 1300,
+      'w': 600,
+      'h': 24,
+      'rot': -0.7853981633974483
+    },
+    {
+      'id': 9,
+      'type': 'pneumaticLauncher',
+      'x': 120,
+      'y': 800,
+      'w': 100,
+      'h': 80,
+      'rot': 0
+    },
+    {
+      'id': 10,
+      'type': 'centrifugalBooster',
+      'x': 1480,
+      'y': 800,
+      'w': 120,
+      'h': 100,
+      'rot': 0
+    },
+    {
+      'id': 11,
+      'type': 'centrifugalBooster',
+      'x': 800,
+      'y': 120,
+      'w': 120,
+      'h': 100,
+      'rot': 0
+    },
+    {
+      'id': 12,
+      'type': 'centrifugalBooster',
+      'x': 800,
+      'y': 1480,
+      'w': 120,
+      'h': 100,
+      'rot': 0
+    },
+    {
+      'id': 13,
+      'type': 'gravityWell',
+      'x': 400,
+      'y': 400,
+      'w': 80,
+      'h': 80,
+      'rot': 0
+    },
+    {
+      'id': 14,
+      'type': 'gravityWell',
+      'x': 1200,
+      'y': 400,
+      'w': 80,
+      'h': 80,
+      'rot': 0
+    },
+    {
+      'id': 15,
+      'type': 'gravityWell',
+      'x': 400,
+      'y': 1200,
+      'w': 80,
+      'h': 80,
+      'rot': 0
+    },
+    {
+      'id': 16,
+      'type': 'gravityWell',
+      'x': 1200,
+      'y': 1200,
+      'w': 80,
+      'h': 80,
+      'rot': 0
+    },
+    {
+      'id': 17,
+      'type': 'overloadedGenerator',
+      'x': 600,
+      'y': 800,
+      'w': 80,
+      'h': 80,
+      'rot': 0
+    },
+    {
+      'id': 18,
+      'type': 'overloadedGenerator',
+      'x': 1000,
+      'y': 800,
+      'w': 80,
+      'h': 80,
+      'rot': 0
+    },
+    {
+      'id': 19,
+      'type': 'overloadedGenerator',
+      'x': 800,
+      'y': 600,
+      'w': 80,
+      'h': 80,
+      'rot': 0
+    },
+    {
+      'id': 20,
+      'type': 'overloadedGenerator',
+      'x': 800,
+      'y': 1000,
+      'w': 80,
+      'h': 80,
+      'rot': 0
+    },
+    {
+      'id': 21,
+      'type': 'boss',
+      'x': 800,
+      'y': 800,
+      'w': 220,
+      'h': 220,
+      'rot': 0,
+      'hp': 100,
+      'maxHp': 100,
+      'modelId': 'boulder'
+    },
+    {
+      'id': 22,
+      'type': 'wall',
+      'x': 1400,
+      'y': 1450,
+      'w': 200,
+      'h': 20,
+      'rot': 0
+    },
+    {
+      'id': 23,
+      'type': 'goal',
+      'x': 1400,
+      'y': 1380,
+      'w': 90,
+      'h': 90,
+      'rot': 0
+    },
+    {
+      'id': 24,
+      'type': 'wall',
+      'x': 1300,
+      'y': 90,
+      'w': 220,
+      'h': 20,
+      'rot': 0,
+      'meta': {
+        'material': 'metal'
+      }
+    },
+    {
+      'id': 25,
+      'type': 'wall',
+      'x': 1300,
+      'y': 310,
+      'w': 220,
+      'h': 20,
+      'rot': 0,
+      'meta': {
+        'material': 'metal'
+      }
+    },
+    {
+      'id': 26,
+      'type': 'wall',
+      'x': 1190,
+      'y': 200,
+      'w': 20,
+      'h': 220,
+      'rot': 0,
+      'meta': {
+        'material': 'metal'
+      }
+    },
+    {
+      'id': 27,
+      'type': 'wall',
+      'x': 1410,
+      'y': 200,
+      'w': 20,
+      'h': 220,
+      'rot': 0,
+      'meta': {
+        'material': 'metal'
+      }
+    },
+    {
+      'id': 28,
+      'type': 'overloadedGenerator',
+      'x': 1250,
+      'y': 200,
+      'w': 80,
+      'h': 80,
+      'rot': 0,
+      'meta': {
+        'link': 'plateS6'
+      }
+    },
+    {
+      'id': 29,
+      'type': 'overloadedGenerator',
+      'x': 1350,
+      'y': 200,
+      'w': 80,
+      'h': 80,
+      'rot': 0,
+      'meta': {
+        'link': 'plateS6'
+      }
+    },
+    {
+      'id': 30,
+      'type': 'destroyableGlassTube',
+      'x': 1300,
+      'y': 140,
+      'w': 60,
+      'h': 60,
+      'rot': 0,
+      'meta': {
+        'link': 'plateS6'
+      }
+    },
+    {
+      'id': 31,
+      'type': 'pressurePlate',
+      'x': 300,
+      'y': 1300,
+      'w': 90,
+      'h': 70,
+      'rot': 0,
+      'meta': {
+        'link': 'plateS6'
+      }
+    },
+    {
+      'id': 32,
+      'type': 'destroyableGlassTube',
+      'x': 80,
+      'y': 100,
+      'w': 60,
+      'h': 100,
+      'rot': 0
+    },
+    {
+      'id': 33,
+      'type': 'destroyableGlassTube',
+      'x': 1500,
+      'y': 100,
+      'w': 60,
+      'h': 100,
+      'rot': 0
+    },
+    {
+      'id': 34,
+      'type': 'destroyableGlassTube',
+      'x': 1500,
+      'y': 1380,
+      'w': 60,
+      'h': 100,
+      'rot': 0
+    },
+    {
+      'id': 35,
+      'type': 'destroyableGlassTube',
+      'x': 100,
+      'y': 1480,
+      'w': 60,
+      'h': 100,
+      'rot': 0
+    },
+    {
+      'id': 36,
+      'type': 'destroyableGlassTube',
+      'x': 800,
+      'y': 1200,
+      'w': 60,
+      'h': 100,
+      'rot': 0
+    },
+    {
+      'id': 37,
+      'type': 'destroyableGlassTube',
+      'x': 800,
+      'y': 400,
+      'w': 60,
+      'h': 100,
+      'rot': 0
+    },
+    {
+      'id': 38,
+      'type': 'overloadedGenerator',
+      'x': 1360,
+      'y': 1520,
+      'w': 80,
+      'h': 80,
+      'rot': 0
+    },
+    {
+      'id': 39,
+      'type': 'overloadedGenerator',
+      'x': 1460,
+      'y': 1520,
+      'w': 80,
+      'h': 80,
+      'rot': 0
+    }
+  ],
+  'starThresholds': [
+    0,
+    650,
+    1300
+  ],
+  'launchPenalty': 55,
+  'bossKillBonus': 350,
+  'bossModelId': 'boulder'
 }
 
-export default stage6
+export default stage

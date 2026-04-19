@@ -80,8 +80,8 @@ const stage: Stage = {
     {
       'id': 8,
       'type': 'destroyableGlassTube',
-      'x': 500,
-      'y': 620,
+      'x': 120,
+      'y': 1260,
       'w': 60,
       'h': 120,
       'rot': 0
@@ -215,8 +215,8 @@ const stage: Stage = {
     {
       'id': 23,
       'type': 'destroyableGlassTube',
-      'x': 1600,
-      'y': 420,
+      'x': 2100,
+      'y': 1260,
       'w': 40,
       'h': 120,
       'rot': 0
@@ -384,8 +384,8 @@ const stage: Stage = {
     {
       'id': 40,
       'type': 'destroyableGlassTube',
-      'x': 1380,
-      'y': 260,
+      'x': 1360,
+      'y': 280,
       'w': 60,
       'h': 100,
       'rot': 0,
@@ -396,8 +396,8 @@ const stage: Stage = {
     {
       'id': 41,
       'type': 'destroyableGlassTube',
-      'x': 1500,
-      'y': 260,
+      'x': 1520,
+      'y': 280,
       'w': 60,
       'h': 100,
       'rot': 0,
@@ -522,6 +522,24 @@ const stage: Stage = {
         'material': 'metal',
         'link': 'gear1'
       }
+    },
+    {
+      'id': 52,
+      'type': 'destroyableGlassTube',
+      'x': 260,
+      'y': 1260,
+      'w': 60,
+      'h': 120,
+      'rot': 0
+    },
+    {
+      'id': 53,
+      'type': 'destroyableGlassTube',
+      'x': 1240,
+      'y': 1300,
+      'w': 60,
+      'h': 120,
+      'rot': 0
     }
   ],
   'starThresholds': [
