@@ -182,6 +182,11 @@ export const initCrazyGames = async (): Promise<void> => {
   sdk = candidate
   isSdkActive.value = true
 
+  // Signal the portal that we're still loading in-page assets; App.vue
+  // stops it once `areAllAssetsLoaded` flips. Must happen before the Vue
+  // app mounts so the portal's loading UI stays up through asset preload.
+  signalLoadingStart()
+
   await hydrateFromSdk()
   patchLocalStorage()
   await captureSdkProfile()
@@ -224,22 +229,26 @@ const captureSdkProfile = async (): Promise<void> => {
   }
 
   // Locale. Newer SDK builds expose `systemInfo` as a property; older ones
-  // expose a `getSystemInfo()` async accessor. We try the property first and
-  // fall back to the method, then normalize whatever we find to its
-  // language sub-tag (`en-US` → `en`).
-  try {
-    let info: any = sdk?.user?.systemInfo
-    if (!info && typeof sdk?.user?.getSystemInfo === 'function') {
-      info = await sdk.user.getSystemInfo()
-    }
+  // expose a `getSystemInfo()` async accessor. We try the property first,
+  // and if it either isn't present OR is truthy-but-yields-no-locale we
+  // fall through to the method — the previous code only fell through on
+  // a falsy property and silently missed locales when the property was a
+  // non-standard object without a `locale` field. Normalize whatever we
+  // find to its language sub-tag (`en-US` → `en`).
+  const extractLocale = (info: any): string | null => {
     const raw =
       info?.locale ??
       info?.userLocale ??
       info?.language ??
       null
-    if (typeof raw === 'string' && raw.length >= 2) {
-      crazyLocale.value = raw.split(/[-_]/)[0]!.toLowerCase()
+    return typeof raw === 'string' && raw.length >= 2 ? raw : null
+  }
+  try {
+    let raw = extractLocale(sdk?.user?.systemInfo)
+    if (!raw && typeof sdk?.user?.getSystemInfo === 'function') {
+      raw = extractLocale(await sdk.user.getSystemInfo())
     }
+    if (raw) crazyLocale.value = raw.split(/[-_]/)[0]!.toLowerCase()
   } catch (e) {
     console.warn('[crazygames] systemInfo locale read failed', e)
   }
@@ -328,6 +337,41 @@ const untrackKey = (key: string): void => {
   const keys = readManifest()
   const next = keys.filter(k => k !== key)
   if (next.length !== keys.length) writeManifest(next)
+}
+
+// ─── Loading lifecycle ───────────────────────────────────────────────────
+
+let loadingActive = false
+
+/**
+ * Tell CrazyGames that the game is still loading heavy in-page assets
+ * (image/audio preload, etc.) beyond the initial bundle. The portal uses
+ * this to keep its own loading UI up instead of prematurely flipping to
+ * "game ready". Safe to call before the SDK has attached — it just no-ops.
+ * Idempotent: only the first call per loading cycle is forwarded.
+ */
+export const signalLoadingStart = (): void => {
+  if (!sdk || loadingActive) return
+  try {
+    sdk.game?.sdkGameLoadingStart?.()
+    loadingActive = true
+  } catch (e) {
+    console.warn('[crazygames] sdkGameLoadingStart failed', e)
+  }
+}
+
+/**
+ * Tell CrazyGames in-page loading has finished. Paired with
+ * `signalLoadingStart`. Idempotent: only fires when a start was signaled.
+ */
+export const signalLoadingStop = (): void => {
+  if (!sdk || !loadingActive) return
+  try {
+    sdk.game?.sdkGameLoadingStop?.()
+    loadingActive = false
+  } catch (e) {
+    console.warn('[crazygames] sdkGameLoadingStop failed', e)
+  }
 }
 
 // ─── Gameplay lifecycle ───────────────────────────────────────────────────
@@ -574,6 +618,8 @@ const useCrazyGames = () => ({
   initCrazyGames,
   startGameplay,
   stopGameplay,
+  signalLoadingStart,
+  signalLoadingStop,
   showRewardedAd,
   showMidgameAd,
   addCrazyMuteListener,

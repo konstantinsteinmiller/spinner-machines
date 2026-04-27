@@ -1,7 +1,7 @@
 import type { Stage } from '@/types/stage'
 
 const stage: Stage = {
-  'id': 'stage2',
+  'id': 'stage-2',
   'name': 'Twin Generators',
   'width': 1800,
   'height': 1200,

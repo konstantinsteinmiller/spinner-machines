@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { isCrazyWeb, isWaveDash, isItch, orientation } from '@/use/useUser'
 import { mobileCheck } from '@/utils/function'
@@ -10,12 +10,26 @@ import { windowWidth, windowHeight } from '@/use/useUser'
 import useAssets from '@/use/useAssets'
 import FLogoProgress from '@/components/atoms/FLogoProgress.vue'
 import { useCrazyMuteSync } from '@/use/useCrazyMuteSync'
+import { signalLoadingStop } from '@/use/useCrazyGames'
 
 const { t } = useI18n()
 const { initMusic, pauseMusic, continueMusic } = useMusic()
 useExtensionGuard()
-const { resourceCache } = useAssets()
+const { resourceCache, areAllAssetsLoaded } = useAssets()
 useCrazyMuteSync()
+
+// Close the CrazyGames portal loading UI once in-page asset preload
+// finishes. `signalLoadingStart` was fired from initCrazyGames in
+// main.ts; this pairs with it. No-op on non-CG builds or if the start
+// was never signaled. `immediate: true` covers the case where assets
+// finish before this watcher attaches (warm cache).
+watch(
+  areAllAssetsLoaded,
+  (ready) => {
+    if (ready) signalLoadingStop()
+  },
+  { immediate: true }
+)
 
 initMusic()
 

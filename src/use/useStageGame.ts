@@ -9,6 +9,7 @@ import { clearExplosions } from '@/game/vfx'
 import { clearSpinnerVfx } from '@/game/spinnerVfx'
 import { useScreenshake } from '@/use/useScreenshake'
 import useSounds from '@/use/useSound'
+import { triggerHappytime } from '@/use/useCrazyGames'
 
 const { triggerShake } = useScreenshake()
 const { playSound } = useSounds()
@@ -84,7 +85,15 @@ const bestStars = ref<Record<string, number>>(loadBestStars())
 function loadBestStars(): Record<string, number> {
   try {
     const raw = localStorage.getItem(STAGE_STARS_KEY)
-    return raw ? JSON.parse(raw) : {}
+    const parsed = raw ? JSON.parse(raw) : {}
+    // stage2.ts used to ship with id 'stage2' but the manifest expects
+    // 'stage-2'. Carry forward any progress saved under the old key so
+    // players don't lose their stars after the rename.
+    if (parsed.stage2 !== undefined && parsed['stage-2'] === undefined) {
+      parsed['stage-2'] = parsed.stage2
+      delete parsed.stage2
+    }
+    return parsed
   } catch {
     return {}
   }
@@ -593,6 +602,9 @@ function finishStage() {
   if (final >= th[2]) s = 3
   stars.value = s
   phase.value = 'complete'
+  // Tell the CrazyGames portal this was a peak positive moment so it
+  // can surface/promote the game at well-timed instants. No-op off CG.
+  if (s === 3) triggerHappytime()
   // Coins are granted as the DELTA vs the stage's previous best, so replays
   // only pay the difference when the player improves their rating.
   const prevBest = getBestStars(stage.id)

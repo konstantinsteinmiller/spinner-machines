@@ -15,7 +15,7 @@
       //- Parchment ribbon header
       div.ribbon-wrap.relative(
         v-if="$slots.ribbon"
-        :class="{ '!mb-2 -mt-2': isMobileLandscape, 'is-desktop': !isMobileLandscape && !isMobilePortrait }"
+        :class="{ '!mb-2 -mt-2': isMobileLandscape, 'is-desktop': !isMobileLandscape && !isMobilePortrait, 'is-compact': compactRibbon }"
         :style="{ marginBottom: isMobileLandscape ? undefined : 'clamp(0.5rem, 2vh, 2.5rem)' }"
       )
         img.ribbon-img.-mb-6(
@@ -48,6 +48,9 @@ import { isMobileLandscape, isMobilePortrait } from '@/use/useUser'
 const props = defineProps<{
   modelValue: boolean
   showContinue: boolean
+  /** Shrink the parchment ribbon by 30% for viewports too short to fit
+   *  the full reward layout — the parent decides when to opt in. */
+  compactRibbon?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -89,6 +92,18 @@ const handleOverlayClick = () => {
       width: 70vw
       max-width: 400px
 
+  // Short-viewport fallback: 30% smaller in every mode so the reward
+  // ribbon doesn't steal the vertical budget the leaderboard + buttons
+  // need. Parent opts in via the `compactRibbon` prop.
+  &.is-compact
+    width: 63vw
+    max-width: 387px
+
+    &.is-desktop
+      @media (min-height: 501px)
+        width: 49vw
+        max-width: 280px
+
 .ribbon-img
   display: block
   width: 100%
@@ -111,5 +126,9 @@ const handleOverlayClick = () => {
   .ribbon-wrap
     width: 50vw
     max-width: 400px
+
+  .ribbon-wrap.is-compact
+    width: 35vw
+    max-width: 280px
 
 </style>

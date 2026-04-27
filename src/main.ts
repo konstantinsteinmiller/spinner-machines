@@ -120,7 +120,6 @@ const bootstrap = async () => {
   if (isWaveDash) {
     try {
       const sdk = await (window as any).WavedashJS
-      console.log('sdk: ', sdk)
       if (sdk) {
         sdk.updateLoadProgressZeroToOne?.(1)
         sdk.readyForEvents?.()

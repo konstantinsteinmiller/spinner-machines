@@ -14,7 +14,6 @@ import useSpinnerConfig from '@/use/useSpinnerConfig'
 import { MACHINE_REGISTRY } from '@/game/machines'
 import { modelImgPath, getSelectedSkin } from '@/use/useModels'
 import stage1 from '@/game/stages/stage1'
-import tutorialStage from '@/game/stages/tutorial'
 import FReward from '@/components/atoms/FReward.vue'
 import FModal from '@/components/molecules/FModal.vue'
 import StarGem from '@/components/atoms/StarGem.vue'
@@ -35,12 +34,13 @@ import FMuteButton from '@/components/atoms/FMuteButton.vue'
 import StageBadge from '@/components/StageBadge.vue'
 import { prependBaseUrl } from '@/utils/function'
 import { STAGE_MANIFEST, loadStageById, type StageMeta } from '@/game/stages'
+import { preloadStageAssets } from '@/use/useAssets'
 import useSounds, { useMusic } from '@/use/useSound'
 import useCheats, { cheatStageRewardSignal } from '@/use/useCheats'
 import useStageLeaderboard from '@/use/useStageLeaderboard'
 import { machineArtEnabled } from '@/use/useMachineArt'
 import { isSdkActive, startGameplay, stopGameplay, showMidgameAd } from '@/use/useCrazyGames'
-import { isCrazyWeb } from '@/use/useUser'
+import { isCrazyWeb, isCrazyGamesFullRelease, windowHeight } from '@/use/useUser'
 import DailyRewards from '@/components/organisms/DailyRewards.vue'
 import AdRewardButton from '@/components/organisms/AdRewardButton.vue'
 import { renderVfx } from '@/game/vfx'
@@ -112,9 +112,75 @@ const isHoveringSpinner = ref(false)
 const coinBadgeRef = ref<{ rootEl: HTMLElement | null } | null>(null)
 const rewardCoinRef = ref<HTMLElement | null>(null)
 const showReward = ref(false)
+
+// ─── Reward-screen fit measurement ──────────────────────────────────────
+// A 5-entry leaderboard + footer buttons + ribbon stacks taller than
+// ~800 px in portrait, which pushes the Stages / Replay / Next buttons
+// below the fold on short viewports. We measure the rendered content
+// against the available viewport and opt into a compact layout when it
+// overflows — compact mode puts the leaderboard and footer buttons on
+// the same row, shrinks the ribbon 30%, and tightens text sizes so the
+// entire reward screen fits without scrolling.
+const rewardLayoutEl = ref<HTMLElement | null>(null)
+const isRewardCompact = ref(false)
+
+async function measureRewardFit() {
+  // Start from the generous layout and downgrade only if it overflows —
+  // resets the state on every reopen / resize so the layout doesn't get
+  // stuck in compact mode after a rotation back to a tall viewport.
+  isRewardCompact.value = false
+  if (!showReward.value) return
+  await nextTick()
+  const el = rewardLayoutEl.value
+  if (!el) return
+  const ribbonEl = document.querySelector('.ribbon-wrap') as HTMLElement | null
+  const ribbonH = ribbonEl?.offsetHeight ?? 0
+  // FReward's outer padding (1rem top + 1rem bottom) plus a small buffer
+  // for the ribbon's -mb-6 overlap and transition jitter.
+  const chromeH = 48
+  const avail = window.innerHeight - ribbonH - chromeH
+  if (el.scrollHeight > avail) {
+    isRewardCompact.value = true
+  }
+}
+
+watch(showReward, (v) => {
+  if (v) measureRewardFit()
+})
+watch(windowHeight, () => {
+  if (showReward.value) measureRewardFit()
+})
+
+// When the reward screen opens, warm the next stage's chunk + boss
+// skin in the background so tapping "Next" feels instant. Skipped for
+// the tutorial — the tutorial-complete handler immediately replaces
+// the stage with stage1 (already eagerly bundled) and there is no
+// "next" for the tutorial in STAGE_MANIFEST.
+watch(showReward, (v) => {
+  if (!v) return
+  const idx = STAGE_MANIFEST.findIndex((m) => m.id === currentStage.value.id)
+  const nextMeta = STAGE_MANIFEST[idx + 1]
+  if (!nextMeta) return
+  void preloadStageAssets(nextMeta.id)
+})
 const showSkinShop = ref(false)
 const showStagePicker = ref(false)
 const showOptions = ref(false)
+
+// When the stage picker opens, warm every stage the player might
+// actually pick: those that are unlocked (previous stage has ≥1 star)
+// AND not yet 3-starred. Fully-mastered stages are skipped — the
+// player has no reason to replay them on a fresh chunk-download.
+// Fire-and-forget + loadedCache in @/game/stages dedupes repeat opens,
+// so this is cheap to call on every open.
+watch(showStagePicker, (v) => {
+  if (!v) return
+  STAGE_MANIFEST.forEach((m, i) => {
+    if (!isStageUnlocked(i)) return
+    if (getBestStars(m.id) >= 3) return
+    void preloadStageAssets(m.id)
+  })
+})
 const {
   recordStageFinish: recordAchievementsFinish,
   recordTopRank: recordAchievementsTopRank
@@ -133,6 +199,12 @@ function isStageUnlocked(idx: number): boolean {
   const prev = STAGE_MANIFEST[idx - 1]
   return !!prev && getBestStars(prev.id) >= 1
 }
+
+const hasNextStage = computed(() => {
+  const idx = STAGE_MANIFEST.findIndex((m) => m.id === currentStage.value.id)
+  if (idx < 0 || idx >= STAGE_MANIFEST.length - 1) return false
+  return getBestStars(currentStage.value.id) >= 1
+})
 
 async function pickStage(s: StageMeta) {
   const full = await loadStageById(s.id)
@@ -1067,10 +1139,11 @@ async function onReplay() {
 }
 
 async function onNextStage() {
+  const idx = STAGE_MANIFEST.findIndex((m) => m.id === currentStage.value.id)
+  const nextMeta = idx >= 0 ? STAGE_MANIFEST[idx + 1] : undefined
+  if (!nextMeta) return
   showReward.value = false
   await maybeShowMidgameAd()
-  const idx = STAGE_MANIFEST.findIndex((m) => m.id === currentStage.value.id)
-  const nextMeta = STAGE_MANIFEST[idx + 1] ?? STAGE_MANIFEST[0]!
   const next = await loadStageById(nextMeta.id)
   loadStage(next)
   saveLastStageId(next.id)
@@ -1114,10 +1187,15 @@ async function loadInitialStage() {
     }
   }
   // Fresh-install path: boot into the tutorial until the player
-  // finishes it once.
+  // finishes it once. Lazy-imported so returning players never pay for
+  // the tutorial chunk after they've finished it.
   if (!localStorage.getItem(TUTORIAL_DONE_KEY)) {
-    loadStage(tutorialStage)
-    return
+    try {
+      const tut = await loadStageById('tutorial')
+      loadStage(tut)
+      return
+    } catch { /* fall through to stage1 */
+    }
   }
   // Resume the last played stage if one is saved.
   const lastId = localStorage.getItem(LAST_STAGE_KEY)
@@ -1159,6 +1237,11 @@ onUnmounted(() => {
   stopLoop()
   if (raf !== null) cancelAnimationFrame(raf)
   stopBattleMusic()
+  // Close out any in-flight CG gameplay signal — the phase watcher only
+  // fires `stopGameplay` on 'complete'/'tap_to_start', so a mid-aiming
+  // route change would otherwise leave the SDK thinking gameplay is
+  // still active. The call is idempotent when inactive.
+  stopGameplay()
   const cv = canvasEl.value
   if (cv) {
     cv.removeEventListener('touchstart', onTouchStart)
@@ -1368,10 +1451,13 @@ const launchesTierClass = computed(() => {
       v-if="!isEditorMode"
       v-model="showReward"
       :show-continue="false"
+      :compact-ribbon="isRewardCompact"
     )
       template(#ribbon)
         span.text-white.font-black.uppercase.italic.game-text(class="sm:text-2xl") {{ t('stageUi.levelCleared') }}
       div.level-cleared.reward-layout.pointer-events-auto(
+        ref="rewardLayoutEl"
+        :class="{ 'reward-layout--compact': isRewardCompact }"
         @click.stop
       )
         //- Left column (portrait: full width, landscape: left half)
@@ -1443,7 +1529,7 @@ const launchesTierClass = computed(() => {
               svg(viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round")
                 path(d="M20 12a8 8 0 1 1-2.34-5.66")
                 polyline(points="20 4 20 10 14 10")
-            button.fbtn(v-if="stars >= 1" @click="onNextStage" aria-label="Next Level")
+            button.fbtn(v-if="hasNextStage" @click="onNextStage" aria-label="Next Level")
               svg(viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round")
                 polyline(points="7 5 14 12 7 19")
                 polyline(points="13 5 20 12 13 19")
@@ -1471,7 +1557,7 @@ const launchesTierClass = computed(() => {
       )
       DailyRewards(@coins-awarded="fireCoinExplosion")
       AdRewardButton(
-        v-if="isSdkActive && isCrazyWeb"
+        v-if="isSdkActive && isCrazyWeb && isCrazyGamesFullRelease"
         @coins-awarded="fireCoinExplosion"
       )
 
@@ -1687,6 +1773,66 @@ const launchesTierClass = computed(() => {
   font-size: clamp(2rem, 5vh, 4.5rem)
   @media (orientation: landscape) and (max-height: 500px)
     font-size: 2rem
+
+// ─── Compact fallback (short viewports) ────────────────────────────────
+// Activated by `.reward-layout--compact` when the non-compact stack
+// would overflow the viewport. Puts leaderboard + footer buttons on the
+// same row (side column goes horizontal) and trims text sizes so the
+// whole reward screen fits above the fold on small portrait displays.
+.reward-layout--compact
+  gap: 0.25rem
+
+  .reward-col--side
+    flex-direction: row
+    align-items: center
+    justify-content: center
+    flex-wrap: wrap
+    gap: 0.75rem
+    width: 100%
+
+  .stars-cluster
+    width: 9rem
+    height: 5.2rem
+
+    .star-slot--mid
+      width: 5rem
+      height: 5rem
+
+    .star-slot--left, .star-slot--right
+      width: 3.3rem
+      height: 3.3rem
+
+  .reward-score
+    font-size: 1.75rem
+
+  .lb-panel
+    width: min(55vw, 240px)
+    margin-top: 0
+
+  .lb-panel__title
+    font-size: 0.62rem
+    margin-bottom: 0.2rem
+
+  .lb-rank, .lb-name, .lb-score
+    font-size: 0.62rem
+
+  .lb-row
+    padding: 0.15rem 0.35rem
+
+  .lb-new-hint
+    font-size: 0.62rem
+    margin-top: 0.2rem
+
+  .footer-buttons
+    gap: 0.45rem
+
+    .fbtn
+      width: 2.5rem
+      height: 2.5rem
+
+    .fbtn--big
+      width: 3rem
+      height: 3rem
 
 // ─── 3-star interlocking cluster ───────────────────────────────────────
 .stars-cluster

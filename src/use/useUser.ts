@@ -19,6 +19,7 @@ export const isMobilePortrait = computed(() =>
 
 declare const APP_VERSION: string
 export const isCrazyWeb = import.meta.env.VITE_APP_CRAZY_WEB === 'true'
+export const isCrazyGamesFullRelease = import.meta.env.VITE_APP_CRAZY_GAMES_FULL_RELEASE === 'true'
 export const isWaveDash = import.meta.env.VITE_APP_WAVEDASH === 'true'
 export const isItch = import.meta.env.VITE_APP_ITCH === 'true'
 export const isNative = import.meta.env.VITE_APP_NATIVE === 'true'

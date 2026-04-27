@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { modelImgPath, getSelectedSkin, SPINNER_MODEL_IDS } from '@/use/useModels.ts'
+import { modelImgPath, getSelectedSkin } from '@/use/useModels.ts'
 import { prependBaseUrl } from '@/utils/function.ts'
 
 // Shared reactive loader state — surfaced to FLogoProgress.
@@ -150,49 +150,63 @@ const runInChunks = async (assets: AssetEntry[], chunkSize: number, onLoaded?: (
   }
 }
 
-/**
- * Resolve the boss skin id for the stage the player will boot into.
- * Mirrors the logic in `StageView.loadInitialStage`:
- *   • fresh player (no `bm_tutorial_done`) → tutorial stage
- *   • last played stage saved → that stage
- *   • otherwise → stage1
- *
- * Returns the skin id or `null` if the stage has no boss machine.
- */
 /** Race a promise against a timeout so a stuck dynamic import can't
  *  block the boot indefinitely. */
 function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
   return Promise.race([p, new Promise<T>(r => setTimeout(() => r(fallback), ms))])
 }
 
-async function resolveInitialBossSkin(): Promise<string | null> {
-  return withTimeout(resolveInitialBossSkinInner(), 3000, null)
+/**
+ * Resolve the id of the stage the player will boot into. Mirrors the
+ * logic in `StageView.loadInitialStage` so the preloader warms the
+ * exact chunk StageView will mount:
+ *   • fresh player (no `bm_tutorial_done`) → 'tutorial'
+ *   • last-played stage saved → that id
+ *   • otherwise → 'stage1'
+ */
+export function resolveInitialStageId(): string {
+  const tutorialDone = localStorage.getItem('bm_tutorial_done') === '1'
+  if (!tutorialDone) return 'tutorial'
+  const lastId = localStorage.getItem('bm_last_stage')
+  if (lastId && lastId !== 'tutorial') return lastId
+  return 'stage1'
 }
 
-async function resolveInitialBossSkinInner(): Promise<string | null> {
-  const tutorialDone = localStorage.getItem('bm_tutorial_done') === '1'
-  if (!tutorialDone) {
-    try {
-      const mod = await import('@/game/stages/tutorial')
-      return mod.default.machines.find((m) => m.type === 'boss')?.modelId ?? null
-    } catch {
-      return null
-    }
-  }
-  // Try the last-played stage first, fall back to stage1.
-  const lastId = localStorage.getItem('bm_last_stage')
-  if (lastId && lastId !== 'tutorial') {
-    try {
-      const { loadStageById } = await import('@/game/stages')
-      const stage = await loadStageById(lastId)
-      return stage.machines.find((m) => m.type === 'boss')?.modelId ?? null
-    } catch { /* fall through */
-    }
+/**
+ * Dynamically load a stage's machine-data chunk and warm its boss skin
+ * image. Fire-and-forget safe: errors are swallowed so a stale
+ * localStorage id or a transient network hiccup can never block the
+ * caller. `onLoaded` fires exactly once when the whole job finishes
+ * (success OR failure) so boot-progress counting stays consistent.
+ */
+export async function preloadStageAssets(
+  stageId: string,
+  onLoaded?: () => void
+): Promise<string | null> {
+  let called = false
+  const markDone = () => {
+    if (called) return
+    called = true
+    onLoaded?.()
   }
   try {
-    const mod = await import('@/game/stages/stage1')
-    return mod.default.machines.find((m) => m.type === 'boss')?.modelId ?? null
+    const { loadStageById } = await import('@/game/stages')
+    const stage = await withTimeout(loadStageById(stageId), 3000, null)
+    if (!stage) {
+      markDone()
+      return null
+    }
+    const bossSkinId = stage.machines.find((m) => m.type === 'boss')?.modelId ?? null
+    if (!bossSkinId) {
+      markDone()
+      return null
+    }
+    const src = modelImgPath(bossSkinId)
+    await loadAsset({ src, type: 'image' })
+    markDone()
+    return src
   } catch {
+    markDone()
     return null
   }
 }
@@ -201,14 +215,10 @@ async function resolveInitialBossSkinInner(): Promise<string | null> {
  * Opportunistic loader for assets that shouldn't block the first paint.
  * Runs after the hot path completes, ideally during browser idle time.
  *
- * Preload order:
- *   1. parchment-ribbon (reward / ribbon overlays)
- *   2. every skin model image the player doesn't already have cached
- *      from the critical path (iterated in catalog order)
- *
- * Uses `requestIdleCallback` where available so we never fight the
- * stage-view's initial render for bandwidth, and limits concurrency to
- * 3 at a time so weak mobile connections don't get saturated.
+ * Intentionally excludes the 46-skin catalog — those are warmed on
+ * demand by `preloadStageAssets` (per-stage boss skin) and the skin
+ * shop modal (full catalog when opened). Cuts initial bandwidth by
+ * ~45 images for players who never browse the shop.
  */
 let backgroundPreloadKicked = false
 
@@ -228,20 +238,9 @@ export function preloadBackgroundAssets(): void {
   }
 
   schedule(async () => {
-    const alreadyCachedSkin = new Set<string>()
-    for (const id of SPINNER_MODEL_IDS) {
-      const src = modelImgPath(id)
-      if (resourceCache.images.has(src)) alreadyCachedSkin.add(src)
-    }
-
     const queue: AssetEntry[] = [
       // UI images (parchment ribbon, VFX decals)
       ...BACKGROUND_IMAGES.map(src => ({ src: prependBaseUrl(src), type: 'image' as const })),
-      // Remaining skins not already cached from the critical path
-      ...SPINNER_MODEL_IDS
-        .map(id => modelImgPath(id))
-        .filter(src => !alreadyCachedSkin.has(src))
-        .map(src => ({ src, type: 'image' as const })),
       // SFX — warm so first collision doesn't cause a decode stutter
       ...BACKGROUND_SFX.map(src => ({ src: prependBaseUrl(src), type: 'audio' as const }))
     ]
@@ -263,18 +262,19 @@ export default () => {
    *   • HUD icons + logo + background tile
    *   • All machine sprites, wall material bricks, VFX sheets
    *   • The currently-selected player star-skin
-   *   • The boss skin of the stage that will boot first
+   *   • The stage module + boss skin of the stage that will boot first
+   *     (only one stage — tutorial, last-played, or stage1)
    *
    * After this completes the stage renders fully on the first paint.
-   * Remaining assets (other skins, audio, parchment, decal VFX) are
-   * warmed lazily via `preloadBackgroundAssets`.
+   * Remaining assets (audio, parchment, decal VFX) are warmed lazily
+   * via `preloadBackgroundAssets`. Other stages + their boss skins are
+   * loaded on demand (reward screen for N+1, stage picker for
+   * unlocked-not-3-star entries).
    */
   const preloadAssets = async () => {
     if (areAllAssetsLoaded.value) return
 
     const playerSkinSrc = modelImgPath(getSelectedSkin('star'))
-    const bossSkinId = await resolveInitialBossSkin()
-    const bossSkinSrc = bossSkinId ? modelImgPath(bossSkinId) : null
 
     const allAssets: AssetEntry[] = [
       // HUD chrome + bg tile
@@ -283,22 +283,25 @@ export default () => {
       ...MACHINE_SPRITE_IMAGES.map(src => ({ src: prependBaseUrl(src), type: 'image' as const })),
       // VFX sheets (explosions, launcher muzzle flash)
       ...VFX_IMAGES.map(src => ({ src: prependBaseUrl(src), type: 'image' as const })),
-      // Player + boss skins
-      { src: playerSkinSrc, type: 'image' as const },
-      ...(bossSkinSrc && bossSkinSrc !== playerSkinSrc
-        ? [{ src: bossSkinSrc, type: 'image' as const }]
-        : [])
+      // Player skin
+      { src: playerSkinSrc, type: 'image' as const }
     ]
 
+    // One extra "virtual asset" for the initial-stage preload (boss
+    // skin image + its dynamic import) so the progress bar accounts for
+    // the stage chunk download instead of jumping to 100% early.
+    const totalCount = allAssets.length + 1
     let loadedCount = 0
-    const totalCount = allAssets.length
     const onOne = () => {
       loadedCount++
       loadingProgress.value = Math.floor((loadedCount / totalCount) * 100)
     }
 
     try {
-      await runInChunks(allAssets, 8, onOne)
+      await Promise.all([
+        runInChunks(allAssets, 8, onOne),
+        preloadStageAssets(resolveInitialStageId(), onOne)
+      ])
       areAllAssetsLoaded.value = true
       loadingProgress.value = 100
     } catch (error) {
@@ -316,6 +319,7 @@ export default () => {
     areAllAssetsLoaded,
     preloadAssets,
     preloadBackgroundAssets,
+    preloadStageAssets,
     resourceCache
   }
 }
