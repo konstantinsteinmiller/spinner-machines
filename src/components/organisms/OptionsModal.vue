@@ -9,7 +9,12 @@ import FSwitch from '@/components/atoms/FSwitch.vue'
 import FSlider from '@/components/atoms/FSlider.vue'
 import FSelect from '@/components/atoms/FSelect.vue'
 import { DIFFICULTY, LANGUAGES } from '@/utils/enums' // Import LANGUAGES
-import { prependBaseUrl } from '@/utils/function'
+// Vite-resolved asset URLs — fingerprinted and `--base`-aware. Static
+// icon paths must be imports rather than `prependBaseUrl(...)` calls so
+// they resolve under Glitch.fun's iframe path layout.
+import settingsIconUrl from '@/assets/icons/settings-icon_128x128.webp'
+import difficultyIconUrl from '@/assets/icons/difficulty-icon_128x128.webp'
+import soundIconUrl from '@/assets/icons/sound-icon_128x128.webp'
 
 defineProps<{
   isOpen: boolean
@@ -62,17 +67,17 @@ const tabs = computed(() => {
     const list = [
       {
         value: 'general', label: t('general'),
-        icon: prependBaseUrl('images/icons/settings-icon_128x128.webp')
+        icon: settingsIconUrl
       },
       {
         value: 'diff', label: t('difficulty'),
-        icon: prependBaseUrl('images/icons/difficulty-icon_128x128.webp')
+        icon: difficultyIconUrl
       }
     ]
     return !isMobile.value ? list.concat({
       label: t('audio'),
       value: 'audio',
-      icon: prependBaseUrl('images/icons/sound-icon_128x128.webp')
+      icon: soundIconUrl
     }) : list
   }
 )

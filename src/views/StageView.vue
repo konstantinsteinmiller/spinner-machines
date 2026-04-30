@@ -32,7 +32,16 @@ import { useHint } from '@/use/useHint'
 import FIconButton from '@/components/atoms/FIconButton.vue'
 import FMuteButton from '@/components/atoms/FMuteButton.vue'
 import StageBadge from '@/components/StageBadge.vue'
-import { prependBaseUrl } from '@/utils/function'
+// Vite-resolved asset URLs — fingerprinted at build time and respect
+// `--base`, so they resolve correctly under Glitch.fun's iframe path
+// quirks where the previous `prependBaseUrl('images/...')` lookup (a
+// `public/` reference with a relative `./` base) 404s. `prependBaseUrl`
+// is still the right tool for runtime-built paths (e.g.
+// `images/models/${id}_256x256.webp`) — only static literals migrate.
+import editorIconUrl from '@/assets/icons/level-editor_128x128.svg'
+import teamIconUrl from '@/assets/icons/team_128x128.webp'
+import trophyIconUrl from '@/assets/icons/trophy_128x128.webp'
+import gearsIconUrl from '@/assets/icons/gears_128x128.webp'
 import { STAGE_MANIFEST, loadStageById, type StageMeta } from '@/game/stages'
 import { preloadStageAssets } from '@/use/useAssets'
 import useSounds, { useMusic } from '@/use/useSound'
@@ -40,7 +49,7 @@ import useCheats, { cheatStageRewardSignal } from '@/use/useCheats'
 import useStageLeaderboard from '@/use/useStageLeaderboard'
 import { machineArtEnabled } from '@/use/useMachineArt'
 import { isSdkActive, startGameplay, stopGameplay, showMidgameAd } from '@/use/useCrazyGames'
-import { isCrazyWeb, isCrazyGamesFullRelease, windowHeight } from '@/use/useUser'
+import { isCrazyWeb, isCrazyGamesFullRelease, isGlitch, windowHeight, windowWidth } from '@/use/useUser'
 import DailyRewards from '@/components/organisms/DailyRewards.vue'
 import AdRewardButton from '@/components/organisms/AdRewardButton.vue'
 import { renderVfx } from '@/game/vfx'
@@ -1212,18 +1221,52 @@ async function loadInitialStage() {
   saveLastStageId(stage1.id)
 }
 
+const onViewportResize = () => {
+  resizeCanvas()
+  fitInitialCamera()
+  refreshCanvasRect()
+}
+// Two-pass: microtask + rAF so we sample after Chromium finishes the
+// fullscreen / visualViewport transition. Without this the canvas keeps
+// its pre-transition backing-store dimensions on Glitch.fun fullscreen
+// toggles and accumulates a growing cut-off region.
+const onSettledViewportResize = () => {
+  Promise.resolve().then(() => {
+    onViewportResize()
+    requestAnimationFrame(() => onViewportResize())
+  })
+}
+// Glitch.fun's iframe often hasn't finished settling its dimensions
+// when StageView mounts — `fitInitialCamera()` then captures a small
+// transient size and the world stays drawn in a tiny top-center box
+// even after the iframe expands. Watching `windowWidth/Height` (kept
+// fresh by App.vue's 400ms interval) catches the post-load growth even
+// when no `resize` / `fullscreenchange` / `visualViewport.resize` event
+// fires. Skip the very first run since the synchronous mount path
+// already calls `onViewportResize` once.
+let didMount = false
+watch([windowWidth, windowHeight], () => {
+  if (!didMount) return
+  onSettledViewportResize()
+})
+
 onMounted(async () => {
   await loadInitialStage()
   resizeCanvas()
   fitInitialCamera()
   refreshCanvasRect()
+  // Re-measure after the iframe settles. A microtask + rAF lets initial
+  // layout finish, and a follow-up timeout catches portals (Glitch in
+  // particular) that grow the iframe shortly after the document loads
+  // without firing a resize event.
+  onSettledViewportResize()
+  setTimeout(onSettledViewportResize, 500)
+  didMount = true
   startLoop()
   raf = requestAnimationFrame(frame)
-  window.addEventListener('resize', () => {
-    resizeCanvas()
-    fitInitialCamera()
-    refreshCanvasRect()
-  })
+  window.addEventListener('resize', onViewportResize)
+  document.addEventListener('fullscreenchange', onSettledViewportResize)
+  window.visualViewport?.addEventListener('resize', onSettledViewportResize)
   // Pinch-to-zoom touch listeners — must be non-passive to prevent
   // default browser zoom while we handle it ourselves.
   const cv = canvasEl.value
@@ -1242,6 +1285,9 @@ onUnmounted(() => {
   // route change would otherwise leave the SDK thinking gameplay is
   // still active. The call is idempotent when inactive.
   stopGameplay()
+  window.removeEventListener('resize', onViewportResize)
+  document.removeEventListener('fullscreenchange', onSettledViewportResize)
+  window.visualViewport?.removeEventListener('resize', onSettledViewportResize)
   const cv = canvasEl.value
   if (cv) {
     cv.removeEventListener('touchstart', onTouchStart)
@@ -1302,6 +1348,15 @@ const tutorialHints = computed<TutorialHint[]>(() => {
 
 const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || (navigator.maxTouchPoints ?? 0) > 0)
 
+// Glitch.fun wraps the game in an iframe with a permanent ~100px portal
+// toolbar at the bottom (visible even in fullscreen), and a Trial timer
+// badge in the top-right that overlaps our HUD. Lift bottom-anchored UI
+// above the toolbar and push the top-right badge column below the trial
+// badge for Glitch builds only.
+const GLITCH_TOOLBAR_PX = 60
+const glitchBottomOffset = isGlitch ? `${GLITCH_TOOLBAR_PX}px` : '0px'
+const glitchTopOffset = isGlitch ? `${GLITCH_TOOLBAR_PX}px` : '0px'
+
 const launchesTierClass = computed(() => {
   const n = launches.value
   if (n <= 4) return 'score-badge--tier-good'
@@ -1350,7 +1405,7 @@ const launchesTierClass = computed(() => {
       @pointerdown.stop
       @click.stop
       :style="{\
-        bottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))',\
+        bottom: `calc(0.5rem + env(safe-area-inset-bottom, 0px) + ${glitchBottomOffset})`,\
         right: 'calc(0.5rem + env(safe-area-inset-right, 0px))'\
       }"
     )
@@ -1358,20 +1413,20 @@ const launchesTierClass = computed(() => {
         FIconButton(
           type="secondary"
           size="md"
-          :img-src="prependBaseUrl('images/icons/level-editor_128x128.svg')"
+          :img-src="editorIconUrl"
           @click="$router.push('/editor')"
         )
       template(v-else)
         FIconButton(
           type="secondary"
           size="md"
-          :img-src="prependBaseUrl('images/icons/team_128x128.webp')"
+          :img-src="teamIconUrl"
           @click="showSkinShop = true"
         )
         FIconButton(
           type="primary"
           size="md"
-          :img-src="prependBaseUrl('images/icons/trophy_128x128.webp')"
+          :img-src="trophyIconUrl"
           @click="showStagePicker = true"
         )
         //- Row: Battle Pass (left) → Achievements (right)
@@ -1383,7 +1438,7 @@ const launchesTierClass = computed(() => {
     div.absolute.flex.flex-col.items-end.gap-2(
       v-if="!isEditorMode"
       class="top-2 right-2 z-20"
-      :style="{ top: 'calc(0.5rem + env(safe-area-inset-top, 0px))', right: 'calc(0.5rem + env(safe-area-inset-right, 0px))' }"
+      :style="{ top: `calc(0.5rem + env(safe-area-inset-top, 0px) + ${glitchTopOffset})`, right: 'calc(0.5rem + env(safe-area-inset-right, 0px))' }"
     )
       //- Coin badge + treasure chest row: on landscape mobile the chest
       //- sits to the left of the badge so it doesn't overflow into the
@@ -1539,20 +1594,20 @@ const launchesTierClass = computed(() => {
       class="z-40"
       @pointerdown.stop
       @click.stop
-      :style="{ bottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))', left: 'calc(0.5rem + env(safe-area-inset-left, 0px))' }"
+      :style="{ bottom: `calc(0.5rem + env(safe-area-inset-bottom, 0px) + ${glitchBottomOffset})`, left: 'calc(0.5rem + env(safe-area-inset-left, 0px))' }"
     )
       FMuteButton
       FIconButton(
         type="secondary"
         size="md"
-        :img-src="prependBaseUrl('images/icons/gears_128x128.webp')"
+        :img-src="gearsIconUrl"
         @click="showOptions = true"
       )
       FIconButton(
         v-if="!isTouchInput"
         type="secondary"
         size="md"
-        :img-src="prependBaseUrl('images/icons/level-editor_128x128.svg')"
+        :img-src="editorIconUrl"
         @click="$router.push('/editor')"
       )
       DailyRewards(@coins-awarded="fireCoinExplosion")

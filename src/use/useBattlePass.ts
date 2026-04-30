@@ -44,7 +44,7 @@ export const BP_XP_HIGHSCORE = 50           // spinner-machines new highscore
  *  stage version. */
 export const BP_SKIN_STAGES = new Set<number>([10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
 
-const STORAGE_KEY = 'spinner_battle_pass'
+const STORAGE_KEY = 'bm_battle_pass'
 
 // ─── State ──────────────────────────────────────────────────────────────────
 

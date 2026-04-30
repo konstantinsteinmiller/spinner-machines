@@ -11,21 +11,63 @@ import {
 } from '@/i18n'
 import { GAME_USER_LANGUAGE } from '@/utils/constants.ts'
 import { LANGUAGES } from '@/utils/enums'
-import { initCrazyGames, crazyLocale } from '@/use/useCrazyGames'
+import {
+  createCrazyGamesSaveStrategy,
+  crazyLocale,
+  initCrazyGames
+} from '@/use/useCrazyGames'
 import { isDebug } from '@/use/useMatch.ts'
-import useUser, { isCrazyWeb, isWaveDash } from '@/use/useUser'
+import useUser, {
+  isCrazyWeb,
+  isGameDistribution,
+  isGlitch,
+  isWaveDash
+} from '@/use/useUser'
+import { LocalStorageStrategy, SaveManager } from '@/utils/save'
+import type { SaveStrategy } from '@/utils/save'
+import { initAds } from '@/use/useAds'
 
 const bootstrap = async () => {
-  // Platform SDK init — must happen before App loads.
+  // 1. Platform SDK init that MUST happen before SaveManager hydrates.
   if (isCrazyWeb) {
     await initCrazyGames()
   } else if (isWaveDash) {
     try {
       const sdk = await (window as any).WavedashJS
-      if (sdk) await sdk.init({ debug: false })
+      if (sdk) await sdk.init({ debug: isDebug.value })
     } catch (e) {
       console.warn('[Wavedash] SDK init failed:', e)
     }
+  }
+
+  // 2. Pick save strategy based on build flag. Plugin modules are
+  // lazy-imported so non-relevant builds don't ship the SDK loader code.
+  let strategy: SaveStrategy
+  if (isGlitch) {
+    const mod = await import('@/utils/glitchPlugin')
+    strategy = mod.createGlitchSaveStrategy() ?? new LocalStorageStrategy()
+  } else if (isCrazyWeb) {
+    strategy = createCrazyGamesSaveStrategy()
+  } else if (isGameDistribution) {
+    const mod = await import('@/utils/gameDistributionPlugin')
+    strategy = mod.createGameDistributionSaveStrategy() ?? new LocalStorageStrategy()
+  } else {
+    strategy = new LocalStorageStrategy()
+  }
+
+  const saveManager = new SaveManager(strategy)
+  await saveManager.init()
+
+  // 3. Fire-and-forget plugins. They're side-effecty but not on the boot
+  // critical path; just kick them off.
+  if (isGlitch) {
+    const { glitchPlugin } = await import('@/utils/glitchPlugin')
+    glitchPlugin()
+  }
+  if (isGameDistribution) {
+    void import('@/utils/gameDistributionPlugin').then(({ gameDistributionPlugin }) => {
+      gameDistributionPlugin()
+    })
   }
 
   // If CrazyGames reported a supported player locale, persist it as the
@@ -40,9 +82,7 @@ const bootstrap = async () => {
   const { default: App } = await import('@/App.vue')
 
   // Resolve and LOAD just the initial locale bundle before creating the
-  // i18n instance. The English fallback is loaded in parallel so missing
-  // keys are never undefined while the active locale's chunk is still
-  // in flight. If the initial locale IS English we only fetch once.
+  // i18n instance.
   const initial = resolveInitialLocale(GAME_USER_LANGUAGE)
   const needsFallback = initial !== 'en'
   const [initialMsgs, fallbackMsgs] = await Promise.all([
@@ -60,10 +100,6 @@ const bootstrap = async () => {
     fallbackWarn: false
   })
 
-  // If the SDK gave us a supported locale, push it through the user store
-  // so userLanguage (and anything reactive to it) lines up with i18n. We
-  // wait for IndexedDB hydration so we don't race with the saved-
-  // preference loader and end up writing then immediately overwriting.
   if (cgLocale && LANGUAGES.includes(cgLocale)) {
     const { userLanguage: storedLanguage, setSettingValue } = useUser()
     const { isDbInitialized } = await import('@/use/useMatch')
@@ -75,18 +111,12 @@ const bootstrap = async () => {
         if (storedLanguage.value !== cgLocale) {
           setSettingValue('language', cgLocale)
         }
-        // cgLocale is the one we already loaded above, so this is a
-        // cheap no-op on the loader side.
         setI18nLocale(i18n, cgLocale)
       },
       { immediate: true }
     )
   }
 
-  // Sync i18n locale when IndexedDB hydrates the saved language on reload
-  // (skip when CrazyGames already controls locale). If the hydrated
-  // locale differs from what we booted with, `setI18nLocale` will fetch
-  // the new chunk on-the-fly before swapping.
   if (!(cgLocale && LANGUAGES.includes(cgLocale))) {
     const { userLanguage: storedLang } = useUser()
     const { isDbInitialized: dbReady } = await import('@/use/useMatch')
@@ -104,9 +134,6 @@ const bootstrap = async () => {
     )
   }
 
-  // Expose the instance globally so composables / skills that want to
-  // trigger a runtime locale switch (e.g. OptionsModal) can resolve the
-  // active i18n without prop-drilling.
   ;(window as any).__i18n = i18n
 
   const app = createApp(App)
@@ -115,6 +142,10 @@ const bootstrap = async () => {
   app.use(i18n)
 
   app.mount('#app')
+
+  // 4. Post-mount: kick off ads (GameDistribution doesn't strictly need a
+  // mounted app but the latency hides nicely behind the mount).
+  void initAds().catch((e) => console.warn('[ads] init failed', e))
 
   // Signal to Wavedash that the game is fully loaded and ready
   if (isWaveDash) {

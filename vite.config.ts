@@ -112,37 +112,106 @@ export default defineConfig(({ mode, command }) => {
   // Whitelist of external hosts. Add new platforms here — they're
   // automatically applied to every relevant directive.
   const CSP_HOSTS = [
+    // CrazyGames
     'https://*.crazygames.com',
     'https://sdk.crazygames.com',
+    // Wavedash
     'https://wavedash.com',
     'https://*.wavedash.com',
+    // Itch
     'https://itch.io',
     'https://*.itch.io',
+    // Glitch
+    'https://glitch.fun',
+    'https://*.glitch.fun',
+    // GameDistribution
+    'https://gamedistribution.com',
+    'https://*.gamedistribution.com',
+    // 3rd-party services
     'https://api.jsonbin.io'
   ]
+
+  // GameDistribution-specific partner hosts. The GD SDK's `main.min.js`
+  // dynamically loads scripts from a fan-out of partner ad-tech /
+  // analytics CDNs at runtime — only included for `isGameDistribution`
+  // builds to keep other platforms' CSPs as tight as possible.
+  const isGameDistribution = env.VITE_APP_GAME_DISTRIBUTION === 'true'
+  const isGlitch = env.VITE_APP_GLITCH === 'true'
+  const GD_PARTNER_HOSTS = isGameDistribution ? [
+    'https://*.gamemonkey.org',
+    'https://*.improvedigital.com',
+    'https://cdnjs.cloudflare.com',
+    'https://cdn.jsdelivr.net',
+    'https://imasdk.googleapis.com',
+    'https://*.2mdn.net',
+    'https://*.googlesyndication.com',
+    'https://*.doubleclick.net',
+    'https://*.googletagservices.com',
+    'https://*.googletagmanager.com',
+    'https://*.google-analytics.com',
+    'https://*.googleadservices.com',
+    'https://www.google.com',
+    'https://www.gstatic.com',
+    'https://fundingchoicesmessages.google.com',
+    'https://*.adnxs.com',
+    'https://*.adsafeprotected.com',
+    'https://*.adform.net',
+    'https://*.amazon-adsystem.com',
+    'https://*.casalemedia.com',
+    'https://*.criteo.com',
+    'https://*.criteo.net',
+    'https://*.openx.net',
+    'https://*.pubmatic.com',
+    'https://*.rubiconproject.com'
+  ] : []
+
+  // Glitch wraps the game in an iframe and injects inline bootstrap
+  // scripts (Aegis bridge, heartbeat, feature-policy probes), so script-src
+  // needs 'unsafe-inline' for that platform specifically. GameDistribution
+  // also requires 'unsafe-inline' / 'unsafe-eval' on script-src because
+  // partner ad scripts use eval-style code; without it the GD SDK
+  // chains errors and never reports SDK_READY successfully. GD also
+  // needs `https:` on script-src because the bidder waterfall pulls
+  // scripts from a long tail of partner CDNs that is dynamic.
+  const scriptSrcExtra: string[] = []
+  if (isGlitch) scriptSrcExtra.push('\'unsafe-inline\'')
+  if (isGameDistribution) scriptSrcExtra.push('https:', '\'unsafe-inline\'', '\'unsafe-eval\'')
+
   // Extra per-directive sources that don't follow the blanket host pattern.
   const CSP_EXTRA: Record<string, string[]> = {
-    'script-src': [],
-    'style-src': ['\'unsafe-inline\''],
-    'img-src': ['data:'],
+    'script-src': scriptSrcExtra,
+    // GD's IAB TCF v2 consent wall pulls Google Fonts CSS at runtime —
+    // opening to `https:` for GD only.
+    'style-src': isGameDistribution ? ['https:', '\'unsafe-inline\''] : ['\'unsafe-inline\''],
+    // GD ad creatives come from arbitrary CDNs — opening to https: only
+    // for that build type (other platforms keep the tight whitelist).
+    'img-src': isGameDistribution ? ['data:', 'https:', 'blob:'] : ['data:'],
     'connect-src': [
       'https://*.sentry.io',
       'wss://*.wavedash.com',
       'wss://0.peerjs.com',
       'https://0.peerjs.com',
       'https://getpantry.cloud',
-      'https://*.getpantry.cloud'
+      'https://*.getpantry.cloud',
+      // Glitch save API
+      'https://api.glitch.fun',
+      // GD partner analytics / ad telemetry beacons.
+      ...(isGameDistribution ? ['https:', 'wss:'] : [])
     ],
-    'frame-src': [],
-    'media-src': []
+    // GD ads frequently render in nested iframes from partner domains.
+    'frame-src': isGameDistribution ? ['https:'] : [],
+    'media-src': isGameDistribution ? ['https:', 'blob:'] : [],
+    // Consent wall + many partner CDNs serve webfonts on GD.
+    'font-src': isGameDistribution ? ['https:', 'data:'] : ['data:']
   }
   const cspDirectives = [
     'default-src', 'script-src', 'style-src', 'img-src',
-    'connect-src', 'frame-src', 'media-src'
+    'connect-src', 'frame-src', 'media-src', 'font-src'
   ]
   const cspValue = cspDirectives.map(dir => {
     const extras = CSP_EXTRA[dir] ?? []
-    return `${dir} 'self' ${CSP_HOSTS.join(' ')} ${extras.join(' ')}`.trim()
+    const hosts = [...CSP_HOSTS, ...GD_PARTNER_HOSTS]
+    return `${dir} 'self' ${hosts.join(' ')} ${extras.join(' ')}`.trim()
   }).join('; ')
 
   // Skip CSP injection for platforms that run inside a sandboxed iframe

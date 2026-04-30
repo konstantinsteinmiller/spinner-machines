@@ -88,7 +88,7 @@ deals damage based on impact speed (`max(1, round(impact * 0.6))`).
 destroyed and `ctx.onBossDead()` fires, which in turn triggers
 `stage.bossKillBonus` in `finishStage`. The rendered `modelId`
 (editor-swappable via the toolbar cycler) selects which spinner-model
-image is drawn as the boss body, so any skin in `SPINNER_MODEL_IDS`
+image is drawn as the boss body, so any skin in `bm_MODEL_IDS`
 can be re-used as a boss sprite.
 
 **Default size.** 180 × 180. **Editor color.** `#7c3aed`.

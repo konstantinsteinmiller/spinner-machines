@@ -6,7 +6,7 @@ import FModal from '@/components/molecules/FModal.vue'
 
 const { t } = useI18n()
 import {
-  SPINNER_MODEL_IDS,
+  bm_MODEL_IDS,
   modelImgPath,
   skinCost,
   SPECIAL_SKINS,
@@ -67,7 +67,7 @@ const buttonTheme = (id: SpinnerModelId) => {
       class="grid-cols-2 sm:grid-cols-3 md:grid-cols-4 max-h-[60vh] p-1"
     )
       div.skin-card.rounded-xl.p-3.flex.flex-col.items-center.gap-2(
-        v-for="id in SPINNER_MODEL_IDS"
+        v-for="id in bm_MODEL_IDS"
         :key="id"
         :class="{ 'ring-4 ring-yellow-300': selected === id, 'ring-2 ring-purple-400': isSpecial(id) }"
       )

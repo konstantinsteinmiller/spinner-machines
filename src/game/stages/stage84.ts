@@ -8,7 +8,7 @@ import { mkId, wall, boundary, boss, goal, plate, linked } from './_helpers'
 const W = 3000, H = 2200
 const id = mkId()
 
-const realKeys = ['realA', 'realB', 'realC', 'realD']
+const realKeys: [string, string, string, string] = ['realA', 'realB', 'realC', 'realD']
 
 const stage: Stage = {
   id: 'stage84',

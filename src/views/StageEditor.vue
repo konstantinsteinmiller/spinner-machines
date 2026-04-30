@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, reactive } from 'vue'
+import { ref, onMounted, onUnmounted, reactive, watch } from 'vue'
+import { isGlitch, windowWidth, windowHeight } from '@/use/useUser'
 import { PLACEABLE_MACHINES, MACHINE_REGISTRY, type MachineModule } from '@/game/machines'
 import { WALL_PRESETS, WALL_MATERIALS, type WallPreset, type WallMaterial } from '@/game/walls/presets'
 import type { Machine, Stage } from '@/types/stage'
 import { STAGE_MANIFEST, TUTORIAL_META, loadStageById, getStageFilename, stage1 as builtinStage1 } from '@/game/stages'
-import { SPINNER_MODEL_IDS, modelImgPath, type SpinnerModelId } from '@/use/useModels'
+import { bm_MODEL_IDS, modelImgPath, type SpinnerModelId } from '@/use/useModels'
 import { useRouter } from 'vue-router'
 import { isEditorMode } from '@/use/useAppMode'
 import {
@@ -173,9 +174,9 @@ function cycleBossModel(delta: number) {
   const m = selectedMachine()
   if (!m || m.type !== 'boss') return
   const current = (m.modelId as SpinnerModelId) || 'rainbow'
-  const idx = SPINNER_MODEL_IDS.indexOf(current)
-  const next = SPINNER_MODEL_IDS[
-  ((idx < 0 ? 0 : idx) + delta + SPINNER_MODEL_IDS.length) % SPINNER_MODEL_IDS.length
+  const idx = bm_MODEL_IDS.indexOf(current)
+  const next = bm_MODEL_IDS[
+  ((idx < 0 ? 0 : idx) + delta + bm_MODEL_IDS.length) % bm_MODEL_IDS.length
     ]!
   snapshot()
   m.modelId = next
@@ -718,15 +719,49 @@ async function parseStagesJsonFromClipboard() {
   }, 5000)
 }
 
+// Glitch.fun's iframe often hasn't finished settling its dimensions when
+// the editor mounts — the canvas backing buffer captures a small
+// transient size and the editor world stays drawn in a tiny top-center
+// box. Same pattern as StageView: two-pass settle on
+// fullscreenchange / visualViewport.resize plus a watch on the App.vue
+// dimension refs to catch portals that grow the iframe without firing
+// any event.
+const onSettledResizeCanvas = () => {
+  Promise.resolve().then(() => {
+    resizeCanvas()
+    requestAnimationFrame(() => resizeCanvas())
+  })
+}
+let didMount = false
+watch([windowWidth, windowHeight], () => {
+  if (!didMount) return
+  onSettledResizeCanvas()
+})
+
+// Glitch toolbar / trial-badge offset for the editor shortcuts panel —
+// matches the StageView behaviour so the trial badge doesn't overlap.
+const GLITCH_TOOLBAR_PX = 60
+const glitchTopOffset = isGlitch ? `${GLITCH_TOOLBAR_PX}px` : '0px'
+
 onMounted(() => {
   resizeCanvas()
+  // Belt-and-suspenders re-measure for portals (Glitch in particular)
+  // that grow the iframe shortly after document load without firing a
+  // resize event.
+  onSettledResizeCanvas()
+  setTimeout(onSettledResizeCanvas, 500)
+  didMount = true
   raf = requestAnimationFrame(frame)
   window.addEventListener('resize', resizeCanvas)
+  document.addEventListener('fullscreenchange', onSettledResizeCanvas)
+  window.visualViewport?.addEventListener('resize', onSettledResizeCanvas)
   window.addEventListener('keydown', onKeyDown)
 })
 onUnmounted(() => {
   if (raf !== null) cancelAnimationFrame(raf)
   window.removeEventListener('resize', resizeCanvas)
+  document.removeEventListener('fullscreenchange', onSettledResizeCanvas)
+  window.visualViewport?.removeEventListener('resize', onSettledResizeCanvas)
   window.removeEventListener('keydown', onKeyDown)
 })
 </script>
@@ -836,7 +871,9 @@ onUnmounted(() => {
         @drop="onCanvasDrop"
         @contextmenu.prevent
       )
-      div.absolute.top-2.right-2.text-white.text-xs.game-text.opacity-75.pointer-events-none.leading-tight.text-right
+      div.absolute.right-2.text-white.text-xs.game-text.opacity-75.pointer-events-none.leading-tight.text-right(
+        :style="{ top: `calc(0.5rem + ${glitchTopOffset})` }"
+      )
         div.text-yellow-300.font-black.uppercase.mb-1 Editor Shortcuts
         div Drag palette → canvas to place
         div Click to select · Drag to move

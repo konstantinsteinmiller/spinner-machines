@@ -12,7 +12,7 @@ const cx = W / 2, cy = H / 2
 
 const cageThick = 30
 const cageR = 180
-const cageKeys = ['cageN', 'cageE', 'cageS', 'cageW']
+const cageKeys: [string, string, string, string] = ['cageN', 'cageE', 'cageS', 'cageW']
 
 const stage: Stage = {
   id: 'stage74',

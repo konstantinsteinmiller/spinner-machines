@@ -301,7 +301,7 @@ div(class="p-1.5 sm:p-2")
 **TreasureChest.vue:**
 
 - Props: `targetEl` (HTMLElement for coin fly-to destination).
-- 10-minute cooldown stored in localStorage (`spinner_chest_ready_at` timestamp).
+- 10-minute cooldown stored in localStorage (`bm_chest_ready_at` timestamp).
 - Cooldown overlay: SVG circle with `stroke-dasharray/dashoffset` animated by cooldown percentage, rotated -90deg and
   flipped.
 - Timer display: `MM:SS` format, updated every second via `setInterval`.

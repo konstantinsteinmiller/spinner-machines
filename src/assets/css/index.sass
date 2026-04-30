@@ -8,11 +8,14 @@ html, body
   margin: 0
   padding: 0
   overflow: hidden
-  /* Prevents "rubber-banding" scroll effects */
-  position: fixed
-  /* Extra insurance against the layout moving */
-  width: 100%
-  height: 100%
+  /* Use viewport units instead of `position: fixed; height: 100%` so the
+     document re-measures cleanly when the iframe viewport changes
+     (Glitch.fun fullscreen toggles in particular). The previous
+     fixed-positioning trick trapped the layout at the iframe's old size
+     on every fullscreen cycle, accumulating into a growing cut-off
+     region. */
+  width: 100vw
+  height: 100dvh
   /* Match app theme so the iOS PWA safe-area / home-indicator gap doesn't
      render as a stark black bar — it now blends with the arena background. */
   background-color: #0d1117

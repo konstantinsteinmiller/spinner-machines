@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import FTabs, { type TabOption } from '@/components/atoms/FTabs.vue'
 import { isMobileLandscape, isMobilePortrait } from '@/use/useUser'
-import { prependBaseUrl } from '@/utils/function'
-
-const bgTileUrl = computed(() => prependBaseUrl('images/bg/spinner-machines-bg-tile_256x256.webp'))
+// Vite-resolved URL — fingerprinted and `--base`-aware so the tile loads
+// correctly under Glitch.fun's iframe path layout. (The :style line in
+// the template that uses this is currently commented out, but kept here
+// so the live reference is ready when re-enabled.)
+import bgTileUrl from '@/assets/images/bg/spinner-machines-bg-tile_256x256.webp'
 
 interface Props {
   modelValue: boolean | any

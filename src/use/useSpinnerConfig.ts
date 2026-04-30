@@ -5,8 +5,8 @@ import { ref, type Ref } from 'vue'
 // upgrade tables and part catalogs. The stage game only needs the coin
 // wallet + first-win flag, so the rest has been stripped.
 
-const COINS_KEY = 'spinner_coins'
-const FIRST_WIN_KEY = 'spinner_first_win'
+const COINS_KEY = 'bm_coins'
+const FIRST_WIN_KEY = 'bm_first_win'
 
 function loadStoredCoins(): number {
   try {

@@ -30,7 +30,7 @@ const DAILY_REWARDS = [100, 200, 300, 400, 500, 750, 1000]
 // Day indices (0-based) on which the reward is a skin unlock instead of coins.
 // Covers day 3, 5, and 7.
 const SKIN_REWARD_DAYS = new Set<number>([2, 4, 6])
-const STORAGE_KEY = 'spinner_daily_rewards'
+const STORAGE_KEY = 'bm_daily_rewards'
 
 const isSkinDay = (dayIndex: number) => SKIN_REWARD_DAYS.has(dayIndex)
 

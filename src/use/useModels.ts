@@ -12,7 +12,7 @@ export const modelImgPath = (id: string) => {
 
 // ─── Spinner Model Image Mapping ───────────────────────────────────────────
 
-export const SPINNER_MODEL_IDS = [
+export const bm_MODEL_IDS = [
   'blades', 'fire', 'phoenix', 'thunder', 'bluedragon', 'turtle',
   'ice', 'chip', 'mysticaleye', 'nature', 'wulf',
   'castle', 'eagle', 'prisma', 'scorpion', 'shell',
@@ -25,7 +25,7 @@ export const SPINNER_MODEL_IDS = [
   'rhino', 'golden-eagle', 'diamond', 'tsunami', 'sandstorm'
 ] as const
 
-export type SpinnerModelId = (typeof SPINNER_MODEL_IDS)[number]
+export type SpinnerModelId = (typeof bm_MODEL_IDS)[number]
 
 /** Available skins per top part (default skin is always first and free) */
 export const SKINS_PER_TOP: Record<TopPartId, SpinnerModelId[]> = {
@@ -62,9 +62,9 @@ export const getRandomSkinForTop = (topPartId: TopPartId): SpinnerModelId => {
 
 // ─── Skin Persistence (singleton) ───────────────────────────────────────────
 
-const SKINS_KEY = 'spinner_owned_skins'
-const SELECTED_SKINS_KEY = 'spinner_selected_skins'
-const PICKER_OPENED_KEY = 'spinner_skin_picker_opened'
+const SKINS_KEY = 'bm_owned_skins'
+const SELECTED_SKINS_KEY = 'bm_selected_skins'
+const PICKER_OPENED_KEY = 'bm_skin_picker_opened'
 
 const loadOwnedSkins = (): Set<string> => {
   try {

@@ -32,9 +32,9 @@ const stage: Stage = {
     { id: id(), type: 'magneticRail', x: W - 800, y: H / 2, w: 30, h: 1200, rot: 0 },
 
     // Generators at 9 intersection nodes.
-    ...[[800, 500], [W / 2, 500], [W - 800, 500],
+    ...([[800, 500], [W / 2, 500], [W - 800, 500],
       [800, H / 2], [W / 2, H / 2], [W - 800, H / 2],
-      [800, H - 500], [W / 2, H - 500], [W - 800, H - 500]].map(([x, y]) => ({
+      [800, H - 500], [W / 2, H - 500], [W - 800, H - 500]] as [number, number][]).map(([x, y]) => ({
       id: id(), type: 'overloadedGenerator' as const,
       x, y, w: 80, h: 80, rot: 0
     })),

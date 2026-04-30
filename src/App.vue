@@ -78,6 +78,16 @@ const updateGlobalDimensions = () => {
 const dimensionsInterval = ref<any | null>(null)
 // Ensure listeners are active
 const delayedUpdateGlobalDimensions = () => setTimeout(updateGlobalDimensions, 300)
+// Two-pass settle: Chromium often reports stale metrics on the first
+// frame after `fullscreenchange` / `visualViewport.resize` (the layout
+// viewport is mid-transition). A microtask + rAF lets the new metrics
+// catch up before we sample them.
+const settledUpdateGlobalDimensions = () => {
+  Promise.resolve().then(() => {
+    updateGlobalDimensions()
+    requestAnimationFrame(() => updateGlobalDimensions())
+  })
+}
 onMounted(() => {
   if (typeof window !== 'undefined') {
     window.addEventListener('resize', updateGlobalDimensions)
@@ -87,12 +97,23 @@ onMounted(() => {
       windowHeight.value = window.innerHeight
     }, 400)
     window.addEventListener('orientationchange', delayedUpdateGlobalDimensions)
+    // Glitch.fun (and most portals that wrap the game in an iframe) toggle
+    // fullscreen on the iframe wrapper. Chromium does not always fire a
+    // matching `resize` when that happens, so we listen to
+    // `fullscreenchange` and `visualViewport.resize` directly to keep the
+    // layout viewport metrics in sync — without these, the canvas keeps
+    // its old backing-store size and bottom-anchored UI drifts off the
+    // visible area on every fullscreen cycle.
+    document.addEventListener('fullscreenchange', settledUpdateGlobalDimensions)
+    window.visualViewport?.addEventListener('resize', settledUpdateGlobalDimensions)
     document.addEventListener('visibilitychange', handleVisibilityChange)
   }
 })
 onUnmounted(() => {
   window.removeEventListener('resize', updateGlobalDimensions)
   window.removeEventListener('orientationchange', delayedUpdateGlobalDimensions)
+  document.removeEventListener('fullscreenchange', settledUpdateGlobalDimensions)
+  window.visualViewport?.removeEventListener('resize', settledUpdateGlobalDimensions)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
   clearInterval(dimensionsInterval.value)
 })
